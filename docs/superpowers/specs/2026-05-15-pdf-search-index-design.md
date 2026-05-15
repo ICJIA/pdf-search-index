@@ -667,10 +667,32 @@ pdf-search-index/
 │       ├── build.config.ts                (unbuild config)
 │       └── package.json
 └── examples/
-    ├── astro-strapi/                      (mirrors R3's shape)
-    ├── nuxt-mixed/                        (Strapi + @nuxt/content)
-    └── plain-node/                        (one-shot script)
+    ├── astro/                              (Astro + Fuse + @icjia/pdf-search-index)
+    ├── vue/                                (Vite + Vue 3 + Fuse + @icjia/pdf-search-index)
+    ├── html/                               (plain HTML + Fuse, index built via CLI)
+    ├── nextjs/                             (Next.js app router + Fuse + @icjia/pdf-search-index)
+    ├── eleventy/                           (Eleventy/11ty static site + Fuse, index built via CLI)
+    ├── plain-node/                         (programmatic API showcase, no framework)
+    └── nuxt-mixed/                         (Nuxt 4 adapter: Strapi + @nuxt/content)
 ```
+
+`astro`, `vue`, `html` are explicit user requirements added on
+2026-05-15. `nextjs`, `eleventy`, `plain-node` are added to broaden the
+showcase across React-land, govt/civic static sites (11ty is heavily
+used by USWDS-adjacent agencies), and direct programmatic API usage.
+
+Each example must be runnable locally (`pnpm dev` or `pnpm start`),
+consume `@icjia/pdf-search-index` via the pnpm workspace link, and
+include a short example-local README describing the integration pattern.
+
+`nuxt-mixed` exists primarily to validate the Nuxt 4 adapter against a
+representative mixed-content site (Strapi-style remote CMS plus
+`@nuxt/content` markdown), not as a showcase example.
+
+A `LICENSE` file (MIT) and a very detailed top-level `README.md` are also
+v1.0 ship-blockers. The LICENSE lands in Plan 1; the detailed README is
+finalized at the end of Plan 2 when the full surface area exists to
+document.
 
 ### Tooling
 
@@ -736,8 +758,8 @@ The implementation plan should sequence the work as:
 6. **Astro integration** — generalize from `docs/searchIndex.json.ts`,
    integration test
 7. **Nuxt 4 module** — two helpers + Nitro route template, integration test
-8. **Examples** — one per surface
-9. **Docs polish + READMEs** — link generously between packages
+8. **Examples** — `/examples/astro`, `/examples/vue`, `/examples/html` (user-required), plus `/examples/nextjs`, `/examples/eleventy`, `/examples/plain-node` (showcase additions), plus `/examples/nuxt-mixed` for adapter validation. Every example must run locally via its own `pnpm dev`/`pnpm start`.
+9. **Docs polish + very detailed top-level `README.md`** — covers all three packages, CLI, MCP server, each example's integration pattern, and a side-by-side comparison of the integration code across the six showcase examples; links generously between packages
 10. **R3 dogfood** — replace R3's inline reference with the npm package;
     confirm zero behavior change
 

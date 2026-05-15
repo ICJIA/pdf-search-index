@@ -35,6 +35,7 @@
 - Create: `.github/workflows/ci.yml`
 - Create: `.github/workflows/release.yml`
 - Create: `README.md`
+- Create: `LICENSE`
 
 - [ ] **Step 1: Create root `package.json`**
 
@@ -283,25 +284,51 @@ See [`docs/superpowers/specs/`](./docs/superpowers/specs/) for the v1.0 design s
 MIT
 ```
 
-- [ ] **Step 13: Install root dev dependencies**
+- [ ] **Step 13: Create `LICENSE` (MIT)**
+
+```text
+MIT License
+
+Copyright (c) 2026 Illinois Criminal Justice Information Authority (ICJIA)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+- [ ] **Step 14: Install root dev dependencies**
 
 Run: `pnpm install`
 Expected: lockfile created at `pnpm-lock.yaml`, `node_modules/` populated, no errors.
 
-- [ ] **Step 14: Verify lint and format on the new files**
+- [ ] **Step 15: Verify lint and format on the new files**
 
 Run: `pnpm lint && pnpm format:check`
 Expected: both pass cleanly.
 
-- [ ] **Step 15: Commit**
+- [ ] **Step 16: Commit**
 
 ```bash
 git add package.json pnpm-workspace.yaml tsconfig.base.json .npmrc \
   .prettierrc.json .prettierignore oxlintrc.json \
   .changeset/config.json .changeset/README.md \
   .github/workflows/ci.yml .github/workflows/release.yml \
-  README.md pnpm-lock.yaml
-git commit -m "chore: monorepo scaffold (pnpm workspaces, changesets, CI, lint, format)"
+  README.md LICENSE pnpm-lock.yaml
+git commit -m "chore: monorepo scaffold (pnpm workspaces, changesets, CI, lint, format, MIT license)"
 ```
 
 ---
