@@ -47,7 +47,7 @@ title: "${title.replace(/"/g, '\\"')}"
 
 A random ICJIA-public sample document. The body below links the PDF; the integration walks this body, finds the link, and extracts the PDF's text into the search index.
 
-[Download the PDF](${url})
+[${title}](${url})
 `;
   await writeFile(resolve(outDir, `${slug}.md`), md);
 }
