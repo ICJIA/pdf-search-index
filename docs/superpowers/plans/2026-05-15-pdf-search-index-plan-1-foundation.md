@@ -1031,11 +1031,13 @@ export async function writeCache(
 ): Promise<CacheEntry> {
   await mkdir(cacheDir, { recursive: true });
   const paths = cachePaths(cacheDir, url);
+  // Conditional spread for `pages` so the project's `exactOptionalPropertyTypes`
+  // tsconfig flag doesn't reject `pages: undefined`.
   const meta: CacheEntry = {
     url,
     length: text.length,
-    pages: opts.pages,
     extractedAt: new Date().toISOString(),
+    ...(opts.pages !== undefined ? { pages: opts.pages } : {}),
   };
   await Promise.all([
     writeFile(paths.text, text, 'utf-8'),
