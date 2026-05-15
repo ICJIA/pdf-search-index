@@ -61,7 +61,23 @@ async function main(): Promise<void> {
     writeFileSync(join(here, 'image-only.pdf'), await doc.save());
   }
 
-  console.log('Generated fixtures: small-text.pdf, multi-page.pdf, image-only.pdf');
+  // titled.pdf — has an info-dict Title set, exercises the info-dict
+  // title fallback in url-scan/extractor/buildRow tests.
+  {
+    const doc = await PDFDocument.create();
+    doc.setTitle('Fixture Info-Dict Title');
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const page = doc.addPage([300, 200]);
+    page.drawText('body content with applicant portal text', {
+      x: 20,
+      y: 100,
+      font,
+      size: 14,
+    });
+    writeFileSync(join(here, 'titled.pdf'), await doc.save());
+  }
+
+  console.log('Generated fixtures: small-text.pdf, multi-page.pdf, image-only.pdf, titled.pdf');
 }
 
 main().catch((e) => {

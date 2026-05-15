@@ -44,6 +44,29 @@ beforeEach(async () => {
 
   server = createServer(async (req, res) => {
     const url = req.url ?? '/';
+
+    if (url === '/sitemap.xml') {
+      const addr = server.address() as { port: number };
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      res.end(
+        `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>http://127.0.0.1:${addr.port}/small-text.pdf</loc></url>
+  <url><loc>http://127.0.0.1:${addr.port}/page-with-pdf</loc></url>
+</urlset>`,
+      );
+      return;
+    }
+
+    if (url === '/page-with-pdf') {
+      const addr = server.address() as { port: number };
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(
+        `<html><body>See http://127.0.0.1:${addr.port}/multi-page.pdf for details.</body></html>`,
+      );
+      return;
+    }
+
     const filename = url.replace('/', '');
     try {
       const buf = await readFile(join(fixturesDir, filename));
@@ -117,5 +140,94 @@ describe('CLI: search', () => {
     const { stdout, code } = await runCli(['search', indexPath, 'applicant'], tmp);
     expect(code).toBe(0);
     expect(stdout.toLowerCase()).toContain('applicant');
+  });
+});
+
+describe('CLI: --from-sitemap', () => {
+  it('extracts PDFs from a sitemap and its linked pages', async () => {
+    const { stdout, code } = await runCli(['--from-sitemap', `${baseUrl}/sitemap.xml`], tmp);
+    expect(code).toBe(0);
+    const rows = JSON.parse(stdout) as Array<{ url: string }>;
+    // small-text.pdf (direct loc) + multi-page.pdf (from page-with-pdf body)
+    const urls = rows.map((r) => r.url).sort();
+    expect(urls).toEqual([`${baseUrl}/multi-page.pdf`, `${baseUrl}/small-text.pdf`]);
+  });
+});
+
+describe('CLI: --out <file>', () => {
+  it('writes JSON to the file instead of stdout', async () => {
+    const outFile = join(tmp, 'index.json');
+    const { stdout, code } = await runCli([`${baseUrl}/small-text.pdf`, '--out', outFile], tmp);
+    expect(code).toBe(0);
+    expect(stdout.trim()).toBe('');
+    const written = await readFile(outFile, 'utf-8');
+    const rows = JSON.parse(written) as Array<{ url: string }>;
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe('CLI: --ndjson', () => {
+  it('emits one JSON object per line', async () => {
+    const { stdout, code } = await runCli(
+      [`${baseUrl}/small-text.pdf`, `${baseUrl}/multi-page.pdf`, '--ndjson'],
+      tmp,
+    );
+    expect(code).toBe(0);
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(() => JSON.parse(line)).not.toThrow();
+    }
+  });
+});
+
+describe('CLI: --text', () => {
+  it('emits plain text bodies', async () => {
+    const { stdout, code } = await runCli([`${baseUrl}/small-text.pdf`, '--text'], tmp);
+    expect(code).toBe(0);
+    expect(stdout.toLowerCase()).toContain('applicant portal');
+    expect(() => JSON.parse(stdout)).toThrow();
+  });
+});
+
+describe('CLI: --refresh', () => {
+  it('--refresh fetches the PDF even when a cache entry exists', async () => {
+    await runCli([`${baseUrl}/small-text.pdf`, '--cache-dir', tmp], tmp);
+    const { code, stdout } = await runCli(
+      [`${baseUrl}/small-text.pdf`, '--cache-dir', tmp, '--refresh'],
+      tmp,
+    );
+    expect(code).toBe(0);
+    const rows = JSON.parse(stdout) as Array<{ url: string }>;
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe('CLI: cache subcommands', () => {
+  it('cache ls returns a line for each cached entry', async () => {
+    await runCli([`${baseUrl}/small-text.pdf`, '--cache-dir', tmp], tmp);
+    const { stdout, code } = await runCli(['cache', 'ls', '--cache-dir', tmp], tmp);
+    expect(code).toBe(0);
+    expect(stdout).toContain(`${baseUrl}/small-text.pdf`);
+  });
+
+  it('cache rm removes a single URL', async () => {
+    await runCli([`${baseUrl}/small-text.pdf`, '--cache-dir', tmp], tmp);
+    const remove = await runCli(
+      ['cache', 'rm', `${baseUrl}/small-text.pdf`, '--cache-dir', tmp],
+      tmp,
+    );
+    expect(remove.code).toBe(0);
+    const ls = await runCli(['cache', 'ls', '--cache-dir', tmp], tmp);
+    expect(ls.stdout.trim()).toBe('');
+  });
+
+  it('cache clear empties everything', async () => {
+    await runCli([`${baseUrl}/small-text.pdf`, '--cache-dir', tmp], tmp);
+    await runCli([`${baseUrl}/multi-page.pdf`, '--cache-dir', tmp], tmp);
+    const clear = await runCli(['cache', 'clear', '--cache-dir', tmp], tmp);
+    expect(clear.code).toBe(0);
+    const ls = await runCli(['cache', 'ls', '--cache-dir', tmp], tmp);
+    expect(ls.stdout.trim()).toBe('');
   });
 });

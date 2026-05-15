@@ -23,6 +23,15 @@ interface CacheSubOpts {
   cacheDir: string;
 }
 
+// Subcommand options are silently shadowed by the same-named root option in
+// commander, so `verify --cache-dir <x>` and `cache ls --cache-dir <x>` would
+// otherwise always see the root default. Use `optsWithGlobals()` to merge the
+// effective cache-dir from both scopes (local wins when explicitly set).
+function resolveCacheDir(cmd: Command): string {
+  const merged = cmd.optsWithGlobals() as { cacheDir?: string };
+  return merged.cacheDir ?? '.pdf-cache';
+}
+
 const program = new Command();
 
 program
@@ -62,8 +71,8 @@ program
   .command('verify <url>')
   .description('Parse a single PDF and report pages + chars; exit 1 on failure')
   .option('--cache-dir <dir>', 'cache directory', '.pdf-cache')
-  .action(async (url: string, opts: CacheSubOpts) => {
-    const text = await extractPdfText(url, { cacheDir: opts.cacheDir });
+  .action(async (url: string, _opts: CacheSubOpts, cmd: Command) => {
+    const text = await extractPdfText(url, { cacheDir: resolveCacheDir(cmd) });
     if (!text) {
       console.error(`Failed to extract ${url}`);
       process.exit(1);
@@ -97,8 +106,9 @@ const cache = program.command('cache').description('Manage the PDF text cache');
 cache
   .command('ls')
   .option('--cache-dir <dir>', 'cache directory', '.pdf-cache')
-  .action(async (opts: CacheSubOpts) => {
-    const entries = await listCache(opts.cacheDir);
+  .action(async (_opts: CacheSubOpts, cmd: Command) => {
+    const cacheDir = resolveCacheDir(cmd);
+    const entries = await listCache(cacheDir);
     for (const e of entries) {
       console.log(`${e.url}\t${e.length}\t${e.pages ?? '-'}\t${e.extractedAt}`);
     }
@@ -107,17 +117,19 @@ cache
 cache
   .command('rm <url>')
   .option('--cache-dir <dir>', 'cache directory', '.pdf-cache')
-  .action(async (url: string, opts: CacheSubOpts) => {
-    await removeCache(opts.cacheDir, url);
+  .action(async (url: string, _opts: CacheSubOpts, cmd: Command) => {
+    const cacheDir = resolveCacheDir(cmd);
+    await removeCache(cacheDir, url);
     console.log(`Removed ${url}`);
   });
 
 cache
   .command('clear')
   .option('--cache-dir <dir>', 'cache directory', '.pdf-cache')
-  .action(async (opts: CacheSubOpts) => {
-    await clearCache(opts.cacheDir);
-    console.log(`Cleared ${opts.cacheDir}`);
+  .action(async (_opts: CacheSubOpts, cmd: Command) => {
+    const cacheDir = resolveCacheDir(cmd);
+    await clearCache(cacheDir);
+    console.log(`Cleared ${cacheDir}`);
   });
 
 async function collectUrls(positional: string[], opts: RootOptions): Promise<string[]> {

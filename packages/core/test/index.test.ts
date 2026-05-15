@@ -117,4 +117,14 @@ describe('extractPdfsFromBody', () => {
     // (would skip if title were pre-filled by url-scan).
     expect(rows[0]!.title).toBe('R3 Faq 2024');
   });
+
+  it('uses pdf.js info-dict Title for bare URLs when present', async () => {
+    const body = `Document: https://example.com/r3-titled.pdf`;
+    const rows = await extractPdfsFromBody(body, {
+      cacheDir,
+      fetch: fixtureFetch({ 'https://example.com/r3-titled.pdf': 'titled.pdf' }),
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.title).toBe('Fixture Info-Dict Title');
+  });
 });
