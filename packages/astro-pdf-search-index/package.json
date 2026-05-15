@@ -1,0 +1,54 @@
+{
+  "name": "@icjia/astro-pdf-search-index",
+  "version": "0.0.0",
+  "description": "Astro integration for @icjia/pdf-search-index — adds linked PDFs as first-class search rows.",
+  "type": "module",
+  "license": "MIT",
+  "author": "ICJIA",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ICJIA/pdf-search-index.git",
+    "directory": "packages/astro-pdf-search-index"
+  },
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "pdf",
+    "search",
+    "fuse"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@icjia/pdf-search-index": "workspace:*"
+  },
+  "peerDependencies": {
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "astro": "^5.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
