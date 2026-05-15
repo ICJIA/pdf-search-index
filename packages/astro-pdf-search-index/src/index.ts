@@ -35,6 +35,13 @@ export interface PdfSearchIntegrationOptions {
    * Default `'content'` — Astro's conventional content-collection root.
    */
   contentSourceDir?: string;
+
+  /**
+   * Custom `fetch` implementation passed through to `extractPdfsFromBody`.
+   * Useful for testing or for examples that need to resolve `file://` URLs
+   * to local fixtures. Defaults to the global `fetch`.
+   */
+  fetch?: typeof fetch;
 }
 
 export default function pdfSearchIntegration(
@@ -44,6 +51,7 @@ export default function pdfSearchIntegration(
   const cacheDir = options.cacheDir ?? '.astro/.pdf-cache';
   const concurrency = options.concurrency ?? 4;
   const contentSourceDir = options.contentSourceDir ?? 'content';
+  const fetchImpl = options.fetch;
 
   // `astro:config:done` is the right hook to capture the resolved AstroConfig
   // (where srcDir/publicDir are real URLs). We do the actual scan + write
@@ -72,7 +80,11 @@ export default function pdfSearchIntegration(
         for (const collection of options.collections) {
           const collectionDir = resolve(srcDir, contentSourceDir, collection);
           const entries = await readMarkdownEntries(collectionDir);
-          const baseOpts: IndexPdfsOptions = { cacheDir, concurrency };
+          const baseOpts: IndexPdfsOptions = {
+            cacheDir,
+            concurrency,
+            ...(fetchImpl !== undefined ? { fetch: fetchImpl } : {}),
+          };
 
           for (const { body } of entries) {
             const rows = await extractPdfsFromBody(body, baseOpts);

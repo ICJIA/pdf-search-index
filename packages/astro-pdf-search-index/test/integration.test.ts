@@ -115,4 +115,25 @@ Same PDF: [Annual Report Again](${baseUrl}/small-text.pdf)`;
     expect(typeof integration.hooks['astro:config:done']).toBe('function');
     expect(typeof integration.hooks['astro:build:start']).toBe('function');
   });
+
+  it('threads a custom fetch option through to extractPdfsFromBody', async () => {
+    const calls: string[] = [];
+    const customFetch: typeof fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      calls.push(url);
+      // Delegate to the real fetch so the integration can actually read the PDF.
+      return fetch(input, init);
+    };
+
+    const integration = pdfSearchIntegration({
+      collections: ['resources'],
+      endpoint: 'searchIndex.pdfs.json',
+      cacheDir: join(workDir, '.astro/.pdf-cache'),
+      fetch: customFetch,
+    });
+
+    await runIntegration(integration, workDir);
+
+    expect(calls.some((u) => u.endsWith('.pdf'))).toBe(true);
+  });
 });
