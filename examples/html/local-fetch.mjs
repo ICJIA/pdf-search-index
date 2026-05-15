@@ -1,6 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
+/**
+ * Drop-in `fetch` replacement that resolves `file://` URLs to local files,
+ * delegating everything else to the global fetch. Lets examples index local
+ * PDF fixtures without spinning up an HTTP server.
+ */
 export const localFetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input.toString();
   if (url.startsWith('file://')) {
