@@ -1,0 +1,38 @@
+---
+import Search from '../components/Search.vue';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDF Search — Astro example</title>
+    <style>
+      body {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+      }
+      p.lede {
+        color: #555;
+        margin-top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PDF Search — Astro example</h1>
+    <p class="lede">
+      Astro 5 + Vue 3 island. The integration <code>@icjia/astro-pdf-search-index</code>
+      walks the <code>docs/</code> content collection at build time and emits
+      <code>public/searchIndex.pdfs.json</code>.
+    </p>
+    <Search client:idle />
+  </body>
+</html>

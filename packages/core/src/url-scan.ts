@@ -2,10 +2,12 @@ import type { DiscoveredPdf } from './types.js';
 
 // Markdown link with a PDF URL: `[Title](https://...pdf){target='_blank'}` etc.
 // Matches `[text](url)` where url ends in `.pdf` (optionally followed by query/fragment).
-const PDF_LINK_PATTERN = /\[([^\]]+)\]\((https?:\/\/[^\s)]+?\.pdf(?:\?[^\s)]*)?)\)/gi;
+// Supports https?:// and file:// schemes.
+const PDF_LINK_PATTERN = /\[([^\]]+)\]\(((https?|file):\/\/[^\s)]+?\.pdf(?:\?[^\s)]*)?)\)/gi;
 
 // Bare PDF URL not wrapped in a markdown link.
-const PDF_BARE_URL_PATTERN = /https?:\/\/[^\s)\]]+?\.pdf(?:\?[^\s)\]]*)?/gi;
+// Supports https?:// and file:// schemes.
+const PDF_BARE_URL_PATTERN = /(https?|file):\/\/[^\s)\]]+?\.pdf(?:\?[^\s)\]]*)?/gi;
 
 export function extractPdfUrlsFromMarkdown(body: string): DiscoveredPdf[] {
   if (!body) return [];

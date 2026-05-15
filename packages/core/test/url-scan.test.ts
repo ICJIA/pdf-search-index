@@ -47,4 +47,18 @@ describe('extractPdfUrlsFromMarkdown', () => {
       { url: 'https://example.com/doc.pdf?v=2', title: 'Doc' },
     ]);
   });
+
+  it('finds file:// markdown links', () => {
+    const body = `[Local Report](file:///home/user/reports/annual.pdf)`;
+    expect(extractPdfUrlsFromMarkdown(body)).toEqual([
+      { url: 'file:///home/user/reports/annual.pdf', title: 'Local Report' },
+    ]);
+  });
+
+  it('finds bare file:// PDF URLs', () => {
+    const body = `file:///home/user/reports/annual.pdf is available.`;
+    expect(extractPdfUrlsFromMarkdown(body)).toEqual([
+      { url: 'file:///home/user/reports/annual.pdf', title: '' },
+    ]);
+  });
 });
