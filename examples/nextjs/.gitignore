@@ -1,0 +1,5 @@
+.next/
+.pdf-cache/
+node_modules/
+public/searchIndex.json
+next-env.d.ts

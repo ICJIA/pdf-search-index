@@ -11,3 +11,5 @@ examples/html/public/searchIndex.json
 examples/vue/public/searchIndex.json
 examples/astro/src/content/docs/
 examples/astro/public/searchIndex.pdfs.json
+examples/nextjs/.next/
+examples/nextjs/public/searchIndex.json
