@@ -8,3 +8,4 @@ build
 *.lock
 pnpm-lock.yaml
 examples/html/public/searchIndex.json
+examples/vue/public/searchIndex.json
