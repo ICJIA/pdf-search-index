@@ -88,12 +88,14 @@ function hashUrl(url: string, len: number): string {
 
 function titleFromUrl(url: string): string {
   const filename = url.split('/').pop() ?? 'PDF';
-  return decodeURIComponent(filename)
-    .replace(/\.pdf$/i, '')
-    .replace(/[-_]+/g, ' ')
-    // Title-case each word.
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
+  return (
+    decodeURIComponent(filename)
+      .replace(/\.pdf$/i, '')
+      .replace(/[-_]+/g, ' ')
+      // Title-case each word.
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim()
+  );
 }
 
 async function extractPdfText(url: string): Promise<string> {

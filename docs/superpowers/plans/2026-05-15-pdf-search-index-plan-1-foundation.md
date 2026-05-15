@@ -7,6 +7,7 @@
 **Architecture:** Pure-ESM monorepo at `github.com/ICJIA/pdf-search-index`. Build-time PDF text extraction via `unpdf` (pdf.js wrapper, no native deps). File-based cache with sidecar metadata. `p-limit(4)` for fetch concurrency. CLI and MCP server share the core via separate package entry points; all consumers emit/consume the same `IndexedPdf` type. Companion spec: `docs/superpowers/specs/2026-05-15-pdf-search-index-design.md`.
 
 **Tech Stack:**
+
 - Language: TypeScript (ESM only, Node 20+)
 - Build: `tsup` (ESM + DTS)
 - Test: `vitest` with `pdf-lib`-generated fixtures
@@ -24,6 +25,7 @@
 ## Task 1: Repo scaffold
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `tsconfig.base.json`
@@ -47,7 +49,7 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
     "build": "pnpm -r --filter \"./packages/*\" build",
     "test": "pnpm -r --filter \"./packages/*\" test",
@@ -74,8 +76,8 @@
 
 ```yaml
 packages:
-  - "packages/*"
-  - "examples/*"
+  - 'packages/*'
+  - 'examples/*'
 ```
 
 - [ ] **Step 3: Create `tsconfig.base.json`**
@@ -250,8 +252,8 @@ jobs:
         with:
           publish: pnpm release
           version: pnpm version
-          commit: "chore: release"
-          title: "chore: release"
+          commit: 'chore: release'
+          title: 'chore: release'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -269,11 +271,11 @@ Build-time PDF text extraction, no runtime servers, no native deps. Pure ESM, wo
 
 ## Packages
 
-| Package | Description |
-|---|---|
-| [`@icjia/pdf-search-index`](./packages/core) | Core library, CLI, and MCP server |
-| [`@icjia/astro-pdf-search-index`](./packages/astro-pdf-search-index) | Astro integration (Plan 2) |
-| [`@icjia/nuxt-pdf-search-index`](./packages/nuxt-pdf-search-index) | Nuxt 4 module (Plan 2) |
+| Package                                                              | Description                       |
+| -------------------------------------------------------------------- | --------------------------------- |
+| [`@icjia/pdf-search-index`](./packages/core)                         | Core library, CLI, and MCP server |
+| [`@icjia/astro-pdf-search-index`](./packages/astro-pdf-search-index) | Astro integration (Plan 2)        |
+| [`@icjia/nuxt-pdf-search-index`](./packages/nuxt-pdf-search-index)   | Nuxt 4 module (Plan 2)            |
 
 ## Design
 
@@ -336,6 +338,7 @@ git commit -m "chore: monorepo scaffold (pnpm workspaces, changesets, CI, lint, 
 ## Task 2: Core package bootstrap
 
 **Files:**
+
 - Create: `packages/core/package.json`
 - Create: `packages/core/tsconfig.json`
 - Create: `packages/core/tsup.config.ts`
@@ -486,22 +489,26 @@ export const version = '0.0.0';
 - [ ] **Step 6: Create stub entries so tsup build doesn't fail**
 
 Create `packages/core/src/fuse.ts`:
+
 ```ts
 export {};
 ```
 
 Create `packages/core/src/snippet.ts`:
+
 ```ts
 export {};
 ```
 
 Create `packages/core/src/mcp.ts` (shebang must be the literal first line):
+
 ```ts
 #!/usr/bin/env node
 export {};
 ```
 
 Create `packages/core/src/cli.ts` (shebang must be the literal first line):
+
 ```ts
 #!/usr/bin/env node
 export {};
@@ -591,7 +598,7 @@ main().catch((e) => {
 
 - [ ] **Step 9: Create `packages/core/README.md`**
 
-```markdown
+````markdown
 # @icjia/pdf-search-index
 
 Full-text PDF search for static sites that already use Fuse.js. Build-time PDF text extraction, no runtime servers, no native deps.
@@ -599,9 +606,11 @@ Full-text PDF search for static sites that already use Fuse.js. Build-time PDF t
 ```bash
 npm install @icjia/pdf-search-index
 ```
+````
 
 See the [v1.0 design spec](../../docs/superpowers/specs/2026-05-15-pdf-search-index-design.md) for the full API and rationale.
-```
+
+````
 
 - [ ] **Step 10: Install package deps**
 
@@ -629,13 +638,14 @@ git add packages/core/package.json packages/core/tsconfig.json \
   packages/core/test/fixtures/.gitignore packages/core/README.md \
   pnpm-lock.yaml
 git commit -m "chore(core): bootstrap @icjia/pdf-search-index package with tsup + vitest"
-```
+````
 
 ---
 
 ## Task 3: Types + URL scanner
 
 **Files:**
+
 - Create: `packages/core/src/types.ts`
 - Create: `packages/core/src/url-scan.ts`
 - Create: `packages/core/test/url-scan.test.ts`
@@ -665,9 +675,7 @@ export interface IndexPdfsOptions extends ExtractOptions {
   concurrency?: number;
 }
 
-export type UrlOrEntry =
-  | string
-  | { url: string; title?: string; id?: string };
+export type UrlOrEntry = string | { url: string; title?: string; id?: string };
 
 export interface DiscoveredPdf {
   url: string;
@@ -810,6 +818,7 @@ git commit -m "feat(core): types and markdown PDF URL scanner with link-title pr
 ## Task 4: Cache with sidecar metadata
 
 **Files:**
+
 - Create: `packages/core/src/cache.ts`
 - Create: `packages/core/test/cache.test.ts`
 
@@ -1089,6 +1098,7 @@ git commit -m "feat(core): file-based cache with sidecar metadata"
 ## Task 5: Extractor (unpdf wrapper + concurrency + title fallback)
 
 **Files:**
+
 - Create: `packages/core/src/concurrency.ts`
 - Create: `packages/core/src/extractor.ts`
 - Create: `packages/core/test/extractor.test.ts`
@@ -1287,10 +1297,7 @@ function resolveOptions(opts: ExtractOptions | undefined): ResolvedOptions {
   };
 }
 
-async function fetchPdfBytes(
-  url: string,
-  o: ResolvedOptions,
-): Promise<Uint8Array | null> {
+async function fetchPdfBytes(url: string, o: ResolvedOptions): Promise<Uint8Array | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), o.fetchTimeout);
   try {
@@ -1301,9 +1308,7 @@ async function fetchPdfBytes(
     }
     const ab = await res.arrayBuffer();
     if (ab.byteLength > o.maxBytes) {
-      console.warn(
-        `[pdf-search-index] ${url} exceeds maxBytes (${ab.byteLength} > ${o.maxBytes})`,
-      );
+      console.warn(`[pdf-search-index] ${url} exceeds maxBytes (${ab.byteLength} > ${o.maxBytes})`);
       return null;
     }
     return new Uint8Array(ab);
@@ -1322,10 +1327,7 @@ interface ParsedPdf {
   infoTitle?: string;
 }
 
-async function parsePdf(
-  bytes: Uint8Array,
-  mergePages: boolean,
-): Promise<ParsedPdf | null> {
+async function parsePdf(bytes: Uint8Array, mergePages: boolean): Promise<ParsedPdf | null> {
   try {
     const { getDocumentProxy, extractText } = await import('unpdf');
     const pdf = await getDocumentProxy(bytes);
@@ -1352,10 +1354,7 @@ async function parsePdf(
   }
 }
 
-export async function extractPdfText(
-  url: string,
-  options?: ExtractOptions,
-): Promise<string> {
+export async function extractPdfText(url: string, options?: ExtractOptions): Promise<string> {
   const o = resolveOptions(options);
 
   if (o.cache === 'use') {
@@ -1411,6 +1410,7 @@ git commit -m "feat(core): unpdf-backed extractor with cache + maxBytes + timeou
 ## Task 6: Public API (indexPdfs, extractPdfsFromBody)
 
 **Files:**
+
 - Modify: `packages/core/src/index.ts`
 - Create: `packages/core/test/index.test.ts`
 
@@ -1482,13 +1482,10 @@ describe('indexPdfs', () => {
   });
 
   it('derives title from URL filename when not provided', async () => {
-    const rows = await indexPdfs(
-      ['https://example.com/r3-faq-2024.pdf'],
-      {
-        cacheDir,
-        fetch: fixtureFetch({ 'https://example.com/r3-faq-2024.pdf': 'small-text.pdf' }),
-      },
-    );
+    const rows = await indexPdfs(['https://example.com/r3-faq-2024.pdf'], {
+      cacheDir,
+      fetch: fixtureFetch({ 'https://example.com/r3-faq-2024.pdf': 'small-text.pdf' }),
+    });
     expect(rows[0]!.title).toBe('R3 Faq 2024');
   });
 
@@ -1688,10 +1685,7 @@ export async function extractPdfTextWithSource(
   };
 }
 
-export async function extractPdfText(
-  url: string,
-  options?: ExtractOptions,
-): Promise<string> {
+export async function extractPdfText(url: string, options?: ExtractOptions): Promise<string> {
   const r = await extractPdfTextWithSource(url, options);
   return r.text;
 }
@@ -1745,6 +1739,7 @@ git commit -m "feat(core): indexPdfs/extractPdfsFromBody + cache-hit-aware extra
 ## Task 7: Snippet helper
 
 **Files:**
+
 - Create: `packages/core/src/snippet.ts`
 - Create: `packages/core/test/snippet.test.ts`
 
@@ -1944,6 +1939,7 @@ git commit -m "feat(core): snippet helper with <mark> highlight and HTML escapin
 ## Task 8: Fuse helper
 
 **Files:**
+
 - Create: `packages/core/src/fuse.ts`
 - Create: `packages/core/test/fuse.test.ts`
 
@@ -2033,9 +2029,7 @@ const DEFAULT_FUSE_OPTIONS: IFuseOptions<IndexedPdf> = {
   includeMatches: true,
 };
 
-export async function createFuseIndex(
-  opts: CreateFuseOptions,
-): Promise<Fuse<IndexedPdf>> {
+export async function createFuseIndex(opts: CreateFuseOptions): Promise<Fuse<IndexedPdf>> {
   const { urls, fuseOptions, ...indexOpts } = opts;
   const rows = await indexPdfs(urls, indexOpts);
   return new Fuse(rows, { ...DEFAULT_FUSE_OPTIONS, ...fuseOptions });
@@ -2059,6 +2053,7 @@ git commit -m "feat(core): createFuseIndex helper with sensible defaults"
 ## Task 9: CLI
 
 **Files:**
+
 - Create: `packages/core/src/cli.ts`
 - Create: `packages/core/test/cli.test.ts`
 
@@ -2084,7 +2079,10 @@ let tmp: string;
 let server: Server;
 let baseUrl: string;
 
-async function runCli(args: string[], cwd: string): Promise<{
+async function runCli(
+  args: string[],
+  cwd: string,
+): Promise<{
   stdout: string;
   stderr: string;
   code: number | null;
@@ -2367,10 +2365,12 @@ program.parseAsync(process.argv);
 - [ ] **Step 4: Rebuild + run tests, confirm pass**
 
 Run:
+
 ```bash
 pnpm --filter @icjia/pdf-search-index build
 pnpm --filter @icjia/pdf-search-index test test/cli.test.ts
 ```
+
 Expected: all CLI tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -2385,6 +2385,7 @@ git commit -m "feat(core): CLI (index, verify, search, cache, --strict)"
 ## Task 10: MCP server
 
 **Files:**
+
 - Create: `packages/core/src/mcp.ts`
 - Create: `packages/core/test/mcp.test.ts`
 
@@ -2517,10 +2518,7 @@ Expected: FAIL.
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { indexPdfs, extractPdfText } from './index.js';
 import { clearCache, listCache } from './cache.js';
 import { snippetHTMLFor } from './snippet.js';
@@ -2721,6 +2719,7 @@ git commit -m "feat(core): MCP server with extract/index/get/search/clear/status
 ## Task 11: Verify full build, add changeset, tag 0.1.0
 
 **Files:**
+
 - Create: `.changeset/initial-release.md`
 
 - [ ] **Step 1: Run full test suite**
@@ -2756,7 +2755,7 @@ Create `.changeset/initial-release.md`:
 
 ```markdown
 ---
-"@icjia/pdf-search-index": minor
+'@icjia/pdf-search-index': minor
 ---
 
 Initial 0.1.0 release.

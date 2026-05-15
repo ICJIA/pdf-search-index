@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+.pdf-cache
+.astro
+.nuxt
+.output
+*.lock
+pnpm-lock.yaml

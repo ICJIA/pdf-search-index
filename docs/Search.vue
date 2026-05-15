@@ -28,20 +28,21 @@
     <p class="search__count" aria-live="polite">
       <template v-if="!loaded">Loading search index…</template>
       <template v-else-if="!query.trim()">
-        Type above to search the R3 site &mdash; {{ rows.length }} pages, news posts, resources, research articles, and PDF documents indexed.
+        Type above to search the R3 site &mdash; {{ rows.length }} pages, news posts, resources,
+        research articles, and PDF documents indexed.
       </template>
       <template v-else-if="results.length === 0">
         No matches for &ldquo;{{ query }}&rdquo;.
       </template>
       <template v-else>
-        {{ results.length }} match{{ results.length === 1 ? '' : 'es' }}<template v-if="activeType !== 'all'"> in {{ typeLabel(activeType as Row['type']) }}</template>.
+        {{ results.length }} match{{ results.length === 1 ? '' : 'es'
+        }}<template v-if="activeType !== 'all'">
+          in {{ typeLabel(activeType as Row['type']) }}</template
+        >.
       </template>
     </p>
 
-    <fieldset
-      v-if="loaded && query.trim() && matched.length"
-      class="search__filters"
-    >
+    <fieldset v-if="loaded && query.trim() && matched.length" class="search__filters">
       <legend class="sr-only">Filter by content type</legend>
       <button
         v-for="t in types"
@@ -57,11 +58,7 @@
       </button>
     </fieldset>
 
-    <ul
-      v-if="loaded && query.trim() && results.length"
-      class="search__results"
-      role="list"
-    >
+    <ul v-if="loaded && query.trim() && results.length" class="search__results" role="list">
       <li v-for="r in results.slice(0, 50)" :key="r.item.id">
         <a
           :href="r.item.path"
@@ -69,14 +66,11 @@
           :rel="r.item.type === 'pdf' ? 'noopener noreferrer' : undefined"
         >
           <span class="search__type">
-            {{ typeLabel(r.item.type) }}<template v-if="r.item.type === 'pdf'"> &middot; opens in new tab</template>
+            {{ typeLabel(r.item.type)
+            }}<template v-if="r.item.type === 'pdf'"> &middot; opens in new tab</template>
           </span>
           <strong>{{ r.item.title }}</strong>
-          <p
-            v-if="snippetHTMLFor(r)"
-            class="search__snippet"
-            v-html="snippetHTMLFor(r)"
-          ></p>
+          <p v-if="snippetHTMLFor(r)" class="search__snippet" v-html="snippetHTMLFor(r)"></p>
         </a>
       </li>
     </ul>
@@ -103,12 +97,12 @@ const loaded = ref(false);
 const activeType = ref<Row['type'] | 'all'>('all');
 
 const types = [
-  { key: 'all',         label: 'All' },
-  { key: 'pages',       label: 'Pages' },
-  { key: 'news',        label: 'News' },
-  { key: 'resources',   label: 'Resources' },
+  { key: 'all', label: 'All' },
+  { key: 'pages', label: 'Pages' },
+  { key: 'news', label: 'News' },
+  { key: 'resources', label: 'Resources' },
   { key: 'hubArticles', label: 'Research' },
-  { key: 'pdf',         label: 'PDFs' },
+  { key: 'pdf', label: 'PDFs' },
 ] as const;
 
 function typeLabel(t: Row['type']): string {
@@ -148,8 +142,9 @@ watch(matched, (m) => {
 // ─── Snippet rendering ──────────────────────────────────────────────────
 
 function escapeHTML(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string),
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
   );
 }
 
@@ -209,8 +204,15 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.search { max-width: 720px; margin: 0 auto; }
-.search__label { font-weight: 600; display: block; margin-bottom: 0.5rem; }
+.search {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.search__label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.5rem;
+}
 .search__input {
   width: 100%;
   font-size: 1.1rem;
@@ -255,9 +257,18 @@ onMounted(async () => {
   outline: 3px solid var(--color-r3-primary);
   outline-offset: 2px;
 }
-.search__count { color: var(--color-r3-text-muted); margin: 1rem 0; }
-.search__results { list-style: none; padding: 0; margin: 0; }
-.search__results li { margin: 0.5rem 0; }
+.search__count {
+  color: var(--color-r3-text-muted);
+  margin: 1rem 0;
+}
+.search__results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.search__results li {
+  margin: 0.5rem 0;
+}
 .search__results a {
   display: block;
   padding: 0.75rem 1rem;
