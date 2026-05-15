@@ -115,7 +115,7 @@ The PDFs here are **publicly available samples from ICJIA's website** ([icjia.il
 
 We're calling that out explicitly because "look how well it searches these specific PDFs" is a fair skepticism — managers and reviewers are right to wonder whether the demo was cherry-picked. It wasn't. Drop in any other PDF from any other source and the examples work identically. The randomness is the point.
 
-These PDFs were already public, are republished here under fair use as illustrative integration samples, and **contain no personally identifiable information (PII)**.
+These PDFs were already publicly available, are included here as illustrative integration samples, and **contain no personally identifiable information (PII)**.
 
 ## Files (at commit time)
 
