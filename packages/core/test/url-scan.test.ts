@@ -13,10 +13,10 @@ describe('extractPdfUrlsFromMarkdown', () => {
     ]);
   });
 
-  it('finds bare PDF URLs and derives a title from the filename', () => {
+  it('finds bare PDF URLs (title left blank for buildRow info-dict fallback)', () => {
     const body = `https://example.com/r3-faq-2024.pdf is available.`;
     expect(extractPdfUrlsFromMarkdown(body)).toEqual([
-      { url: 'https://example.com/r3-faq-2024.pdf', title: 'R3 Faq 2024' },
+      { url: 'https://example.com/r3-faq-2024.pdf', title: '' },
     ]);
   });
 

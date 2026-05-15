@@ -2,6 +2,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { pathToFileURL } from 'node:url';
 import { indexPdfs, extractPdfText } from './index.js';
 import { clearCache, listCache } from './cache.js';
 import { snippetHTMLFor } from './snippet.js';
@@ -51,7 +52,7 @@ const TOOLS: ToolDef[] = [
       const concurrency = args.concurrency as number | undefined;
       const rows = await indexPdfs(urls, {
         ...(cacheDir ? { cacheDir } : {}),
-        ...(concurrency ? { concurrency } : {}),
+        ...(concurrency !== undefined ? { concurrency } : {}),
       });
       return JSON.stringify(rows, null, 2);
     },
@@ -87,15 +88,9 @@ const TOOLS: ToolDef[] = [
       const query = args.query as string;
       const cacheDir = args.cacheDir as string | undefined;
       const rows = await indexPdfs(urls, cacheDir ? { cacheDir } : {});
-      // Lazy-load Fuse — only search_pdfs needs it.
       const { default: Fuse } = await import('fuse.js');
-      const fuse = new Fuse(rows, {
-        keys: ['title', 'text'],
-        threshold: 0.3,
-        ignoreLocation: true,
-        minMatchCharLength: 2,
-        includeMatches: true,
-      });
+      const { DEFAULT_FUSE_OPTIONS } = await import('./fuse.js');
+      const fuse = new Fuse(rows, DEFAULT_FUSE_OPTIONS);
       const results = fuse.search(query);
       const payload = results.map((r) => ({
         id: r.item.id,
@@ -176,7 +171,7 @@ export function createMcpServer(): Server {
   return server;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const server = createMcpServer();
   const transport = new StdioServerTransport();
   void server.connect(transport);

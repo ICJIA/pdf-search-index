@@ -10,7 +10,7 @@ const PDF_BARE_URL_PATTERN = /https?:\/\/[^\s)\]]+?\.pdf(?:\?[^\s)\]]*)?/gi;
 export function extractPdfUrlsFromMarkdown(body: string): DiscoveredPdf[] {
   if (!body) return [];
 
-  // Pass 1: linked PDFs win.
+  // Pass 1: linked PDFs win; capture the link text as title.
   const linked = new Map<string, string>();
   for (const m of body.matchAll(PDF_LINK_PATTERN)) {
     const title = (m[1] ?? '').trim();
@@ -20,7 +20,9 @@ export function extractPdfUrlsFromMarkdown(body: string): DiscoveredPdf[] {
     }
   }
 
-  // Pass 2: bare URLs not already captured.
+  // Pass 2: bare URLs not already captured. Leave title empty so
+  // `buildRow` consults the pdf.js info-dict before falling back to the
+  // humanized filename.
   const bare = new Set<string>();
   for (const m of body.matchAll(PDF_BARE_URL_PATTERN)) {
     const url = m[0];
@@ -34,7 +36,7 @@ export function extractPdfUrlsFromMarkdown(body: string): DiscoveredPdf[] {
 
   const bareEntries: DiscoveredPdf[] = [...bare].map((url) => ({
     url,
-    title: titleFromUrl(url),
+    title: '', // intentional: triggers info-dict fallback in buildRow
   }));
 
   return [...linkedEntries, ...bareEntries];

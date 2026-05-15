@@ -104,4 +104,17 @@ describe('extractPdfsFromBody', () => {
   it('returns empty array for a body with no PDF links', async () => {
     expect(await extractPdfsFromBody('Just some prose, no PDFs.')).toEqual([]);
   });
+
+  it('falls back through info-dict for bare URLs (no markdown link text)', async () => {
+    const body = `Here is a bare PDF: https://example.com/r3-faq-2024.pdf`;
+    const rows = await extractPdfsFromBody(body, {
+      cacheDir,
+      fetch: fixtureFetch({ 'https://example.com/r3-faq-2024.pdf': 'small-text.pdf' }),
+    });
+    expect(rows).toHaveLength(1);
+    // Fixture PDFs have no info-dict Title, so we fall through to the
+    // humanized filename. Test value: the buildRow fallback chain runs
+    // (would skip if title were pre-filled by url-scan).
+    expect(rows[0]!.title).toBe('R3 Faq 2024');
+  });
 });

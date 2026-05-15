@@ -72,7 +72,7 @@ export async function extractPdfsFromBody(
   if (!body) return [];
   const discovered = extractPdfUrlsFromMarkdown(body);
   return indexPdfs(
-    discovered.map((d) => ({ url: d.url, title: d.title })),
+    discovered.map((d) => (d.title ? { url: d.url, title: d.title } : { url: d.url })),
     options,
   );
 }

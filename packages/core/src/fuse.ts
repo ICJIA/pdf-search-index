@@ -7,7 +7,10 @@ export interface CreateFuseOptions extends IndexPdfsOptions {
   fuseOptions?: IFuseOptions<IndexedPdf>;
 }
 
-const DEFAULT_FUSE_OPTIONS: IFuseOptions<IndexedPdf> = {
+// Exported so the CLI's `search` subcommand and the MCP `search_pdfs`
+// tool can use the same canonical Fuse config. Don't drift these across
+// call sites.
+export const DEFAULT_FUSE_OPTIONS: IFuseOptions<IndexedPdf> = {
   keys: ['title', 'text'],
   threshold: 0.3,
   ignoreLocation: true,

@@ -155,11 +155,20 @@ export async function extractPdfMetadata(
   options?: ExtractOptions,
 ): Promise<ExtractedMetadata> {
   const o = resolveOptions(options);
+  // Cache hit: derive what we can from the sidecar without re-fetching.
+  // (info-dict title isn't in the sidecar, so it returns undefined here.
+  // Callers that need info-dict title should use extractPdfTextWithSource
+  // which always parses fresh on a miss.)
+  if (o.cache === 'use') {
+    const hit = await readCache(o.cacheDir, url);
+    if (hit) {
+      return hit.meta.pages !== undefined ? { pages: hit.meta.pages } : { pages: 0 };
+    }
+  }
   const bytes = await fetchPdfBytes(url, o);
   if (!bytes) return { pages: 0 };
   const parsed = await parsePdf(bytes, o.mergePages);
   if (!parsed) return { pages: 0 };
-  // Conditional spread to satisfy exactOptionalPropertyTypes
   return {
     pages: parsed.pages,
     ...(parsed.infoTitle !== undefined ? { infoTitle: parsed.infoTitle } : {}),

@@ -16,6 +16,7 @@ interface RootOptions {
   refreshAll?: boolean;
   ndjson?: boolean;
   text?: boolean;
+  out?: string;
 }
 
 interface CacheSubOpts {
@@ -36,6 +37,7 @@ program
   .option('--refresh-all', 'refetch and overwrite cache', false)
   .option('--ndjson', 'emit newline-delimited JSON', false)
   .option('--text', 'emit plain text only', false)
+  .option('--out <file>', 'write JSON output to <file> instead of stdout')
   .argument('[urls...]', 'PDF URLs')
   .action(async (urls: string[], opts: RootOptions) => {
     const collected = await collectUrls(urls, opts);
@@ -53,7 +55,7 @@ program
       console.error('Strict mode: one or more PDFs failed to extract.');
       process.exit(1);
     }
-    emit(rows, opts);
+    await emit(rows, opts);
   });
 
 program
@@ -75,15 +77,9 @@ program
   .action(async (indexFile: string, query: string) => {
     const raw = await readFile(indexFile, 'utf-8');
     const rows = JSON.parse(raw) as IndexedPdf[];
-    // Lazy-load Fuse — only `search` needs it.
     const { default: Fuse } = await import('fuse.js');
-    const fuse = new Fuse(rows, {
-      keys: ['title', 'text'],
-      threshold: 0.3,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
-      includeMatches: true,
-    });
+    const { DEFAULT_FUSE_OPTIONS } = await import('./fuse.js');
+    const fuse = new Fuse(rows, DEFAULT_FUSE_OPTIONS);
     const results = fuse.search(query);
     if (!results.length) {
       console.log(`No matches for "${query}".`);
@@ -136,45 +132,63 @@ async function collectUrls(positional: string[], opts: RootOptions): Promise<str
     );
   }
   if (typeof opts.fromSitemap === 'string') {
-    urls.push(...(await urlsFromSitemap(opts.fromSitemap)));
+    urls.push(...(await urlsFromSitemap(opts.fromSitemap, { concurrency: opts.concurrency })));
   }
   return urls;
 }
 
-async function urlsFromSitemap(sitemapUrl: string): Promise<string[]> {
+async function urlsFromSitemap(
+  sitemapUrl: string,
+  opts: { concurrency: number },
+): Promise<string[]> {
   const res = await fetch(sitemapUrl);
   if (!res.ok) return [];
   const xml = await res.text();
+
   const pageUrls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
-  const pdfs: string[] = [];
-  for (const page of pageUrls) {
-    if (page.endsWith('.pdf')) {
-      pdfs.push(page);
-      continue;
-    }
-    try {
-      const pageRes = await fetch(page);
-      if (!pageRes.ok) continue;
-      const html = await pageRes.text();
-      const rows = await extractPdfsFromBody(html);
-      pdfs.push(...rows.map((r) => r.url));
-    } catch {
-      // skip
-    }
-  }
-  return [...new Set(pdfs)];
+  const pdfDirect = pageUrls.filter((u) => u.endsWith('.pdf'));
+  const pageOnly = pageUrls.filter((u) => !u.endsWith('.pdf'));
+
+  // Use the same p-limit primitive the core extractor uses, so --concurrency
+  // controls both the sitemap page fan-out AND the PDF fetch fan-out.
+  const { createLimiter } = await import('./concurrency.js');
+  const limit = createLimiter(opts.concurrency);
+
+  const fromPages = await Promise.all(
+    pageOnly.map((page) =>
+      limit(async () => {
+        try {
+          const pageRes = await fetch(page);
+          if (!pageRes.ok) return [];
+          const html = await pageRes.text();
+          const rows = await extractPdfsFromBody(html);
+          return rows.map((r) => r.url);
+        } catch {
+          return [];
+        }
+      }),
+    ),
+  );
+
+  return [...new Set([...pdfDirect, ...fromPages.flat()])];
 }
 
-function emit(rows: IndexedPdf[], opts: RootOptions): void {
+async function emit(rows: IndexedPdf[], opts: RootOptions): Promise<void> {
+  let output: string;
   if (opts.text) {
-    for (const r of rows) console.log(r.text);
-    return;
+    output = rows.map((r) => r.text).join('\n');
+  } else if (opts.ndjson) {
+    output = rows.map((r) => JSON.stringify(r)).join('\n');
+  } else {
+    output = JSON.stringify(rows, null, 2);
   }
-  if (opts.ndjson) {
-    for (const r of rows) console.log(JSON.stringify(r));
-    return;
+
+  if (opts.out) {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(opts.out, output, 'utf-8');
+  } else {
+    console.log(output);
   }
-  console.log(JSON.stringify(rows, null, 2));
 }
 
 program.parseAsync(process.argv);
