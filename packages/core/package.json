@@ -1,6 +1,6 @@
 {
   "name": "@icjia/pdf-search-index",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Full-text PDF search for static sites that already use Fuse.js.",
   "type": "module",
   "license": "MIT",
@@ -47,7 +47,8 @@
     "pdf-search-index-mcp": "./dist/mcp.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",

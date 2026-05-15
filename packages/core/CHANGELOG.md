@@ -1,5 +1,20 @@
 # @icjia/pdf-search-index
 
+## 1.0.0
+
+### Major Changes
+
+- First stable release. The 0.1.0 surface is preserved; this bump marks API stability.
+
+### Minor Changes
+
+- `extractPdfsFromBody` and `extractPdfUrlsFromMarkdown` now also match `file://` PDF URLs in markdown link bodies (previously only `https?://` URLs were scanned). Useful for tests, examples, and air-gapped builds that work against local PDF files.
+- New `pdf-search-index-mcp` CLI bin alongside `pdf-search-index`. Run the MCP server with `npx -p @icjia/pdf-search-index pdf-search-index-mcp` instead of trying to invoke the `/mcp` export subpath directly (which never worked).
+
+### Patch Changes
+
+- README: corrected the documented return shape of the `get_pdf_index` MCP tool — it returns cache-metadata entries, not full `IndexedPdf[]` rows. `search_pdfs` is the tool that returns text-bearing rows.
+
 ## 0.1.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@icjia/astro-pdf-search-index",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Astro integration for @icjia/pdf-search-index — adds linked PDFs as first-class search rows.",
   "type": "module",
   "license": "MIT",
@@ -29,7 +29,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
