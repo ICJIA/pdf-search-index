@@ -90,7 +90,7 @@ program
       return;
     }
     for (const r of results) {
-      const html = snippetHTMLFor(r as unknown as Parameters<typeof snippetHTMLFor>[0]);
+      const html = snippetHTMLFor(r);
       console.log(`  ${r.item.title} (${r.item.url})`);
       console.log(`    ${html}`);
     }

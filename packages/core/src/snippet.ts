@@ -46,10 +46,7 @@ function pickMatch<T>(r: FuseResult<T>, matchKey: string): FuseResultMatch | nul
   return r.matches.find((m) => m.key === matchKey) ?? r.matches[0] ?? null;
 }
 
-export function snippetHTMLFor<T extends Record<string, unknown>>(
-  r: FuseResult<T>,
-  options?: SnippetOptions,
-): string {
+export function snippetHTMLFor<T>(r: FuseResult<T>, options?: SnippetOptions): string {
   const contextChars = options?.contextChars ?? DEFAULT_CONTEXT_CHARS;
   const matchKey = options?.matchKey ?? 'text';
   const collapse = options?.collapseWhitespace ?? true;
@@ -61,9 +58,12 @@ export function snippetHTMLFor<T extends Record<string, unknown>>(
   if (!idx) return '';
 
   // Pull source string from the match's value (preferred) or the item field.
+  // The narrow internal cast is necessary because T is free; we still guard
+  // with `typeof === 'string'` so the runtime contract is preserved.
+  const itemRecord = r.item as Record<string, unknown>;
   const source =
     (typeof m.value === 'string' && m.value) ||
-    (typeof r.item[matchKey] === 'string' ? (r.item[matchKey] as string) : '');
+    (typeof itemRecord[matchKey] === 'string' ? (itemRecord[matchKey] as string) : '');
   if (!source) return '';
 
   const [start, end] = idx;
