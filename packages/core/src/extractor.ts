@@ -96,19 +96,36 @@ async function parsePdf(bytes: Uint8Array, mergePages: boolean): Promise<ParsedP
   }
 }
 
-export async function extractPdfText(url: string, options?: ExtractOptions): Promise<string> {
+export interface ExtractResult {
+  text: string;
+  source: 'cache' | 'fresh' | 'failed';
+  pages?: number;
+  infoTitle?: string;
+}
+
+export async function extractPdfTextWithSource(
+  url: string,
+  options?: ExtractOptions,
+): Promise<ExtractResult> {
   const o = resolveOptions(options);
 
   if (o.cache === 'use') {
     const hit = await readCache(o.cacheDir, url);
-    if (hit) return hit.text;
+    if (hit) {
+      // Conditional spread for `pages` to satisfy exactOptionalPropertyTypes
+      return {
+        text: hit.text,
+        source: 'cache',
+        ...(hit.meta.pages !== undefined ? { pages: hit.meta.pages } : {}),
+      };
+    }
   }
 
   const bytes = await fetchPdfBytes(url, o);
-  if (!bytes) return '';
+  if (!bytes) return { text: '', source: 'failed' };
 
   const parsed = await parsePdf(bytes, o.mergePages);
-  if (!parsed) return '';
+  if (!parsed) return { text: '', source: 'failed' };
 
   if (o.cache !== 'bypass') {
     try {
@@ -119,7 +136,18 @@ export async function extractPdfText(url: string, options?: ExtractOptions): Pro
     }
   }
 
-  return parsed.text;
+  // Conditional spreads for both optional fields
+  return {
+    text: parsed.text,
+    source: 'fresh',
+    pages: parsed.pages,
+    ...(parsed.infoTitle !== undefined ? { infoTitle: parsed.infoTitle } : {}),
+  };
+}
+
+export async function extractPdfText(url: string, options?: ExtractOptions): Promise<string> {
+  const r = await extractPdfTextWithSource(url, options);
+  return r.text;
 }
 
 export async function extractPdfMetadata(
