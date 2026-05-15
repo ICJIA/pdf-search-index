@@ -7,3 +7,4 @@ build
 .output
 *.lock
 pnpm-lock.yaml
+examples/html/public/searchIndex.json

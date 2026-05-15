@@ -24,6 +24,12 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/html:
+    dependencies:
+      '@icjia/pdf-search-index':
+        specifier: workspace:*
+        version: link:../../packages/core
+
   examples/plain-node:
     dependencies:
       '@icjia/pdf-search-index':

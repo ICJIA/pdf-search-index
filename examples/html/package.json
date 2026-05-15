@@ -1,0 +1,16 @@
+{
+  "name": "@icjia-examples/html",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:index": "node build-index.mjs",
+    "build": "pnpm build:index && cp -r public dist",
+    "serve": "npx --yes serve@14 dist -l 4173",
+    "dev": "pnpm build && pnpm serve",
+    "clean": "rm -rf dist .pdf-cache public/searchIndex.json"
+  },
+  "dependencies": {
+    "@icjia/pdf-search-index": "workspace:*"
+  }
+}
