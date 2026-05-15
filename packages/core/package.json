@@ -43,7 +43,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "pdf-search-index": "./dist/cli.js"
+    "pdf-search-index": "./dist/cli.js",
+    "pdf-search-index-mcp": "./dist/mcp.js"
   },
   "files": [
     "dist"

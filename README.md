@@ -201,6 +201,8 @@ The defaults Fuse uses (when you pass `fuseOptions`, they're merged on top of):
 
 The same defaults are used by the CLI's `search` subcommand and the MCP `search_pdfs` tool — keeping them DRY across surfaces means your CLI/MCP/in-browser results behave the same.
 
+**Note:** `createFuseIndex` accepts all `IndexPdfsOptions` fields (`cacheDir`, `concurrency`, `fetch`, etc.) — they're passed through to the internal `indexPdfs` call.
+
 ---
 
 ## Snippet helper (`/snippet` entry)
@@ -216,7 +218,7 @@ const html = snippetHTMLFor(fuseResult, {
 // → "…recovery from substance use disorder is hampered by <mark>stigma</mark>…"
 ```
 
-Picks the longest match span in the matched key, slices ±N chars of context, collapses whitespace runs (PDF text reflow is noisy), HTML-escapes everything except the `<mark>` wrap, and adds ellipses where truncated. Safe to feed to `v-html` / `dangerouslySetInnerHTML`.
+Picks the longest match span in the matched key, slices ±N chars of context, collapses whitespace runs (PDF text reflow is noisy), HTML-escapes everything except the `<mark>` wrap, and adds ellipses where truncated. Output is HTML-escaped except the `<mark>` wrap — safe to pass to `v-html` / `dangerouslySetInnerHTML` when the input comes from your own indexed PDFs.
 
 **Options:**
 
@@ -273,18 +275,18 @@ npx @icjia/pdf-search-index cache clear        # wipe the whole cache
 
 **Global options:**
 
-| Option                 | Type   | Default      | Notes                                |
-| ---------------------- | ------ | ------------ | ------------------------------------ |
-| `--from <file>`        | path   | —            | Read URLs from a file (one per line) |
-| `--from-sitemap <url>` | url    | —            | Scan a sitemap, index linked PDFs    |
-| `--cache-dir <dir>`    | path   | `.pdf-cache` | Cache directory                      |
-| `--concurrency <n>`    | number | `4`          | Parallel fetches                     |
-| `--out <file>`         | path   | stdout       | Where to write the output            |
-| `--strict`             | flag   | off          | Exit 1 if any PDF failed             |
-| `--refresh`            | flag   | off          | Refetch (do not write cache)         |
-| `--refresh-all`        | flag   | off          | Refetch and overwrite cache          |
-| `--ndjson`             | flag   | off          | Emit newline-delimited JSON          |
-| `--text`               | flag   | off          | Emit concatenated text only          |
+| Option                 | Type   | Default      | Notes                                           |
+| ---------------------- | ------ | ------------ | ----------------------------------------------- |
+| `--from <file>`        | path   | —            | Read URLs from a file (one per line)            |
+| `--from-sitemap <url>` | url    | —            | Scan a sitemap, index linked PDFs               |
+| `--cache-dir <dir>`    | path   | `.pdf-cache` | Cache directory                                 |
+| `--concurrency <n>`    | number | `4`          | Parallel fetches                                |
+| `--out <file>`         | path   | stdout       | Where to write the output                       |
+| `--strict`             | flag   | off          | Exit 1 if any PDF failed                        |
+| `--refresh`            | flag   | off          | Re-extract this URL only, skip cache read+write |
+| `--refresh-all`        | flag   | off          | Re-extract all URLs and overwrite cache entries |
+| `--ndjson`             | flag   | off          | Emit newline-delimited JSON                     |
+| `--text`               | flag   | off          | Emit concatenated text only                     |
 
 ---
 
@@ -293,7 +295,7 @@ npx @icjia/pdf-search-index cache clear        # wipe the whole cache
 For LLM workflows where the model needs to search inside PDFs during a conversation.
 
 ```bash
-npx @icjia/pdf-search-index/mcp
+npx -p @icjia/pdf-search-index pdf-search-index-mcp
 ```
 
 Wire it into Claude Desktop / Cursor / any MCP-aware client:
@@ -303,7 +305,7 @@ Wire it into Claude Desktop / Cursor / any MCP-aware client:
   "servers": {
     "pdf-search": {
       "command": "npx",
-      "args": ["@icjia/pdf-search-index/mcp"]
+      "args": ["-p", "@icjia/pdf-search-index", "pdf-search-index-mcp"]
     }
   }
 }
@@ -311,14 +313,14 @@ Wire it into Claude Desktop / Cursor / any MCP-aware client:
 
 **Tools:**
 
-| Tool            | Purpose                                                     |
-| --------------- | ----------------------------------------------------------- |
-| `extract_pdf`   | Single URL → `{ text, pages }`                              |
-| `index_pdfs`    | URL list (or sitemap URL) → `IndexedPdf[]`                  |
-| `get_pdf_index` | Returns the cached/built index for the session              |
-| `search_pdfs`   | URL list + query → ranked snippets (Fuse-powered, internal) |
-| `clear_cache`   | Manual flush                                                |
-| `get_status`    | Server / library / pdf.js versions, cache stats             |
+| Tool            | Purpose                                                             |
+| --------------- | ------------------------------------------------------------------- |
+| `extract_pdf`   | Single URL → `{ text, pages }`                                      |
+| `index_pdfs`    | URL list (or sitemap URL) → `IndexedPdf[]`                          |
+| `get_pdf_index` | List cached entries with metadata (url, length, pages, extractedAt) |
+| `search_pdfs`   | URL list + query → ranked snippets (Fuse-powered, internal)         |
+| `clear_cache`   | Manual flush                                                        |
+| `get_status`    | Server / library / pdf.js versions, cache stats                     |
 
 All tools accept an optional `cacheDir` so a single-session conversation doesn't pollute the user's persistent cache.
 
@@ -386,6 +388,17 @@ export default defineNuxtConfig({
   },
 });
 ```
+
+**Module options:**
+
+| Option        | Type     | Default              | Notes                         |
+| ------------- | -------- | -------------------- | ----------------------------- |
+| `cacheDir`    | `string` | `'.nuxt/.pdf-cache'` | File cache for extracted text |
+| `concurrency` | `number` | `4`                  | Parallel fetches              |
+
+**Per-call options** (passed to either helper):
+
+The helpers accept `IndexPdfsOptions` directly — `fetch`, `fetchTimeout`, `maxBytes`, `cache`, `mergePages`, `concurrency` — overriding the module defaults per call.
 
 The module auto-imports two helpers into server-side `#imports`:
 
@@ -582,6 +595,9 @@ Some PDF hosts reject default Node user agents or require cookies. Pass a custom
 
 **The CLI works but my framework integration emits an empty index.**
 Check that the markdown bodies actually contain PDF URLs the regex picks up: `[Title](url.pdf)` markdown links or bare `https://...pdf` URLs. Relative paths (`/foo.pdf`) won't be fetched — the extractor needs an absolute URL. For build-time integration with relative paths, see [the `fetch` option](#core-api) — pass a custom `fetch` that resolves your site's URLs.
+
+**`astro dev` doesn't produce my searchIndex.pdfs.json.**
+The integration hooks into `astro:build:start`, which only fires during `astro build`. For dev mode, run `astro build` once first (or use the example pattern: a separate `predev` build script). The integration prioritizes byte-stable static output; dev-mode HMR was deferred to a future minor.
 
 **My CI build is slow.**
 First build is genuinely O(N PDFs) bytes-downloaded + parse-time. Subsequent builds hit the cache. Persist `.pdf-cache/` between CI runs (GitHub Actions: `actions/cache@v4` keyed on a stable cache key).
