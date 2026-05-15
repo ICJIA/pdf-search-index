@@ -1,0 +1,15 @@
+{
+  "name": "@icjia-examples/plain-node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs",
+    "build": "node index.mjs --write dist/searchIndex.json",
+    "clean": "rm -rf dist .pdf-cache"
+  },
+  "dependencies": {
+    "@icjia/pdf-search-index": "workspace:*",
+    "fuse.js": "^7.0.0"
+  }
+}

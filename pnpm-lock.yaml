@@ -24,6 +24,15 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/plain-node:
+    dependencies:
+      '@icjia/pdf-search-index':
+        specifier: workspace:*
+        version: link:../../packages/core
+      fuse.js:
+        specifier: ^7.0.0
+        version: 7.3.0
+
   packages/astro-pdf-search-index:
     dependencies:
       '@icjia/pdf-search-index':
