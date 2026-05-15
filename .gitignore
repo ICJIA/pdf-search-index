@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test output
+coverage/
+.vitest-cache/
+
+# PDF text cache (generated at build time)
+.pdf-cache/
+.astro/.pdf-cache/
+.nuxt/.pdf-cache/
+
+# Framework state
+.astro/
+.nuxt/
+.output/
+.vinxi/
+
+# Tooling
+.turbo/
+.changeset/.cache/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
