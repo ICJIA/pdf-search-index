@@ -1,0 +1,133 @@
+---
+title: PDF Search — Eleventy example
+layout: false
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }}</title>
+    <style>
+      body {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+      }
+      p.lede {
+        color: #555;
+        margin-top: 0;
+      }
+      input {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        font-size: 1rem;
+        border: 2px solid #0d4474;
+        border-radius: 4px;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        margin: 0.5rem 0;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      li a {
+        color: #0d4474;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .snippet {
+        color: #555;
+        font-size: 0.9rem;
+        margin-top: 0.4rem;
+      }
+      mark {
+        background: #fff59d;
+        padding: 0 2px;
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>{{ title }}</h1>
+    <p class="lede">
+      Eleventy 3 + Fuse loaded from a CDN. The search index is built at compile time and rendered
+      into the page as a JSON island.
+    </p>
+
+    <input id="q" type="search" placeholder="Search the PDF corpus…" autocomplete="off" />
+    <p id="meta">{{ searchIndex.length }} PDF(s) indexed. Try "stigma", "methamphetamine", "juvenile".</p>
+    <ul id="results"></ul>
+
+    <script id="rows" type="application/json">
+      {{ searchIndex | dump | safe }}
+    </script>
+    <script type="module">
+      import Fuse from 'https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.esm.js';
+      const SNIPPET_CONTEXT = 80;
+      const esc = (s) =>
+        s.replace(
+          /[&<>"']/g,
+          (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+        );
+      const collapseWS = (s) => s.replace(/\s+/g, ' ');
+      const rows = JSON.parse(document.getElementById('rows').textContent);
+      const fuse = new Fuse(rows, {
+        keys: ['title', 'text'],
+        threshold: 0.3,
+        ignoreLocation: true,
+        minMatchCharLength: 2,
+        includeMatches: true,
+      });
+      const q = document.getElementById('q');
+      const meta = document.getElementById('meta');
+      const list = document.getElementById('results');
+      function snippet(r) {
+        const m = (r.matches ?? []).find((x) => x.key === 'text');
+        if (!m?.indices?.length) return '';
+        const [start, end] = m.indices.reduce(
+          (b, c) => (c[1] - c[0] > b[1] - b[0] ? c : b),
+          m.indices[0],
+        );
+        const t = r.item.text;
+        const a = Math.max(0, start - SNIPPET_CONTEXT);
+        const b = Math.min(t.length, end + 1 + SNIPPET_CONTEXT);
+        return (
+          (a > 0 ? '…' : '') +
+          esc(collapseWS(t.slice(a, start))) +
+          `<mark>${esc(collapseWS(t.slice(start, end + 1)))}</mark>` +
+          esc(collapseWS(t.slice(end + 1, b))) +
+          (b < t.length ? '…' : '')
+        );
+      }
+      q.addEventListener('input', () => {
+        const v = q.value.trim();
+        if (!v) {
+          meta.textContent = `${rows.length} PDF(s) indexed. Try "stigma", "methamphetamine", "juvenile".`;
+          list.innerHTML = '';
+          return;
+        }
+        const results = fuse.search(v).slice(0, 50);
+        meta.textContent = `${results.length} match(es) for "${v}".`;
+        list.innerHTML = results
+          .map(
+            (r) =>
+              `<li><a href="${r.item.url}" target="_blank" rel="noopener">${esc(r.item.title)}</a><div class="snippet">${snippet(r)}</div></li>`,
+          )
+          .join('');
+      });
+    </script>
+  </body>
+</html>

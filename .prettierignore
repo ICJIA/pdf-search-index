@@ -13,3 +13,5 @@ examples/astro/src/content/docs/
 examples/astro/public/searchIndex.pdfs.json
 examples/nextjs/.next/
 examples/nextjs/public/searchIndex.json
+examples/eleventy/_site/
+examples/eleventy/src/_data/searchIndex.json
