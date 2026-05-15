@@ -1970,7 +1970,7 @@ An 11ty static-site example: an `_data/searchIndex.js` data file builds the inde
 - Create: `examples/eleventy/package.json`
 - Create: `examples/eleventy/local-fetch.mjs`
 - Create: `examples/eleventy/build-index.mjs`
-- Create: `examples/eleventy/.eleventy.cjs`
+- Create: `examples/eleventy/eleventy.config.cjs`
 - Create: `examples/eleventy/src/index.njk`
 - Create: `examples/eleventy/README.md`
 
@@ -2035,7 +2035,7 @@ console.log(`Wrote ${outPath} (${rows.length} rows)`);
 
 - [ ] **Step 4: Create the 11ty config**
 
-Create `examples/eleventy/.eleventy.cjs`:
+Create `examples/eleventy/eleventy.config.cjs`:
 
 ```js
 // 11ty config — 11ty 3.x still expects CommonJS for the config file even
