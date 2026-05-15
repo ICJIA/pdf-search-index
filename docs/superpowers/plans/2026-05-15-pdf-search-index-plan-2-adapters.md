@@ -7,6 +7,7 @@
 **Architecture:** The Astro integration is a thin Astro `AstroIntegration` that hooks into the `astro:build:setup` lifecycle, walks configured content collections, calls `extractPdfsFromBody` on each entry's body, and emits a static JSON endpoint at a configurable path. The Nuxt 4 module is a `defineNuxtModule` build that registers two server-side helpers (`extractPdfsFromCmsBody`, `extractPdfsFromContentDoc`) plus a shared Nitro server-route template the consumer site can adapt. Both adapters wrap `@icjia/pdf-search-index@0.1.0` as a runtime dependency; nothing PDF-specific is reimplemented.
 
 **Tech Stack:**
+
 - Astro: `astro@^5.0.0` (peer), `@types/astro` types
 - Nuxt 4: `@nuxt/kit@^4.0.0` (peer), `nuxt@^4.0.0` for fixture tests
 - Shared: TypeScript ESM, tsup/unbuild for builds, vitest for tests, the pre-existing pnpm/changesets/oxlint/prettier toolchain
@@ -28,6 +29,7 @@ Bundles the small reviewer-flagged items so we don't litter the history with one
 - **M7**: have `extractPdfMetadata` consult the cache first (avoid double-fetch when paired with `extractPdfText`)
 
 **Files:**
+
 - Modify: `packages/core/src/index.ts`
 - Modify: `packages/core/src/url-scan.ts`
 - Modify: `packages/core/src/extractor.ts`
@@ -112,18 +114,18 @@ This way, linked URLs flow through with `title` set (so `buildRow` skips the fal
 In `packages/core/test/index.test.ts`, append a new test inside the existing `describe('extractPdfsFromBody', ...)` block (before the closing `});`):
 
 ```ts
-  it('falls back through info-dict for bare URLs (no markdown link text)', async () => {
-    const body = `Here is a bare PDF: https://example.com/r3-faq-2024.pdf`;
-    const rows = await extractPdfsFromBody(body, {
-      cacheDir,
-      fetch: fixtureFetch({ 'https://example.com/r3-faq-2024.pdf': 'small-text.pdf' }),
-    });
-    expect(rows).toHaveLength(1);
-    // Fixture PDFs have no info-dict Title, so we fall through to the
-    // humanized filename, exactly as before. Test value: the buildRow
-    // fallback chain runs (would skip if title were pre-filled by url-scan).
-    expect(rows[0]!.title).toBe('R3 Faq 2024');
+it('falls back through info-dict for bare URLs (no markdown link text)', async () => {
+  const body = `Here is a bare PDF: https://example.com/r3-faq-2024.pdf`;
+  const rows = await extractPdfsFromBody(body, {
+    cacheDir,
+    fetch: fixtureFetch({ 'https://example.com/r3-faq-2024.pdf': 'small-text.pdf' }),
   });
+  expect(rows).toHaveLength(1);
+  // Fixture PDFs have no info-dict Title, so we fall through to the
+  // humanized filename, exactly as before. Test value: the buildRow
+  // fallback chain runs (would skip if title were pre-filled by url-scan).
+  expect(rows[0]!.title).toBe('R3 Faq 2024');
+});
 ```
 
 The fixture PDFs from Task 2 of Plan 1 don't set an info-dict Title, so the test only verifies that the chain runs end-to-end. (Task 2 of THIS plan will add a fixture WITH an info-dict Title and a more pointed test.)
@@ -133,12 +135,12 @@ The fixture PDFs from Task 2 of Plan 1 don't set an info-dict Title, so the test
 In `packages/core/test/url-scan.test.ts`, update the "finds bare PDF URLs" test:
 
 ```ts
-  it('finds bare PDF URLs (title left blank for buildRow info-dict fallback)', () => {
-    const body = `https://example.com/r3-faq-2024.pdf is available.`;
-    expect(extractPdfUrlsFromMarkdown(body)).toEqual([
-      { url: 'https://example.com/r3-faq-2024.pdf', title: '' },
-    ]);
-  });
+it('finds bare PDF URLs (title left blank for buildRow info-dict fallback)', () => {
+  const body = `https://example.com/r3-faq-2024.pdf is available.`;
+  expect(extractPdfUrlsFromMarkdown(body)).toEqual([
+    { url: 'https://example.com/r3-faq-2024.pdf', title: '' },
+  ]);
+});
 ```
 
 - [ ] **Step 6: Run the modified tests, confirm pass**
@@ -280,7 +282,7 @@ async function emit(rows: IndexedPdf[], opts: RootOptions): Promise<void> {
 And update the call site in the root action:
 
 ```ts
-    await emit(rows, opts);
+await emit(rows, opts);
 ```
 
 - [ ] **Step 11: Add concurrency and timeout to `urlsFromSitemap`**
@@ -293,9 +295,7 @@ async function urlsFromSitemap(
   opts: { concurrency: number; fetchTimeout?: number },
 ): Promise<string[]> {
   const controller = new AbortController();
-  const timer = opts.fetchTimeout
-    ? setTimeout(() => controller.abort(), opts.fetchTimeout)
-    : null;
+  const timer = opts.fetchTimeout ? setTimeout(() => controller.abort(), opts.fetchTimeout) : null;
   let xml: string;
   try {
     const res = await fetch(sitemapUrl, { signal: controller.signal });
@@ -443,6 +443,7 @@ git commit -m "fix(core): bare-URL title fallback, DRY Fuse defaults, --out, sit
 Closes the I2 and I3 reviewer gaps.
 
 **Files:**
+
 - Modify: `packages/core/test/fixtures/generate.ts` (add an info-dict-title fixture)
 - Create: `packages/core/test/extractor-encrypted.test.ts`
 - Modify: `packages/core/test/cli.test.ts` (add coverage for --from-sitemap, cache subcommands, --ndjson, --text, --refresh, --out)
@@ -453,24 +454,22 @@ Closes the I2 and I3 reviewer gaps.
 In `packages/core/test/fixtures/generate.ts`, add a fourth fixture inside `main()`:
 
 ```ts
-  // titled.pdf — has an info-dict Title set, used to exercise the
-  // info-dict title fallback in url-scan/extractor tests.
-  {
-    const doc = await PDFDocument.create();
-    doc.setTitle('Fixture Info-Dict Title');
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const page = doc.addPage([300, 200]);
-    page.drawText('body content', { x: 20, y: 100, font, size: 14 });
-    writeFileSync(join(here, 'titled.pdf'), await doc.save());
-  }
+// titled.pdf — has an info-dict Title set, used to exercise the
+// info-dict title fallback in url-scan/extractor tests.
+{
+  const doc = await PDFDocument.create();
+  doc.setTitle('Fixture Info-Dict Title');
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const page = doc.addPage([300, 200]);
+  page.drawText('body content', { x: 20, y: 100, font, size: 14 });
+  writeFileSync(join(here, 'titled.pdf'), await doc.save());
+}
 ```
 
 Update the trailing log:
 
 ```ts
-  console.log(
-    'Generated fixtures: small-text.pdf, multi-page.pdf, image-only.pdf, titled.pdf',
-  );
+console.log('Generated fixtures: small-text.pdf, multi-page.pdf, image-only.pdf, titled.pdf');
 ```
 
 Regenerate: `pnpm --filter @icjia/pdf-search-index fixtures`
@@ -481,15 +480,15 @@ Expected: four `.pdf` files in `packages/core/test/fixtures/`.
 Append to the existing `describe('extractPdfsFromBody', ...)` block:
 
 ```ts
-  it('uses pdf.js info-dict Title for bare URLs when present', async () => {
-    const body = `Document: https://example.com/r3-titled.pdf`;
-    const rows = await extractPdfsFromBody(body, {
-      cacheDir,
-      fetch: fixtureFetch({ 'https://example.com/r3-titled.pdf': 'titled.pdf' }),
-    });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.title).toBe('Fixture Info-Dict Title');
+it('uses pdf.js info-dict Title for bare URLs when present', async () => {
+  const body = `Document: https://example.com/r3-titled.pdf`;
+  const rows = await extractPdfsFromBody(body, {
+    cacheDir,
+    fetch: fixtureFetch({ 'https://example.com/r3-titled.pdf': 'titled.pdf' }),
   });
+  expect(rows).toHaveLength(1);
+  expect(rows[0]!.title).toBe('Fixture Info-Dict Title');
+});
 ```
 
 - [ ] **Step 3: Create the encrypted-PDF mock test**
@@ -528,7 +527,8 @@ describe('encrypted PDF handling', () => {
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const fetchOk = (async () => new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]))) as unknown as typeof fetch;
+    const fetchOk = (async () =>
+      new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]))) as unknown as typeof fetch;
 
     const text = await extractPdfText('https://example.com/locked.pdf', {
       cacheDir,
@@ -552,39 +552,37 @@ Expected: both files pass.
 In `packages/core/test/cli.test.ts`, add a new sitemap server in `beforeEach`. Modify the existing fixture HTTP server logic to also respond to `/sitemap.xml` with a generated sitemap and `/page-with-pdf` with HTML containing a bare PDF URL. Insert these handlers BEFORE the catchall `try` block:
 
 ```ts
-  server = createServer(async (req, res) => {
-    const url = req.url ?? '/';
+server = createServer(async (req, res) => {
+  const url = req.url ?? '/';
 
-    if (url === '/sitemap.xml') {
-      res.writeHead(200, { 'content-type': 'application/xml' });
-      res.end(
-        `<?xml version="1.0" encoding="UTF-8"?>
+  if (url === '/sitemap.xml') {
+    res.writeHead(200, { 'content-type': 'application/xml' });
+    res.end(
+      `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>http://127.0.0.1:${(server.address() as { port: number }).port}/small-text.pdf</loc></url>
   <url><loc>http://127.0.0.1:${(server.address() as { port: number }).port}/page-with-pdf</loc></url>
 </urlset>`,
-      );
-      return;
-    }
+    );
+    return;
+  }
 
-    if (url === '/page-with-pdf') {
-      const p = (server.address() as { port: number }).port;
-      res.writeHead(200, { 'content-type': 'text/html' });
-      res.end(
-        `<html><body>See http://127.0.0.1:${p}/multi-page.pdf for details.</body></html>`,
-      );
-      return;
-    }
+  if (url === '/page-with-pdf') {
+    const p = (server.address() as { port: number }).port;
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end(`<html><body>See http://127.0.0.1:${p}/multi-page.pdf for details.</body></html>`);
+    return;
+  }
 
-    const filename = url.replace('/', '');
-    try {
-      const buf = await readFile(join(fixturesDir, filename));
-      res.writeHead(200, { 'content-type': 'application/pdf' });
-      res.end(buf);
-    } catch {
-      res.writeHead(404).end();
-    }
-  });
+  const filename = url.replace('/', '');
+  try {
+    const buf = await readFile(join(fixturesDir, filename));
+    res.writeHead(200, { 'content-type': 'application/pdf' });
+    res.end(buf);
+  } catch {
+    res.writeHead(404).end();
+  }
+});
 ```
 
 Then append new `describe` blocks at the bottom of the file (before final closing braces):
@@ -709,6 +707,7 @@ git commit -m "test(core): encrypted-PDF mock + CLI sitemap/cache/output-mode co
 ## Task 3: `@icjia/astro-pdf-search-index` package
 
 **Files (all new):**
+
 - `packages/astro-pdf-search-index/package.json`
 - `packages/astro-pdf-search-index/tsconfig.json`
 - `packages/astro-pdf-search-index/tsup.config.ts`
@@ -858,7 +857,9 @@ export interface PdfSearchIntegrationOptions {
 interface AstroIntegrationLike {
   name: string;
   hooks: {
-    'astro:build:setup'?: (opts: { config: { srcDir: { pathname: string }; publicDir: { pathname: string } } }) => Promise<void> | void;
+    'astro:build:setup'?: (opts: {
+      config: { srcDir: { pathname: string }; publicDir: { pathname: string } };
+    }) => Promise<void> | void;
     'astro:build:done'?: (opts: { dir: { pathname: string } }) => Promise<void> | void;
   };
 }
@@ -912,9 +913,7 @@ export default function pdfSearchIntegration(
  * files and returns each one's raw body. We deliberately don't try to parse
  * frontmatter here — `extractPdfsFromBody` only needs the body string.
  */
-async function readMarkdownEntries(
-  dir: string,
-): Promise<Array<{ path: string; body: string }>> {
+async function readMarkdownEntries(dir: string): Promise<Array<{ path: string; body: string }>> {
   const { readdir, readFile, stat } = await import('node:fs/promises');
   const out: Array<{ path: string; body: string }> = [];
   let entries: string[];
@@ -1140,12 +1139,12 @@ import { defineConfig } from 'astro/config';
 import pdfSearch from '@icjia/astro-pdf-search-index';
 
 export default defineConfig({
-  integrations: [
-    pdfSearch({
-      collections: ['resources', 'news', 'pages'],
-      endpoint: 'searchIndex.pdfs.json',
-    }),
-  ],
+integrations: [
+pdfSearch({
+collections: ['resources', 'news', 'pages'],
+endpoint: 'searchIndex.pdfs.json',
+}),
+],
 });
 \`\`\`
 
@@ -1155,8 +1154,8 @@ index in the browser:
 
 \`\`\`ts
 const [pages, pdfs] = await Promise.all([
-  fetch('/searchIndex.json').then((r) => r.json()),
-  fetch('/searchIndex.pdfs.json').then((r) => r.json()),
+fetch('/searchIndex.json').then((r) => r.json()),
+fetch('/searchIndex.pdfs.json').then((r) => r.json()),
 ]);
 const fuse = new Fuse([...pages, ...pdfs], { keys: ['title', 'text'], includeMatches: true });
 \`\`\`
@@ -1193,6 +1192,7 @@ git commit -m "feat(astro): @icjia/astro-pdf-search-index integration with colle
 ## Task 4: `@icjia/nuxt-pdf-search-index` module
 
 **Files (all new):**
+
 - `packages/nuxt-pdf-search-index/package.json`
 - `packages/nuxt-pdf-search-index/tsconfig.json`
 - `packages/nuxt-pdf-search-index/build.config.ts`
@@ -1563,11 +1563,11 @@ npm install @icjia/pdf-search-index @icjia/nuxt-pdf-search-index
 \`\`\`ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ['@icjia/nuxt-pdf-search-index'],
-  pdfSearchIndex: {
-    cacheDir: '.nuxt/.pdf-cache',
-    concurrency: 4,
-  },
+modules: ['@icjia/nuxt-pdf-search-index'],
+pdfSearchIndex: {
+cacheDir: '.nuxt/.pdf-cache',
+concurrency: 4,
+},
 });
 \`\`\`
 
@@ -1634,11 +1634,11 @@ git push -u origin feat/v1-adapters
 
 After Plan 2 lands you have three buildable, tested, publishable-shape packages:
 
-| Package | Version | Entry points |
-|---|---|---|
-| `@icjia/pdf-search-index` | 0.1.0 (already tagged) | `.`, `./fuse`, `./snippet`, `./mcp`, `bin: pdf-search-index` |
-| `@icjia/astro-pdf-search-index` | 0.0.0 (no version bump yet) | `.` |
-| `@icjia/nuxt-pdf-search-index` | 0.0.0 (no version bump yet) | `.`, `./server` |
+| Package                         | Version                     | Entry points                                                 |
+| ------------------------------- | --------------------------- | ------------------------------------------------------------ |
+| `@icjia/pdf-search-index`       | 0.1.0 (already tagged)      | `.`, `./fuse`, `./snippet`, `./mcp`, `bin: pdf-search-index` |
+| `@icjia/astro-pdf-search-index` | 0.0.0 (no version bump yet) | `.`                                                          |
+| `@icjia/nuxt-pdf-search-index`  | 0.0.0 (no version bump yet) | `.`, `./server`                                              |
 
 Plan 3 (separate document, written after Plan 2 lands) covers:
 
