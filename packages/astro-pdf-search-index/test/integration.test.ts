@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { rm, mkdir, readFile, writeFile, cp } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { createServer, type Server } from 'node:http';
 import pdfSearchIntegration from '../src/index.js';
@@ -34,12 +34,10 @@ beforeEach(async () => {
   if (!addr || typeof addr === 'string') throw new Error('bad addr');
   baseUrl = `http://127.0.0.1:${addr.port}`;
 
-  // Substitute the placeholder PDF URL in the fixture markdown.
   const mdPath = join(workDir, 'src/content/resources/example.md');
   const md = await readFile(mdPath, 'utf-8');
   await writeFile(mdPath, md.replace('TEST_PDF_URL', `${baseUrl}/small-text.pdf`));
 
-  // Ensure public/ exists (the integration writes into it).
   await mkdir(join(workDir, 'public'), { recursive: true });
 });
 
@@ -48,7 +46,30 @@ afterEach(async () => {
   await rm(workDir, { recursive: true, force: true });
 });
 
-describe('astro integration: build hook', () => {
+/**
+ * Helper: invoke the two real Astro hooks in order. Mimics what astro:build
+ * would do but doesn't require running a full Astro build.
+ */
+async function runIntegration(
+  integration: ReturnType<typeof pdfSearchIntegration>,
+  workDir: string,
+): Promise<void> {
+  // astro:config:done is called by Astro with the fully-resolved AstroConfig.
+  // We only need srcDir and publicDir as URL objects.
+  const config = {
+    srcDir: pathToFileURL(join(workDir, 'src/')),
+    publicDir: pathToFileURL(join(workDir, 'public/')),
+    // Astro's AstroConfig is huge; the test only uses what the integration
+    // touches. Cast to `never` to bypass strict typing here.
+  } as never;
+  const onConfigDone = integration.hooks['astro:config:done'];
+  if (onConfigDone) await onConfigDone({ config } as never);
+
+  const onBuildStart = integration.hooks['astro:build:start'];
+  if (onBuildStart) await onBuildStart({ logger: console } as never);
+}
+
+describe('astro integration: real-hook contract', () => {
   it('walks configured collections and emits a JSON index to public/', async () => {
     const integration = pdfSearchIntegration({
       collections: ['resources'],
@@ -56,12 +77,7 @@ describe('astro integration: build hook', () => {
       cacheDir: join(workDir, '.astro/.pdf-cache'),
     });
 
-    await integration.hooks['astro:build:setup']!({
-      config: {
-        srcDir: { pathname: join(workDir, 'src/') },
-        publicDir: { pathname: join(workDir, 'public/') },
-      },
-    });
+    await runIntegration(integration, workDir);
 
     const raw = await readFile(join(workDir, 'public/searchIndex.pdfs.json'), 'utf-8');
     const rows = JSON.parse(raw) as Array<{ url: string; title: string; text: string }>;
@@ -85,15 +101,18 @@ Same PDF: [Annual Report Again](${baseUrl}/small-text.pdf)`;
       cacheDir: join(workDir, '.astro/.pdf-cache'),
     });
 
-    await integration.hooks['astro:build:setup']!({
-      config: {
-        srcDir: { pathname: join(workDir, 'src/') },
-        publicDir: { pathname: join(workDir, 'public/') },
-      },
-    });
+    await runIntegration(integration, workDir);
 
     const raw = await readFile(join(workDir, 'public/searchIndex.pdfs.json'), 'utf-8');
     const rows = JSON.parse(raw) as Array<unknown>;
     expect(rows).toHaveLength(1);
+  });
+
+  it('returns the AstroIntegration shape (has name and hooks)', () => {
+    const integration = pdfSearchIntegration({ collections: [] });
+    expect(integration.name).toBe('@icjia/astro-pdf-search-index');
+    expect(typeof integration.hooks).toBe('object');
+    expect(typeof integration.hooks['astro:config:done']).toBe('function');
+    expect(typeof integration.hooks['astro:build:start']).toBe('function');
   });
 });

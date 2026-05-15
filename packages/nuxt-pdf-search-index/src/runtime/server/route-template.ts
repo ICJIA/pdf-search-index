@@ -4,13 +4,11 @@
  * Copy this file into your Nuxt project at `server/api/searchIndex.get.ts`,
  * then customize the CMS fetch logic and content query to match your stack.
  *
+ * The helpers read `pdfSearchIndex.cacheDir` / `pdfSearchIndex.concurrency`
+ * from your `nuxt.config.ts` automatically — you don't need to pass them.
+ *
  * After customization, fetch `/api/searchIndex` from the client to load
  * the combined search index (pages + CMS rows + extracted PDF rows).
- *
- * NOTE: This file is a template intended to be copied into a downstream
- * Nuxt project. The `#imports` virtual module and `h3` helpers only
- * resolve inside a real Nuxt build, so this source is excluded from tsc
- * via tsconfig.json `exclude`.
  */
 import { defineEventHandler } from 'h3';
 import { extractPdfsFromCmsBody, extractPdfsFromContentDoc } from '#imports';

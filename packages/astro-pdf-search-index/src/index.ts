@@ -1,7 +1,13 @@
+import type { AstroIntegration } from 'astro';
 import { extractPdfsFromBody } from '@icjia/pdf-search-index';
 import type { IndexedPdf, IndexPdfsOptions } from '@icjia/pdf-search-index';
 import { writeFile, mkdir, readdir, readFile, stat } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+
+// Re-export so consumers of @icjia/astro-pdf-search-index don't need to
+// install @icjia/pdf-search-index just to type-annotate the rows.
+export type { IndexedPdf, IndexPdfsOptions } from '@icjia/pdf-search-index';
 
 export interface PdfSearchIntegrationOptions {
   /**
@@ -31,34 +37,34 @@ export interface PdfSearchIntegrationOptions {
   contentSourceDir?: string;
 }
 
-interface BuildSetupContext {
-  config: {
-    srcDir: { pathname: string };
-    publicDir: { pathname: string };
-  };
-}
-
-interface AstroIntegrationLike {
-  name: string;
-  hooks: {
-    'astro:build:setup'?: (ctx: BuildSetupContext) => Promise<void> | void;
-  };
-}
-
 export default function pdfSearchIntegration(
   options: PdfSearchIntegrationOptions,
-): AstroIntegrationLike {
+): AstroIntegration {
   const endpoint = options.endpoint ?? 'searchIndex.pdfs.json';
   const cacheDir = options.cacheDir ?? '.astro/.pdf-cache';
   const concurrency = options.concurrency ?? 4;
   const contentSourceDir = options.contentSourceDir ?? 'content';
 
+  // `astro:config:done` is the right hook to capture the resolved AstroConfig
+  // (where srcDir/publicDir are real URLs). We do the actual scan + write
+  // there because (a) it runs once per build, (b) the publicDir is finalized,
+  // and (c) emitting to public/ before Astro's own build pipeline copies
+  // static assets means the index ends up in the final dist/.
+  let resolvedSrcDir: URL | null = null;
+  let resolvedPublicDir: URL | null = null;
+
   return {
     name: '@icjia/astro-pdf-search-index',
     hooks: {
-      'astro:build:setup': async (ctx) => {
-        const srcDir = ctx.config.srcDir.pathname;
-        const publicDir = ctx.config.publicDir.pathname;
+      'astro:config:done': ({ config }) => {
+        resolvedSrcDir = config.srcDir;
+        resolvedPublicDir = config.publicDir;
+      },
+      'astro:build:start': async () => {
+        if (!resolvedSrcDir || !resolvedPublicDir) return;
+
+        const srcDir = fileURLToPath(resolvedSrcDir);
+        const publicDir = fileURLToPath(resolvedPublicDir);
 
         const allRows: IndexedPdf[] = [];
         const seen = new Set<string>();
