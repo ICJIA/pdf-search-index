@@ -15,3 +15,6 @@ examples/nextjs/.next/
 examples/nextjs/public/searchIndex.json
 examples/eleventy/_site/
 examples/eleventy/src/_data/searchIndex.json
+examples/nuxt-mixed/.nuxt/
+examples/nuxt-mixed/.output/
+examples/nuxt-mixed/content/

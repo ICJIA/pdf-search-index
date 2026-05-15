@@ -1,0 +1,6 @@
+.nuxt/
+.output/
+.pdf-cache/
+node_modules/
+content/
+dist/

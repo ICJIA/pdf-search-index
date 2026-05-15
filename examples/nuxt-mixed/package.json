@@ -1,0 +1,23 @@
+{
+  "name": "@icjia-examples/nuxt-mixed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:content": "node scripts/generate-content.mjs",
+    "predev": "pnpm generate:content",
+    "dev": "nuxt dev --port 3001",
+    "prebuild": "pnpm generate:content",
+    "build": "nuxt build",
+    "preview": "nuxt preview --port 3001",
+    "clean": "rm -rf .nuxt .output .pdf-cache content"
+  },
+  "dependencies": {
+    "@icjia/nuxt-pdf-search-index": "workspace:*",
+    "@icjia/pdf-search-index": "workspace:*",
+    "@nuxt/content": "^3.0.0",
+    "better-sqlite3": "^12.0.0",
+    "fuse.js": "^7.0.0",
+    "nuxt": "^4.0.0"
+  }
+}
