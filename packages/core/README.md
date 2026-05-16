@@ -138,10 +138,23 @@ Full CLI option table and output formats: [README CLI section](../../README.md#c
 For LLM workflows where the model needs to search inside PDFs during a conversation:
 
 ```bash
-npx -p @icjia/pdf-search-index pdf-search-index-mcp
+npx -p @icjia/pdf-search-index@latest pdf-search-index-mcp
 ```
 
-Wire into Claude Desktop / Cursor / any MCP-aware client. Tools: `extract_pdf`, `index_pdfs`, `get_pdf_index`, `search_pdfs`, `clear_cache`, `get_status`. Since v1.0.2, every tool's `cacheDir` argument is jailed under `<os.tmpdir>/pdf-search-index-mcp/` — LLM-supplied paths can't escape the safe base. Full MCP details: [README MCP section](../../README.md#mcp-server-mcp-entry).
+**Always use `@latest`** when wiring into Claude Desktop / Cursor / any MCP-aware client so the client picks up security patches and bug fixes automatically. Sample config:
+
+```json
+{
+  "servers": {
+    "pdf-search": {
+      "command": "npx",
+      "args": ["-p", "@icjia/pdf-search-index@latest", "pdf-search-index-mcp"]
+    }
+  }
+}
+```
+
+Tools: `extract_pdf`, `index_pdfs`, `get_pdf_index`, `search_pdfs`, `clear_cache`, `get_status`. Since v1.0.2, every tool's `cacheDir` argument is jailed under `<os.tmpdir>/pdf-search-index-mcp/` — LLM-supplied paths can't escape the safe base. Full MCP details: [README MCP section](../../README.md#mcp-server-mcp-entry).
 
 ## Where to learn more
 

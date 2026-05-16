@@ -784,17 +784,17 @@ npx @icjia/pdf-search-index cache clear        # wipe the whole cache
 For LLM workflows where the model needs to search inside PDFs during a conversation.
 
 ```bash
-npx -p @icjia/pdf-search-index pdf-search-index-mcp
+npx -p @icjia/pdf-search-index@latest pdf-search-index-mcp
 ```
 
-Wire it into Claude Desktop / Cursor / any MCP-aware client:
+Wire it into Claude Desktop / Cursor / any MCP-aware client. **Always use `@latest`** so the client picks up the most recent security and bug fixes — pinning to a specific version means missing patches:
 
 ```json
 {
   "servers": {
     "pdf-search": {
       "command": "npx",
-      "args": ["-p", "@icjia/pdf-search-index", "pdf-search-index-mcp"]
+      "args": ["-p", "@icjia/pdf-search-index@latest", "pdf-search-index-mcp"]
     }
   }
 }
