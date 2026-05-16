@@ -11,6 +11,13 @@ If you're skimming the repo trying to figure out what a real production-shaped c
 - A dark-mode single-page site with a sticky search bar, three numbered "how it works" steps, a corpus listing of the indexed PDFs, and a live result list with `<mark>`-highlighted snippets.
 - The full `@icjia/astro-pdf-search-index` integration flow: build-time PDF extraction via `pdf.js`, JSON output to `public/searchIndex.pdfs.json`, client-side fuzzy search via Fuse.js.
 - A two-URL pattern (file:// at build time, `/pdfs/*` at runtime) — see the architecture note below.
+- A live Fuse.js options tuner exposing all 13 v7.4-beta options (`threshold`, `distance`, `location`, `ignoreLocation`, `minMatchCharLength`, `isCaseSensitive`, `includeScore`, `shouldSort`, `findAllMatches`, `ignoreFieldNorm`, `fieldNormWeight`, `useExtendedSearch`, plus a custom `tokenSearch` toggle), with a live `new Fuse(...)` config preview that updates as you flip switches.
+- A token-search wrapper (`tokenizeAndSearch` in `Search.vue`) — splits multi-word queries into whitespace tokens, runs `fuse.search()` per token, and merges hits by best score with a token-hit count tiebreaker. Improves recall for short queries like "drug testing" where either word alone is a useful hit. Default on; disabled when `useExtendedSearch` is selected (extended already has its own token operators).
+- A multi-region snippet picker (`distributeMatches` in `Search.vue`) — buckets `matches[].indices` across document position so the multi-snippet output draws from intro / middle / end, not from the densest cluster. Combined with `snippetHTMLFor(..., { maxSnippets: 8 })` you get up to 8 highlighted passages spread across each result PDF.
+- A match-count badge on result cards ("12 MATCHES") that reflects every body-text match span, not just the rendered ones.
+- A "Needs OCR — title only" badge for image-only PDFs (the two image-only fixtures `Seniors.pdf` and `Female Criminality.pdf` always surface in this state).
+- An expandable "Inspect the search index" block (`<details>`) showing the raw `IndexedPdf[]` JSON the page consumed.
+- A bundled Mozilla pdf.js viewer at `public/pdfjs-viewer/` (~7 MB on disk after trimming, ~2 MB gzipped) so result clicks open the PDF with the search term pre-filled in the viewer's find bar — reliably across Chrome, Edge, Firefox, and Safari.
 
 The indexed PDFs are randomly-clicked public samples from [icjia.illinois.gov](https://icjia.illinois.gov/) committed at [`examples/_fixtures/`](../_fixtures/) — they cover juvenile justice, public health, evaluation reports, and other ICJIA programmatic topics. Drop in your own PDFs and re-run; everything auto-discovers.
 

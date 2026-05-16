@@ -353,7 +353,7 @@
         Orama (zero-config, multi-language, fast on large corpora), Lunr (no-fuzzy classic),
         FlexSearch (best raw perf, fiddlier config), Pagefind (build-time crawler — different
         model), and three managed services (Typesense, MeiliSearch, Algolia). Pick by team
-        familiarity and corpus size; for the 7-PDF demo you&rsquo;re looking at, Fuse and any of
+        familiarity and corpus size; for the 10-PDF demo you&rsquo;re looking at, Fuse and any of
         those are interchangeable.
       </p>
     </div>

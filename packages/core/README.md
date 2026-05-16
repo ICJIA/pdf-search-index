@@ -31,7 +31,7 @@ Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` o
 
 **C2 (SSRF allowlist), I2 (cache-key URL normalization), I5 (CLI sitemap hardening), I6 (`maxUrls` cap)** are deferred to v1.1 / v2.0 because they need an opt-in flag design or a breaking change. Configure outbound network policy in your CI environment as a mitigation in the meantime.
 
-26 new regression tests cover the audit fixes (105 total in 1.0.2, up from 79; 1.0.3 adds 6 more snippet `maxSnippets` tests → 111). Read the full audit reference, trust model, and migration notes in the [top-level README's Security section](../../README.md#security) and [Security considerations & audit history](../../README.md#security-considerations--audit-history).
+26 new regression tests cover the audit fixes (105 total in 1.0.2, up from 79; 1.0.3 adds snippet `maxSnippets` coverage; the 2026-05-16 v1.0.3 audit pass added 3 more regression tests for the multi-snippet picker → 114 total). Read the full audit reference, trust model, and migration notes in the [top-level README's Security section](../../README.md#security) and [Security considerations & audit history](../../README.md#security-considerations--audit-history) (including the 2026-05-16 v1.0.3 scope-limited delta pass).
 
 ## The 30-second integration
 
@@ -60,18 +60,20 @@ for (const r of fuse.search('stigma')) {
 }
 ```
 
+`snippetHTMLFor` accepts `{ contextChars?, matchKey?, collapseWhitespace?, maxSnippets?, separator? }`. The `maxSnippets` option (added 1.0.3, default `1` for backward compatibility) renders up to N non-overlapping highlighted spans per result, joined by `separator` (default `' … '`). Useful for surfacing several passages from a long PDF that matches the query in multiple regions.
+
 ## Core API
 
-| Function                                 | What it does                                                                                             |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `extractPdfText(url, options?)`          | Fetch one PDF, return its text. Lowest-level entry point.                                                |
-| `indexPdfs(urls, options?)`              | Batch-index an array of URLs / `{ url, title?, id? }` entries. Dedupes by URL. Concurrency 4 by default. |
-| `extractPdfsFromBody(markdown, opts?)`   | Scan a markdown body for PDF URLs and index each.                                                        |
-| `extractPdfUrlsFromMarkdown(markdown)`   | URL-discovery without extraction — handy for debugging "why is my index empty?".                         |
-| `safeJSONForHTML(obj, indent?)`          | HTML-safe `JSON.stringify` — escapes `<`, `-->`, U+2028/2029 for `<script>` embedding.                   |
-| `scrubUrl(url)`                          | Drop path/query/fragment, return `protocol://host` only (used internally for failure logs).              |
-| `createFuseIndex({ urls, fuseOptions })` | Convenience wrapper: index + build a Fuse instance in one call (from `/fuse` subpath).                   |
-| `snippetHTMLFor(fuseResult, options?)`   | `<mark>`-highlighted ±N-char snippet from a Fuse match (from `/snippet` subpath).                        |
+| Function                                 | What it does                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `extractPdfText(url, options?)`          | Fetch one PDF, return its text. Lowest-level entry point.                                                                            |
+| `indexPdfs(urls, options?)`              | Batch-index an array of URLs / `{ url, title?, id? }` entries. Dedupes by URL. Concurrency 4 by default.                             |
+| `extractPdfsFromBody(markdown, opts?)`   | Scan a markdown body for PDF URLs and index each.                                                                                    |
+| `extractPdfUrlsFromMarkdown(markdown)`   | URL-discovery without extraction — handy for debugging "why is my index empty?".                                                     |
+| `safeJSONForHTML(obj, indent?)`          | HTML-safe `JSON.stringify` — escapes `<`, `-->`, U+2028/2029 for `<script>` embedding.                                               |
+| `scrubUrl(url)`                          | Drop path/query/fragment, return `protocol://host` only (used internally for failure logs).                                          |
+| `createFuseIndex({ urls, fuseOptions })` | Convenience wrapper: index + build a Fuse instance in one call (from `/fuse` subpath).                                               |
+| `snippetHTMLFor(fuseResult, options?)`   | `<mark>`-highlighted ±N-char snippet from a Fuse match (from `/snippet` subpath). Supports `maxSnippets` for multi-region rendering. |
 
 Full option tables, semantics, and edge-case behavior are in the [top-level README's Core API section](../../README.md#core-api).
 
@@ -191,7 +193,7 @@ For frameworks without an adapter (Vite, Next.js, Eleventy, SvelteKit, Remix, pl
 
 ## Versioning
 
-Currently at **1.0.3** (documentation + ecosystem release, additive `snippetHTMLFor` `maxSnippets` option, fuse.js dev/example pin moved to `7.4.0-beta.6` — see [CHANGELOG.md](./CHANGELOG.md)). All three packages in this monorepo move in lockstep.
+Currently at **1.0.3** (documentation + ecosystem release, additive `snippetHTMLFor` `maxSnippets` option, default `DEFAULT_FUSE_OPTIONS.threshold` lowered to `0.2`, fuse.js dev/example pin moved to `7.4.0-beta.6`, second adversarial red/blue team audit pass on the v1.0.3 deltas on 2026-05-16 — see [CHANGELOG.md](./CHANGELOG.md) and the [top-level audit history](../../README.md#security-considerations--audit-history)). All three packages in this monorepo move in lockstep.
 
 ## License
 

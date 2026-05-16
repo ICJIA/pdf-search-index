@@ -18,7 +18,11 @@ The fixtures landed here on 2026-05-15 and have grown opportunistically since �
 ls examples/_fixtures/*.pdf
 ```
 
-Topic mix as of this writing covers juvenile justice, public health, evaluation reports, methamphetamine trends, substance-use stigma, youth and alcohol, and other ICJIA programmatic topics. The cryptic timestamp suffixes on the filenames are the original Drupal URL slugs from ICJIA's CMS — preserved as-is so the filenames mirror what you'd encounter on the live site.
+Topic mix as of this writing (10 PDFs) covers juvenile justice, public health, evaluation reports, methamphetamine trends, substance-use stigma, elder abuse, female criminality, youth and alcohol, and other ICJIA programmatic topics. The cryptic timestamp suffixes on the filenames are the original Drupal URL slugs from ICJIA's CMS — preserved as-is so the filenames mirror what you'd encounter on the live site.
+
+### Image-only fixtures (no text layer)
+
+Two of the fixtures — `Seniors.pdf` and `Female Criminality.pdf` — are intentionally image-only PDFs with no extractable text. They demonstrate the package's image-only state: a row in the index with an empty `text` field, the demo's "Needs OCR — title only" badge, and the recommended pre-build OCR workflow described in the [top-level README](../../README.md#ocr--working-with-image-only--scanned-pdfs). Don't delete them — they're load-bearing for the OCR documentation story.
 
 ## Using your own PDFs
 

@@ -18,7 +18,7 @@ All three move in lockstep at version **1.0.3+**.
 
 ## Live demo
 
-The reference deployment is live at **<https://icjia-pdf-search.netlify.app/>** — a dark-mode Astro 5 + Vue 3 site indexing 7 ICJIA-public PDFs with live snippet highlighting and a Fuse.js options tuner. Source: [`examples/netlify-demo/`](./examples/netlify-demo). If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
+The reference deployment is live at **<https://icjia-pdf-search.netlify.app/>** — a dark-mode Astro 5 + Vue 3 site indexing 10 ICJIA-public PDFs with live snippet highlighting, a Fuse.js options tuner (all 13 v7.4-beta options), a token-search wrapper for multi-word queries, multi-region snippet picking (passages drawn from intro / middle / end of each PDF, not clustered), an image-only "Needs OCR — title only" badge, and a bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight. Source: [`examples/netlify-demo/`](./examples/netlify-demo). If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
 
 ## Decision: which integration path is the consumer on?
 
@@ -395,7 +395,7 @@ Full trust model and defense table: [README "Security considerations"](./README.
 
 ## Versions
 
-All three packages move in lockstep. Currently at **1.0.2** (security release). Node 20 LTS / 22 LTS. ESM only. MIT licensed.
+All three packages move in lockstep. Currently at **1.0.3** (additive `snippetHTMLFor` `maxSnippets` option + documentation/ecosystem release on top of the v1.0.2 security baseline). Node 20 LTS / 22 LTS. ESM only. MIT licensed.
 
 ## What to read after this
 

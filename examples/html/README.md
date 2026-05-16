@@ -51,7 +51,7 @@ Phrases that match the committed ICJIA-public fixtures (see `examples/_fixtures/
 - `"stigma"` — matches "Stigma PDF for posting"
 - `"methamphetamine"` — matches the meth-trends overview
 - `"juvenile"` or `"snapshot"` — matches the JJ statewide snapshot
-- Any 4+ letter word lifted from any fixture's body — searches are fuzzy by default (`threshold: 0.3`)
+- Any 4+ letter word lifted from any fixture's body — searches are fuzzy by default (`threshold: 0.2` in v1.0.3+, lowered from `0.3` in earlier versions)
 
 ## Swap in your own PDFs
 

@@ -187,7 +187,11 @@ function onSearch() {
     .map((r) => ({
       title: r.item.title,
       url: r.item.url,
-      snippet: snippetHTMLFor(r),
+      // Pass `{ maxSnippets: 3 }` for multiple highlighted spans per result —
+      // the picker takes the longest non-overlapping matches and renders them
+      // in document order, joined by ` … `. Default `maxSnippets: 1` is
+      // backward-compatible.
+      snippet: snippetHTMLFor(r, { maxSnippets: 3 }),
     }));
 }
 </script>
@@ -231,7 +235,7 @@ In addition to the Astro-specific path-jail and HTML-safe emit covered in the [S
 Two flavors, same integration:
 
 - [`examples/astro/`](../../examples/astro/) — the **minimal smoke test**. Astro 5 + Vue island + `local-fetch.mjs` for offline fixtures. Read this first if you want to see the integration in isolation.
-- [`examples/netlify-demo/`](../../examples/netlify-demo/) — the **polished, deployable variant**. Same integration, dressed up: hand-designed dark-mode UI, corpus listing on the page, a `netlify.toml` so deploying to Netlify is one click. Use this as the starting point for a real consumer site.
+- [`examples/netlify-demo/`](../../examples/netlify-demo/) — the **polished, deployable variant**. Same integration, dressed up: hand-designed dark-mode UI, corpus listing on the page, live Fuse.js options tuner, token-search wrapper for short queries, multi-region snippet picker (`maxSnippets: 8` with custom distribution across document buckets), match-count badge per result, image-only "Needs OCR — title only" badge, bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight, and a `netlify.toml` so deploying to Netlify is one click. Use this as the starting point for a real consumer site.
 
 Run either with:
 
@@ -245,7 +249,7 @@ pnpm --filter @icjia-examples/netlify-demo build # produces dist/ + dist/pdfs/
 
 ## Versioning
 
-Currently at **1.0.3** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes.
+Currently at **1.0.3** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes. A second, scope-limited adversarial red/blue team audit pass ran against the v1.0.3 deltas on **2026-05-16**; the Astro adapter surface was unchanged from v1.0.2, so no Astro-specific findings — see the [top-level audit history](../../README.md#security-considerations--audit-history).
 
 ## License
 

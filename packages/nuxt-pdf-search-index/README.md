@@ -394,7 +394,11 @@ function onSearch() {
     .map((r) => ({
       title: r.item.title,
       url: r.item.url ?? '#',
-      snippet: snippetHTMLFor(r),
+      // Pass `{ maxSnippets: 3 }` for multiple highlighted spans per result —
+      // the picker takes the longest non-overlapping matches and renders them
+      // in document order, joined by ` … `. Default `maxSnippets: 1` is
+      // backward-compatible.
+      snippet: snippetHTMLFor(r, { maxSnippets: 3 }),
     }));
 }
 </script>
@@ -447,7 +451,7 @@ The example covers all three recipes' patterns (CMS body extraction, `@nuxt/cont
 
 ## Versioning
 
-Currently at **1.0.3** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes.
+Currently at **1.0.3** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes. A second, scope-limited adversarial red/blue team audit pass ran against the v1.0.3 deltas on **2026-05-16**; the Nuxt module surface was unchanged from v1.0.2, so no Nuxt-specific findings — see the [top-level audit history](../../README.md#security-considerations--audit-history).
 
 ## License
 
