@@ -12,6 +12,19 @@ npm install @icjia/pdf-search-index @icjia/astro-pdf-search-index
 
 Peer dependency: `astro@^5.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
+## Security
+
+**Audited and hardened in v1.0.2 (released 2026-05-16).** The adapter went through an adversarial red/blue team review alongside the core package; v1.0.2 ships the Astro-specific fixes plus all the core hardening that flows through. Most-relevant items for the Astro surface:
+
+- **C5 — Path-jailed `endpoint`.** The adapter's `endpoint` option must now resolve inside Astro's `publicDir`. `endpoint: '../../etc/escape.json'` throws before any filesystem write. Existing valid configurations (relative paths inside `public/`) keep working without changes.
+- **I4 — HTML-safe JSON emit.** The adapter writes the index via `safeJSONForHTML`, so PDF text containing literal `</script>` can't break out of a `<script type="application/json">` embedding in your pages. No consumer code change required — the adapter uses it on every emit.
+- **C3 + I3 (core, flow-through).** The default `maxBytes` is now **32 MB** (down from 100 MB); extracted text is capped at **5 MB** per PDF via the new `maxExtractedTextChars` option. If your CMS hosts PDFs above either threshold, raise the cap via the standard core options — see the [top-level README's Migration notes](../../README.md#migration-notes-from-101).
+- **I1, I7, I8 (core, flow-through).** URL scrubbing in failure logs, atomic cache writes with `contentSha` verification, and categorized parse-error tags all apply to the Astro emit path automatically.
+
+The core deferred items (**C2** SSRF allowlist, **I2** cache-key normalization, **I5** sitemap hardening, **I6** `maxUrls` cap) are tracked for v1.1 / v2.0. Configure outbound network policy in your CI environment as a mitigation for C2 until the allowlist lands.
+
+Read the full audit findings, deferred-item targets, and migration notes in the [top-level README's Security section](../../README.md#security) and the [Security considerations & audit history](../../README.md#security-considerations--audit-history) section further down.
+
 ## Configure in `astro.config.ts`
 
 ```ts
@@ -193,14 +206,9 @@ Expected — first run hits every PDF over the network. Persist `.astro/.pdf-cac
 **`endpoint: '../../etc/escape.json'` throws.**
 Path-traversal guard added in v1.0.2 — `endpoint` must resolve inside `publicDir`. Use a relative path that stays inside `public/`.
 
-## Security
+## Security defenses inherited from core
 
-This adapter inherits the [core package's security model](../../README.md#security-considerations) plus Astro-specific hardening:
-
-- **Path-jailed `endpoint`** — since v1.0.2, the resolved output path must live inside Astro's `publicDir`. Out-of-jail paths throw before any filesystem write.
-- **HTML-safe JSON emit** — the adapter writes the index via `safeJSONForHTML`, so PDF text containing `</script>` can't break out of an `<script type="application/json">` embedding in your pages.
-
-Other defenses (URL-scanner ReDoS bound, body-size cap, extracted-text cap, scrubbed failure logs, atomic cache writes) flow through from the core package — preserve the defaults unless the consumer has a specific reason to relax them.
+In addition to the Astro-specific path-jail and HTML-safe emit covered in the [Security](#security) section above, the URL-scanner ReDoS bound, body-size cap (`maxBytes`), extracted-text cap (`maxExtractedTextChars`), scrubbed failure logs, atomic cache writes with `contentSha` verification, and restrictive cache file modes all flow through from the core package. Preserve the defaults unless you have a specific reason to relax them; see the [top-level README's Security considerations & audit history](../../README.md#security-considerations--audit-history) for the full list.
 
 ## Canonical examples
 

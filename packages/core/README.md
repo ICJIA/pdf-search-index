@@ -18,6 +18,21 @@ yarn add @icjia/pdf-search-index
 
 Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` or `/snippet` subpaths.
 
+## Security
+
+**Audited and hardened in v1.0.2 (released 2026-05-16).** The core package went through an adversarial red/blue team review against v1.0.1; v1.0.2 ships 4 Critical fixes, 5 Important fixes, and 2 Minor fixes from that audit. Most-relevant items for the core surface:
+
+- **C1 — ReDoS in the URL scanner.** Bounded regex quantifiers; bodies > 1 MB are skipped with a warning.
+- **C3 — Body size cap applied before buffering.** `Content-Length` pre-check + streaming `getReader()` cap. **Default `maxBytes` lowered from 100 MB to 32 MB** — opt up via `{ maxBytes: 100 * 1024 * 1024 }` if you legitimately host larger PDFs.
+- **I3 — Extracted-text length cap.** New `maxExtractedTextChars` option (default **5 MB**) defends against compression-bomb PDFs. Raise it if a real PDF in your corpus has more text.
+- **I4 — HTML-safe JSON.** New `safeJSONForHTML(obj, indent?)` export — use it instead of `JSON.stringify` when embedding the index into a `<script type="application/json">` block. The CLI `--out` writer uses it by default.
+- **I1, I8 — Scrubbed logs.** Failure logs now show origin-only URLs (`https://example.com` rather than the full path) and categorized parse-error tags. Flip `debug: true` for CI triage.
+- **I7 — Atomic cache writes.** Writes go to `.tmp.<pid>.<rand>` and rename atomically; sidecar carries a `contentSha` and `readCache` verifies it. Parallel builds no longer corrupt the cache.
+
+**C2 (SSRF allowlist), I2 (cache-key URL normalization), I5 (CLI sitemap hardening), I6 (`maxUrls` cap)** are deferred to v1.1 / v2.0 because they need an opt-in flag design or a breaking change. Configure outbound network policy in your CI environment as a mitigation in the meantime.
+
+26 new regression tests cover the audit fixes; total test count now 105 (was 79). Read the full audit reference, trust model, and migration notes in the [top-level README's Security section](../../README.md#security) and [Security considerations & audit history](../../README.md#security-considerations--audit-history).
+
 ## The 30-second integration
 
 ```ts

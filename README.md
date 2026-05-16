@@ -36,6 +36,57 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
 ---
 
+## Security
+
+**Audited and patched in v1.0.2 (released 2026-05-16).** All three packages in this monorepo were put through an adversarial red/blue team security audit. 21 findings surfaced; 11 ship as fixes in v1.0.2. Run a recent `@icjia/pdf-search-index` and you get the hardened defaults out of the box.
+
+| Severity      | Found | Shipped in 1.0.2 | Deferred                           |
+| ------------- | ----- | ---------------- | ---------------------------------- |
+| **Critical**  | 5     | 4                | 1 (C2 SSRF allowlist → v1.1)       |
+| **Important** | 8     | 5                | 3 (I2, I5, I6 → v1.1 / v2.0)       |
+| **Minor**     | 8     | 2                | 6 (defense-in-depth, future patch) |
+
+**Critical fixes in v1.0.2:**
+
+- **C1 — ReDoS in the URL scanner.** Bounded greedy quantifiers (`{1,2048}` URL / `{0,1024}` query); bodies > 1 MB are skipped with a warning. A 130 KB pathological body that used to stall a build for 50 seconds now scans in milliseconds.
+- **C3 — Body size limit applied after full buffer.** `Content-Length` is now checked before the body is read; if absent, the body is streamed via `getReader()` and aborts the moment `maxBytes` is exceeded. The default `maxBytes` dropped from 100 MB to **32 MB**.
+- **C4 — MCP `cacheDir` attacker-controlled.** Every MCP tool's `cacheDir` is now jailed under `<os.tmpdir>/pdf-search-index-mcp/`. A prompt-injected LLM can no longer write to `~/.ssh` or anywhere else outside the jail.
+- **C5 — Astro `endpoint` path traversal.** The Astro adapter's `endpoint` is now path-jailed at build time — `endpoint: '../../etc/escape.json'` throws before any filesystem write.
+
+**Important fixes in v1.0.2:**
+
+- **I1 — Internal URLs leaking into CI logs.** Failure logs scrub URLs to `protocol://host` only. Full URLs available via `debug: true`.
+- **I3 — Extracted-text length cap.** New `maxExtractedTextChars` option (default **5 MB**) defends against compression-bomb PDFs.
+- **I4 — JSON not safe for `<script>` embedding.** New `safeJSONForHTML(obj, indent?)` export escapes `</script>`, `<!--`, U+2028 / U+2029. Used by the CLI `--out` writer and the Astro adapter's emit.
+- **I7 — Cache write TOCTOU + non-atomic write.** Writes go to `.tmp.<pid>.<rand>` and rename atomically; sidecar carries a `contentSha` and `readCache` verifies it.
+- **I8 — Encrypted-PDF state leaks via error message.** Parse errors are categorized (`'encrypted PDF'`, `'corrupt PDF structure'`, `'PDF font error'`, `'PDF parse error'`); full text gated behind `debug: true`.
+
+**Deferred (with explicit target versions so existing consumers aren't broken):**
+
+- **C2 — SSRF allowlist** (`allowPrivateHosts` opt-in flag → v1.1). Mitigation in the meantime: configure outbound network policy in your CI environment.
+- **I2 — Cache-key URL normalization** (breaking change to cache keys → v2.0).
+- **I5 — CLI `--from-sitemap` size + scheme hardening** → v1.1.
+- **I6 — `maxUrls` cap in `indexPdfs`** → v1.1.
+
+**New public API surface (1.0.2):**
+
+- `safeJSONForHTML(obj, indent?)` — HTML-safe JSON serializer.
+- `scrubUrl(url)` — origin-only URL redaction helper.
+- `ExtractOptions.maxExtractedTextChars?: number` (default `5_000_000`).
+- `ExtractOptions.debug?: boolean` (default `false`).
+
+**Changed defaults (1.0.2):**
+
+- `maxBytes`: 100 MB → 32 MB. If you legitimately host larger PDFs, opt up: `{ maxBytes: 100 * 1024 * 1024 }`.
+- Parse-error logs: full message → categorized tag. Flip `debug: true` for triage.
+- Fetch-failure logs: full URL → origin only. Flip `debug: true` for triage.
+
+**Test coverage.** 26 new regression tests landed alongside the fixes (105 total, up from 79). Each Critical and Important fix has at least one regression test.
+
+The full [Security considerations & audit history](#security-considerations--audit-history) section further down spells out the trust model, the migration notes, and the audit reference.
+
+---
+
 ## Why this exists
 
 ICJIA sites publish many PDFs — annual reports, FAQs, technical documents, board materials — that are invisible to site search today. Most ICJIA sites use Fuse.js for client-side fuzzy search, which works for pages and news posts but only matches the **prose that links to a PDF**, never the PDF's content.
@@ -904,15 +955,15 @@ A copy-paste Nitro route template lives at [`packages/nuxt-pdf-search-index/src/
 
 ### Live demo
 
-The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus, a sticky search bar, and live highlighted snippets across the four committed PDFs.
+The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus, a sticky search bar, and live highlighted snippets across every committed PDF in `examples/_fixtures/`.
 
-> Screenshot (when deployed): dark-mode search interface, four ICJIA PDFs listed with title/page count/file size, sticky search bar at top, live-highlighted snippets in result cards.
+> Screenshot (when deployed): dark-mode search interface, ICJIA PDFs listed with title/page count/file size, sticky search bar at top, live-highlighted snippets in result cards.
 
 A reference deployment lives at `https://pdf-search-index-demo.netlify.app` _(replace with your own subdomain after deploying — see "Deploying the live demo to Netlify" below)_.
 
 The [`examples/`](./examples) directory has eight runnable example sites in total, each demonstrating one integration pattern. Every example consumes the packages via the pnpm workspace link and reads PDFs from the shared [`examples/_fixtures/`](./examples/_fixtures) directory via `file://` URLs + a tiny `local-fetch.mjs` helper (so they work offline).
 
-The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly-clicked public samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)). They were not curated to make the examples look good — they're four arbitrary PDFs from the live public corpus, preserved with their original CMS filenames. None of them contain PII. Replace them with any PDFs you like; every example auto-discovers `.pdf` files in that directory at build time. See [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for the full provenance note.
+The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly-clicked public samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)) covering juvenile justice, public health, evaluation reports, and other ICJIA programmatic topics. They were not curated to make the examples look good — they're arbitrary PDFs from the live public corpus, preserved with their original CMS filenames. None of them contain PII. Replace them with any PDFs you like; every example auto-discovers `.pdf` files in that directory at build time. See [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for the full provenance note.
 
 | Example                                   | Stack                               | Adapter / API                                                   | Run                                              |
 | ----------------------------------------- | ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
@@ -941,8 +992,8 @@ The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly
    ls examples/_fixtures/*.pdf
    ```
 
-   You should see four PDFs — they're randomly-clicked public samples from
-   [icjia.illinois.gov](https://icjia.illinois.gov/) (see
+   You should see several PDFs — they're randomly-clicked public samples
+   from [icjia.illinois.gov](https://icjia.illinois.gov/) (see
    [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for
    provenance). No PII.
 
@@ -976,9 +1027,10 @@ The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly
    pnpm --filter @icjia-examples/nuxt-mixed dev     # http://localhost:3001/
    ```
 
-4. **Try a query that matches the committed fixtures.** The four samples
-   are about stigma, drug testing, methamphetamine trends, and juvenile
-   justice — so search terms that work out of the box include:
+4. **Try a query that matches the committed fixtures.** The committed
+   samples cover juvenile justice, public health, evaluation reports,
+   substance-use stigma, methamphetamine trends, and other ICJIA
+   programmatic topics — so search terms that work out of the box include:
    - `"stigma"` — matches the Stigma PDF
    - `"methamphetamine"` — matches the meth-trends overview
    - `"juvenile"` or `"snapshot"` — matches the JJ statewide snapshot
@@ -1146,9 +1198,11 @@ First build is genuinely O(N PDFs) bytes-downloaded + parse-time. Subsequent bui
 
 ---
 
-## Security considerations
+## Security considerations & audit history
 
-This package is **build-time tooling**. It runs against URL lists you (or your CMS authors) explicitly supplied, on the developer's or CI machine, never against user-submitted input at request time. The threat model and the defenses below reflect that scope.
+<a id="security-considerations"></a>
+
+This package is **build-time tooling**. It runs against URL lists you (or your CMS authors) explicitly supplied, on the developer's or CI machine, never against user-submitted input at request time. The threat model and the defenses below reflect that scope. The [top-of-README Security callout](#security) names the v1.0.2 fixes in summary; this section spells out the trust model, the migration notes, and the full audit reference.
 
 ### Trust model
 
@@ -1201,6 +1255,8 @@ The CLI's `--out` writer and the Astro adapter's emit both use `safeJSONForHTML`
 
 ### Migration notes from 1.0.1
 
+<a id="migration-notes-from-101"></a>
+
 - **Default `maxBytes` lowered from 100 MB to 32 MB.** If you legitimately host PDFs larger than 32 MB, pass `{ maxBytes: 100 * 1024 * 1024 }` (or whatever cap fits your dataset). The library logs a warning when a PDF is rejected on size grounds.
 - **Extracted text capped at 5 MB chars by default.** If a real PDF in your corpus exceeds 5 MB of plain text, raise `maxExtractedTextChars` accordingly.
 - **Failure logs are now scrubbed by default** — full URLs and underlying error messages are gated behind `debug: true`. For CI triage, flip the flag.
@@ -1209,7 +1265,41 @@ The CLI's `--out` writer and the Astro adapter's emit both use `safeJSONForHTML`
 
 ### Audit reference
 
-The 1.0.2 changes implement the **C1, C3, C4, C5** Critical fixes and **I1, I3, I4, I7, I8** Important fixes from the security audit run against 1.0.1. **C2** (SSRF allowlist), **I2** (cache-key normalization), **I5** (CLI sitemap rewrite), and **I6** (`maxUrls` cap) are deferred to 1.1 / 2.0 because they require either an opt-in flag design or a breaking change.
+<a id="audit-reference"></a>
+
+The 1.0.2 changes implement the Critical and Important fixes from a full adversarial red/blue team audit run against 1.0.1 on **2026-05-16**. A separate opus-class LLM agent ran proof-of-concept attack scripts in `/tmp/` against each finding before reporting, so every finding is reproducible from the audit transcript.
+
+**Shipped in 1.0.2:**
+
+| ID  | Severity  | What it was                                                                                     | What we did                                                                                                                              |
+| --- | --------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | Critical  | ReDoS in the URL scanner (O(N²) on `'[X](https://a'.repeat(N)`)                                 | Bounded quantifiers `{1,2048}` URL / `{0,1024}` query; bodies > 1 MB are skipped with a warning                                          |
+| C3  | Critical  | `res.arrayBuffer()` buffered multi-GB streams before the `maxBytes` check (OOM)                 | `Content-Length` pre-check → streaming `getReader()` cap → abort the moment the cap is exceeded. Default 32 MB                           |
+| C4  | Critical  | MCP `cacheDir` attacker-controlled — prompt-injected LLM could `mkdir` anywhere                 | All MCP tool `cacheDir` args jailed under `<os.tmpdir>/pdf-search-index-mcp/`; throws on out-of-jail paths                               |
+| C5  | Critical  | Astro `endpoint: '../../etc/escape.json'` would write outside `publicDir`                       | Path-jailed at build time                                                                                                                |
+| I1  | Important | Full URLs (`https://example.com/admin/secret.pdf`) leaked into CI failure logs                  | Logs scrub URLs to `protocol://host` only. Full URL gated behind `debug: true`                                                           |
+| I3  | Important | Compression-bomb PDFs could decompress to hundreds of MB of text                                | New `maxExtractedTextChars` option (default 5 MB) caps per-PDF extraction                                                                |
+| I4  | Important | PDF text containing literal `</script>` broke out of `<script type="application/json">` islands | New top-level `safeJSONForHTML(obj, indent?)` export used by CLI `--out` and Astro emit                                                  |
+| I7  | Important | Parallel builds could corrupt cache (TOCTOU + non-atomic write)                                 | `.tmp.<pid>.<rand>` rename-atomic writes; sidecar `contentSha`; `readCache` verifies                                                     |
+| I8  | Important | pdf.js `PasswordException` logged verbatim → encrypted-PDF state leak                           | Categorized tags (`'encrypted PDF'`, `'corrupt PDF structure'`, `'PDF font error'`, `'PDF parse error'`); full text behind `debug: true` |
+| M2  | Minor     | Cache files world-readable                                                                      | Cache files `0o600` / cache dir `0o700` (POSIX; ignored on Windows)                                                                      |
+| M3  | Minor     | Control characters could survive into log output                                                | Control-char sanitization in all warning paths                                                                                           |
+
+**Deferred (with target versions):**
+
+| ID                     | Severity  | What it is                                                         | Target         | Why deferred                                                                      |
+| ---------------------- | --------- | ------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------- |
+| C2                     | Critical  | SSRF allowlist — `file://`, internal IPs, cloud metadata endpoints | v1.1           | Needs an `allowPrivateHosts: boolean` opt-in to avoid breaking existing consumers |
+| I2                     | Important | Full SHA + URL normalization for cache keys                        | v2.0           | Breaking change to cache keys — bundled with the next major bump                  |
+| I5                     | Important | CLI `--from-sitemap` size + scheme hardening                       | v1.1           | Opt-in flags needed; postpone for v1.1 design pass                                |
+| I6                     | Important | `maxUrls` cap in `indexPdfs`                                       | v1.1           | New option, default needs a deliberate choice                                     |
+| M1, M4, M5, M6, M7, M8 | Minor     | Defense-in-depth hardening                                         | future patches | Spread across the next few patch releases as they're independently shippable      |
+
+**C2 mitigation in the meantime.** Until the allowlist lands in v1.1, configure outbound network policy in your CI environment so the build step can only reach the hosts you expect (your CMS, your CDN). Most CI runners (GitHub Actions, GitLab CI, Netlify, Vercel) support egress filtering at the worker level. This is belt-and-suspenders even after v1.1 ships.
+
+**Migration map for consumers upgrading 1.0.1 → 1.0.2:** see the [Migration notes from 1.0.1](#migration-notes-from-101) subsection above.
+
+**Test coverage of the audit fixes:** 26 new regression tests landed alongside the v1.0.2 fixes (105 total, up from 79). Each Critical / Important fix has at least one named test in `packages/core/test/security/` and the per-adapter test files. Run `pnpm test` to see them.
 
 ---
 

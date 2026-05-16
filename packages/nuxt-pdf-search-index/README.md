@@ -12,6 +12,20 @@ npm install @icjia/pdf-search-index @icjia/nuxt-pdf-search-index
 
 Peer dependency: `nuxt@^4.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
+## Security
+
+**Audited and hardened in v1.0.2 (released 2026-05-16).** The Nuxt module went through an adversarial red/blue team review alongside the core package; v1.0.2 ships the Critical and Important fixes that affect the helper signatures used by your Nitro route. Most-relevant items for the Nuxt surface:
+
+- **C3 + I3 — Bytes / text caps.** The default `maxBytes` is now **32 MB** (down from 100 MB), and extracted text is capped at **5 MB** per PDF via the new `maxExtractedTextChars` option. Both flow through `extractPdfsFromCmsBody` and `extractPdfsFromContentDoc` as the per-call options shown in the [per-call options table](#per-call-options). Raise either if your corpus has legitimate outliers.
+- **I1 — Scrubbed failure logs.** Logs now show `protocol://host` only, not the full URL with path. If your CMS hosts media at predictable internal URLs, this prevents path leakage into CI logs. Pass `debug: true` per call when you need the full URL for triage.
+- **I8 — Categorized parse-error tags.** Encrypted / corrupt / font-error PDFs surface as categorized warnings instead of leaking the underlying `pdfjs-dist` exception text. Full text behind `debug: true`.
+- **I4 — HTML-safe JSON.** Use the top-level `safeJSONForHTML` export (re-exported from `@icjia/pdf-search-index`) if you inline the helper output into a `<script type="application/json">` block. PDF text containing literal `</script>` would otherwise break out.
+- **I7 — Atomic cache writes.** The `.nuxt/.pdf-cache/` directory now uses `.tmp.<pid>.<rand>` rename-atomic writes with `contentSha` verification. Parallel requests to `/api/searchIndex` won't corrupt the cache.
+
+**Note on the helpers' threat surface.** This module exposes server-side helpers consumed by a developer-authored Nitro route. **Don't wire `extractPdfsFromCmsBody` or `extractPdfsFromContentDoc` behind a public endpoint that accepts arbitrary URL lists from clients** — the SSRF allowlist (C2) is deferred to v1.1. CMS-author content is treated as trusted-as-developer-author input.
+
+Read the full audit findings, deferred-item targets, and migration notes in the [top-level README's Security section](../../README.md#security) and [Security considerations & audit history](../../README.md#security-considerations--audit-history).
+
 ## Register in `nuxt.config.ts`
 
 ```ts
@@ -392,13 +406,12 @@ Expected — first run hits every PDF over the network. The file cache at `.nuxt
 **Cache invalidation question.**
 Cache keys are `SHA-256(url)` truncated to 16 hex chars. Strapi-uploaded PDFs usually get a hash suffix in the filename, so a re-upload gets a new URL and the cache invalidates naturally. If your CMS overwrites at the same URL, run `pdf-search-index cache rm <url>` or `pdf-search-index cache clear` in your deploy script before the route runs.
 
-## Security
+## Operational notes on security
 
-This module inherits the [core package's security model](../../README.md#security-considerations). The defenses (URL-scanner ReDoS bound, body-size cap, extracted-text cap, scrubbed failure logs, atomic cache writes, restrictive cache file modes) all flow through.
+In addition to the v1.0.2 audit fixes covered in the [Security](#security) section above, two operational notes:
 
-The module does not expose `indexPdfs` or any of the helpers as a runtime endpoint that takes user-submitted URLs — the helpers consume CMS-author content, which is treated as trusted-as-developer-author input. **Don't wire the helpers behind a public endpoint that accepts arbitrary URL lists**: SSRF mitigations are deferred to the post-v1.0.x roadmap.
-
-If your route exposes any cache management (e.g. forcing `cache: 'refresh'` on a query param), gate that behind admin auth.
+- If your route exposes any cache management (e.g. forcing `cache: 'refresh'` on a query param), gate that behind admin auth. The helpers don't enforce request-time authorization themselves.
+- The URL-scanner ReDoS bound, body-size cap, extracted-text cap, scrubbed failure logs, atomic cache writes, and restrictive cache file modes all flow through from the core package — preserve the defaults unless you have a specific reason to relax them. See the [top-level README's Security considerations & audit history](../../README.md#security-considerations--audit-history) for the full list.
 
 ## Canonical example
 
