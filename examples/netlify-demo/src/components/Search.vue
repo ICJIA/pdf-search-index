@@ -543,12 +543,82 @@ const configSnippet = computed(() => {
 
 const indexDump = computed(() => JSON.stringify(rows.value, null, 2));
 
+type SpanTuple = readonly [number, number];
+
+/**
+ * Spatially distribute Fuse match indices across the source text so multiple
+ * highlighted snippets surface from different parts of the document rather
+ * than clustering around the densest region.
+ *
+ * Why: Fuse can return 100+ index pairs for a common term in a long PDF.
+ * snippetHTMLFor's default picker takes the longest non-overlapping spans by
+ * length, which biases toward whichever region of the doc happens to have
+ * the longest contiguous matches. That makes a 50-page PDF feel like it
+ * only matches once or twice in one corner. Bucketing by document position
+ * forces coverage of intro / middle / end.
+ *
+ * Algorithm:
+ *  1. Divide [0, sourceLength) into `maxBuckets` equal-width buckets.
+ *  2. For each match index `[start, end]`, route it to `floor(start / bucketSize)`.
+ *  3. Per bucket, keep the longest matching index (best signal for that region).
+ *  4. Return surviving indices, sorted by start position so render order
+ *     mirrors document order.
+ */
+function distributeMatchIndices(
+  indices: readonly SpanTuple[],
+  sourceLength: number,
+  maxBuckets: number,
+): SpanTuple[] {
+  if (indices.length <= maxBuckets || sourceLength <= 0) {
+    return [...indices].sort((a, b) => a[0] - b[0]);
+  }
+  const bucketSize = sourceLength / maxBuckets;
+  const buckets: (SpanTuple | null)[] = Array.from({ length: maxBuckets }, () => null);
+  for (const idx of indices) {
+    const bucketIdx = Math.min(maxBuckets - 1, Math.floor(idx[0] / bucketSize));
+    const current = buckets[bucketIdx];
+    if (!current || idx[1] - idx[0] > current[1] - current[0]) {
+      buckets[bucketIdx] = idx;
+    }
+  }
+  return buckets
+    .filter((b): b is SpanTuple => b !== null)
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * Replace each `matches[*].indices` array (for the `text` key) with a
+ * spatially-distributed subset so snippetHTMLFor can surface highlights from
+ * across the document, not just the densest cluster. See
+ * `distributeMatchIndices` for the bucketing strategy.
+ */
+function distributeMatches(
+  r: FuseResult<IndexedPdf>,
+  maxBuckets: number,
+): FuseResult<IndexedPdf> {
+  const sourceLength = r.item.text?.length ?? 0;
+  const newMatches = (r.matches ?? []).map((m) => {
+    if (m.key !== 'text' || !m.indices?.length) return m;
+    return {
+      ...m,
+      indices: distributeMatchIndices(
+        m.indices as readonly SpanTuple[],
+        sourceLength,
+        maxBuckets,
+      ),
+    };
+  });
+  return { ...r, matches: newMatches };
+}
+
 function snippet(r: FuseResult<IndexedPdf>): string {
-  // Show up to 3 highlighted spans per result, ordered by location in the
-  // PDF text and joined with ' … '. When the matches are clustered close
-  // together (their context windows overlap) the picker drops the shorter
-  // one — so users see distinct passages, not three views of the same hit.
-  return snippetHTMLFor(r, { contextChars: 100, matchKey: 'text', maxSnippets: 8 });
+  // Pre-distribute the match indices across document regions before the
+  // snippet picker runs. Otherwise, for a term that hits 100+ times in one
+  // dense cluster, the picker would render every snippet from the same
+  // corner of the PDF. Bucketing forces coverage across intro/middle/end so
+  // the rendered passages reflect the true spread of matches.
+  const distributed = distributeMatches(r, 8);
+  return snippetHTMLFor(distributed, { contextChars: 100, matchKey: 'text', maxSnippets: 8 });
 }
 
 /**
