@@ -792,6 +792,18 @@ onMounted(async () => {
  * lets each column take its own natural height — the search column is
  * usually shorter than the tuner.
  */
+/*
+ * Two-column wrapper for Try It + Tune. The breakpoint moved 1024 → 1180
+ * because at 1024–1100 the columns ended up ~430px each — not enough
+ * room for the result cards' snippets to breathe.
+ *
+ * `minmax(0, 1fr)` on each track + an explicit `min-width: 0` cascade
+ * down to every descendant of `.search` are both required to stop the
+ * Try It column from blowing past its assigned width when a result
+ * snippet contains long unbroken token runs (PDF body text occasionally
+ * has run-on strings). Without those, the column ignores the 1fr cap,
+ * grows to fit content, and visually overlaps with the Tune column.
+ */
 .search-and-tune {
   display: grid;
   grid-template-columns: 1fr;
@@ -799,10 +811,10 @@ onMounted(async () => {
   margin-top: 2rem;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1180px) {
   .search-and-tune {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 2rem;
+    gap: 2.5rem;
     align-items: start;
   }
 }
@@ -812,11 +824,43 @@ onMounted(async () => {
 }
 
 /*
+ * Each section AND each of its descendants needs `min-width: 0` so a
+ * deeply-nested long string doesn't push the grid track wider than its
+ * `minmax(0, 1fr)` cap. Default `min-width: auto` resolves to content
+ * intrinsic width, which is what was blowing out the column.
+ */
+.search-and-tune > section {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.search-and-tune .search__card,
+.search-and-tune .search__bar,
+.search-and-tune .search__results,
+.search-and-tune .search__result,
+.search-and-tune .search__result-link {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/*
+ * Long unbroken tokens inside snippets and titles (PDF text occasionally
+ * has run-on strings with no whitespace) need to wrap aggressively so they
+ * never exceed the column width. `overflow-wrap: anywhere` falls back to
+ * mid-word breaks only when no soft-wrap opportunity exists.
+ */
+.search-and-tune .search__snippet,
+.search-and-tune .search__result-title {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/*
  * When side-by-side, each tuner column is ~580px wide — not enough room
  * for the inner 2-column control grid to breathe. Collapse to one column
  * so labels + help text + inputs each get full width within the card.
  */
-@media (min-width: 1024px) {
+@media (min-width: 1180px) {
   .search-and-tune .tune__controls {
     grid-template-columns: 1fr;
   }
