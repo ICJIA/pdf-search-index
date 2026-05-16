@@ -542,7 +542,11 @@ const configSnippet = computed(() => {
 const indexDump = computed(() => JSON.stringify(rows.value, null, 2));
 
 function snippet(r: FuseResult<IndexedPdf>): string {
-  return snippetHTMLFor(r, { contextChars: 120, matchKey: 'text' });
+  // Show up to 3 highlighted spans per result, ordered by location in the
+  // PDF text and joined with ' … '. When the matches are clustered close
+  // together (their context windows overlap) the picker drops the shorter
+  // one — so users see distinct passages, not three views of the same hit.
+  return snippetHTMLFor(r, { contextChars: 100, matchKey: 'text', maxSnippets: 3 });
 }
 
 function resetDefaults(): void {
@@ -802,9 +806,14 @@ onMounted(async () => {
   font-size: 0.92rem;
   line-height: 1.55;
   color: var(--text-muted);
+  /*
+   * Multi-snippet (up to 3) often needs more room than a single span did.
+   * Cap at 5 lines so a result card still stays scannable, but allow the
+   * extra room when there are multiple highlighted passages.
+   */
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
