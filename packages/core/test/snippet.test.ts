@@ -203,4 +203,80 @@ describe('snippetHTMLFor — maxSnippets', () => {
     });
     expect(html).toContain(' … ');
   });
+
+  it('escapes `</script>` across every snippet in multi-snippet mode', () => {
+    // Adversarial PDF: contains a literal `</script>` near each match. The
+    // single-snippet path escaped it correctly pre-1.0.3; this regression
+    // test pins the same behavior under `maxSnippets > 1` so a future
+    // refactor of the multi-snippet picker can't silently un-escape one
+    // of the rendered spans.
+    const filler = 'x'.repeat(300);
+    const evil = '</script>';
+    const text = [filler, `A${evil}B`, filler, `C${evil}D`, filler, `E${evil}F`, filler].join(' ');
+    const indices: [number, number][] = [
+      range(text, `A${evil}B`),
+      range(text, `C${evil}D`),
+      range(text, `E${evil}F`),
+    ];
+    const html = snippetHTMLFor(mkResult(text, indices), {
+      contextChars: 20,
+      maxSnippets: 3,
+    });
+    // 3 marked spans, none containing the literal `</script>` byte sequence.
+    expect(html.match(/<mark>/g)?.length ?? 0).toBe(3);
+    expect(html).not.toMatch(/<\/script>/i);
+    // The literal must have been HTML-entity-escaped.
+    expect(html).toContain('&lt;/script&gt;');
+  });
+
+  it('renders bounded output even when given thousands of indices', () => {
+    // Audit regression: a malicious/buggy upstream Fuse build could surface
+    // an exploding `matches[].indices` list (Fuse 7 itself respects
+    // `minMatchCharLength` so 100k indices is unrealistic in real flows; the
+    // demo's `distributeMatches` wrapper bounds it further). We pin that the
+    // picker is linear in `indices.length` and bounded in output length, so a
+    // crafted input can't melt a browser tab.
+    const text = 'a'.repeat(100_000);
+    const indices: [number, number][] = [];
+    for (let i = 0; i < 50_000; i++) {
+      const s = i * 2;
+      indices.push([s, s]);
+    }
+    const t0 = performance.now();
+    const html = snippetHTMLFor(mkResult(text, indices), {
+      contextChars: 20,
+      maxSnippets: 8,
+    });
+    const elapsed = performance.now() - t0;
+    // 50k indices, maxSnippets=8 — should produce <=8 mark tags.
+    expect(html.match(/<mark>/g)?.length ?? 0).toBeLessThanOrEqual(8);
+    // Hard bound: pickers are O(N) in indices and O(maxSnippets^2) in the
+    // overlap check; 50k * 8 = 400k comparisons. Should finish well under
+    // 500ms on any plausible CI runner.
+    expect(elapsed).toBeLessThan(500);
+  });
+
+  it('does not crash on malformed indices (reversed / out-of-bounds / NaN / Infinity)', () => {
+    // Pinned behavior, not a guarantee that malformed input is "supported":
+    // Fuse 7's own search() always returns valid `[start, end]` tuples with
+    // 0 <= start <= end < source.length. The defense here is that a buggy
+    // upstream Fuse or a deliberately-crafted result object can't throw
+    // synchronously from the snippet renderer — that would crash the search
+    // UI mid-render. Output is allowed to be degenerate (empty <mark>) but
+    // must not throw or hang.
+    const text = 'normal indexed body text content here for slicing experiments';
+    const malformed: [number, number][][] = [
+      [[10, 0]], // reversed
+      [[-5, -1]], // negative
+      [[0, Infinity]], // unbounded end
+      [[NaN, NaN]], // NaN
+      [[1000, 2000]], // out of bounds (past source length)
+    ];
+    for (const indices of malformed) {
+      // Single-snippet path.
+      expect(() => snippetHTMLFor(mkResult(text, indices))).not.toThrow();
+      // Multi-snippet path.
+      expect(() => snippetHTMLFor(mkResult(text, indices), { maxSnippets: 3 })).not.toThrow();
+    }
+  });
 });
