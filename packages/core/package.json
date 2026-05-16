@@ -1,0 +1,84 @@
+{
+  "name": "@icjia/pdf-search-index",
+  "version": "1.0.0",
+  "description": "Full-text PDF search for static sites that already use Fuse.js.",
+  "type": "module",
+  "license": "MIT",
+  "author": "ICJIA",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ICJIA/pdf-search-index.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "pdf",
+    "search",
+    "fuse",
+    "static-site",
+    "astro",
+    "nuxt",
+    "mcp"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./fuse": {
+      "types": "./dist/fuse.d.ts",
+      "default": "./dist/fuse.js"
+    },
+    "./snippet": {
+      "types": "./dist/snippet.d.ts",
+      "default": "./dist/snippet.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "default": "./dist/mcp.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "pdf-search-index": "./dist/cli.js",
+    "pdf-search-index-mcp": "./dist/mcp.js"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "fixtures": "tsx test/fixtures/generate.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^12.1.0",
+    "p-limit": "^6.0.0",
+    "unpdf": "^1.0.0"
+  },
+  "peerDependencies": {
+    "fuse.js": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "fuse.js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "fuse.js": "^7.0.0",
+    "pdf-lib": "^1.17.1",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}

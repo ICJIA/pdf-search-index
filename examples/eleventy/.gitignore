@@ -1,0 +1,4 @@
+_site/
+.pdf-cache/
+node_modules/
+src/_data/searchIndex.json

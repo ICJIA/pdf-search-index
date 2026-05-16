@@ -11,21 +11,21 @@ companion: docs/pdfText.ts, docs/searchIndex.json.ts, docs/Search.vue (R3 refere
 A drop-in npm package for adding full-text PDF search to static sites that
 already use Fuse.js for client-side fuzzy search. PDFs become first-class
 search rows alongside pages and posts — a query like "applicant portal"
-matches the body of the *linked PDF*, returns it as a result, and (with the
+matches the body of the _linked PDF_, returns it as a result, and (with the
 included snippet helper) renders the surrounding text with the match
 highlighted.
 
 Build-time extraction. No runtime servers. Pure ESM, no native deps.
 
-| | |
-|---|---|
-| **Package scope (npm)** | `@icjia` |
-| **Repo** | `github.com/ICJIA/pdf-search-index` (this directory) |
-| **License** | MIT |
-| **Scale target** | 10–1,000 PDFs per site (most ICJIA sites: 10–30) |
-| **Node target** | 20 LTS, 22 LTS |
-| **Build target** | ESM only |
-| **Reference impl** | R3 (`docs/pdfText.ts`, `docs/searchIndex.json.ts`, `docs/Search.vue`) |
+|                         |                                                                       |
+| ----------------------- | --------------------------------------------------------------------- |
+| **Package scope (npm)** | `@icjia`                                                              |
+| **Repo**                | `github.com/ICJIA/pdf-search-index` (this directory)                  |
+| **License**             | MIT                                                                   |
+| **Scale target**        | 10–1,000 PDFs per site (most ICJIA sites: 10–30)                      |
+| **Node target**         | 20 LTS, 22 LTS                                                        |
+| **Build target**        | ESM only                                                              |
+| **Reference impl**      | R3 (`docs/pdfText.ts`, `docs/searchIndex.json.ts`, `docs/Search.vue`) |
 
 ---
 
@@ -33,15 +33,15 @@ Build-time extraction. No runtime servers. Pure ESM, no native deps.
 
 v1.0 publishes three packages exposing the following entry points:
 
-| Entry point | Package | Path |
-|---|---|---|
-| Core library | `@icjia/pdf-search-index` | `.` |
-| Fuse helper | `@icjia/pdf-search-index` | `./fuse` |
-| Snippet helper | `@icjia/pdf-search-index` | `./snippet` |
-| MCP server | `@icjia/pdf-search-index` | `./mcp` |
-| CLI | `@icjia/pdf-search-index` | `bin: pdf-search-index` |
-| Astro integration | `@icjia/astro-pdf-search-index` | `.` |
-| Nuxt 4 module | `@icjia/nuxt-pdf-search-index` | `.` |
+| Entry point       | Package                         | Path                    |
+| ----------------- | ------------------------------- | ----------------------- |
+| Core library      | `@icjia/pdf-search-index`       | `.`                     |
+| Fuse helper       | `@icjia/pdf-search-index`       | `./fuse`                |
+| Snippet helper    | `@icjia/pdf-search-index`       | `./snippet`             |
+| MCP server        | `@icjia/pdf-search-index`       | `./mcp`                 |
+| CLI               | `@icjia/pdf-search-index`       | `bin: pdf-search-index` |
+| Astro integration | `@icjia/astro-pdf-search-index` | `.`                     |
+| Nuxt 4 module     | `@icjia/nuxt-pdf-search-index`  | `.`                     |
 
 Core + helpers + CLI + MCP all live in one package because they share the
 same ~200-line extractor core. The framework adapters are separate packages
@@ -54,13 +54,13 @@ so consumers don't pay for peerDeps they aren't using.
 ICJIA sites publish many PDFs — annual reports, FAQs, technical documents,
 board materials — that are invisible to site search today. Most ICJIA sites
 use Fuse.js for client-side fuzzy search, which works for pages and news
-posts but only matches the *prose that links to a PDF*, never the PDF's
+posts but only matches the _prose that links to a PDF_, never the PDF's
 content. A user searching for "lieutenant governor" gets nothing when the
 only mention is inside a PDF body.
 
 The fix: extract text from each PDF at build time, append it to the Fuse
 index as a normal row. Apache Solr has done this for a decade via Tika —
-but Solr is a JVM-based search *server*, massive overkill for static-site
+but Solr is a JVM-based search _server_, massive overkill for static-site
 ICJIA deployments. This package is the Tika-equivalent without Solr:
 extract text at build time, output JSON, let the existing client-side
 search engine handle the query.
@@ -183,11 +183,11 @@ const text = await extractPdfText('https://example.com/foo.pdf');
 
 ```ts
 interface ExtractOptions {
-  cacheDir?: string;       // default: '.pdf-cache'
-  fetchTimeout?: number;   // default: 30000 (ms)
-  maxBytes?: number;       // default: 100MB
-  fetch?: typeof fetch;    // injectable for auth / tests
-  cache?: 'use' | 'bypass' | 'refresh';  // default: 'use'
+  cacheDir?: string; // default: '.pdf-cache'
+  fetchTimeout?: number; // default: 30000 (ms)
+  maxBytes?: number; // default: 100MB
+  fetch?: typeof fetch; // injectable for auth / tests
+  cache?: 'use' | 'bypass' | 'refresh'; // default: 'use'
 }
 ```
 
@@ -198,7 +198,7 @@ and bare `https://...pdf` URLs), extracts each one's text, returns:
 
 ```ts
 interface ExtractedPdf {
-  id: string;     // 'pdf-' + first 12 hex chars of SHA-256(url)
+  id: string; // 'pdf-' + first 12 hex chars of SHA-256(url)
   url: string;
   title: string; // link-text > pdf.js info-dict title > humanized filename
   text: string;
@@ -228,8 +228,8 @@ interface IndexedPdf {
   url: string;
   title: string;
   text: string;
-  pages?: number;        // from pdf.js totalPages
-  extractedAt?: string;  // ISO timestamp; omitted on cache hits
+  pages?: number; // from pdf.js totalPages
+  extractedAt?: string; // ISO timestamp; omitted on cache hits
 }
 ```
 
@@ -252,7 +252,7 @@ const fuse = new Fuse(allRows, {
   keys: ['title', 'text'],
   threshold: 0.3,
   ignoreLocation: true,
-  includeMatches: true,  // required for the snippet helper
+  includeMatches: true, // required for the snippet helper
 });
 ```
 
@@ -274,9 +274,9 @@ import { extractPdfsFromBody } from '@icjia/pdf-search-index';
 
 const allPdfs = [];
 for (const page of pages) {
-  allPdfs.push(...await extractPdfsFromBody(page.body));
+  allPdfs.push(...(await extractPdfsFromBody(page.body)));
 }
-const uniquePdfs = [...new Map(allPdfs.map(p => [p.id, p])).values()];
+const uniquePdfs = [...new Map(allPdfs.map((p) => [p.id, p])).values()];
 
 const fuse = new Fuse([...pages, ...uniquePdfs], {
   keys: ['title', 'body', 'text'],
@@ -365,14 +365,14 @@ npx @icjia/pdf-search-index/mcp
 
 ### Tool surface
 
-| Tool | Purpose |
-|---|---|
-| `extract_pdf` | Single URL → full text + page count |
-| `index_pdfs` | URL list (or sitemap URL) → IndexedPdf[] |
+| Tool            | Purpose                                                         |
+| --------------- | --------------------------------------------------------------- |
+| `extract_pdf`   | Single URL → full text + page count                             |
+| `index_pdfs`    | URL list (or sitemap URL) → IndexedPdf[]                        |
 | `get_pdf_index` | Returns the cached/built index for the session, format-agnostic |
-| `search_pdfs` | URL list + query → ranked snippets (uses Fuse internally) |
-| `clear_cache` | Manual flush |
-| `get_status` | Server / lib / pdf.js versions, cache stats |
+| `search_pdfs`   | URL list + query → ranked snippets (uses Fuse internally)       |
+| `clear_cache`   | Manual flush                                                    |
+| `get_status`    | Server / lib / pdf.js versions, cache stats                     |
 
 **Both `get_pdf_index` and `search_pdfs` ship in v1.** The raw index keeps
 the MCP server format-agnostic (the LLM can grep it however it wants); the
@@ -444,20 +444,18 @@ export default defineEventHandler(async (event) => {
   const cmsPages = await $fetch('https://cms.example.com/api/pages');
   const cmsPdfs = [];
   for (const page of cmsPages) {
-    cmsPdfs.push(...await extractPdfsFromCmsBody(page.attributes.body));
+    cmsPdfs.push(...(await extractPdfsFromCmsBody(page.attributes.body)));
   }
 
   // @nuxt/content source
   const docs = await serverQueryContent(event).find();
   const contentPdfs = [];
   for (const doc of docs) {
-    contentPdfs.push(...await extractPdfsFromContentDoc(doc));
+    contentPdfs.push(...(await extractPdfsFromContentDoc(doc)));
   }
 
   // Dedupe and merge
-  const pdfs = [...new Map(
-    [...cmsPdfs, ...contentPdfs].map(p => [p.id, p])
-  ).values()];
+  const pdfs = [...new Map([...cmsPdfs, ...contentPdfs].map((p) => [p.id, p])).values()];
 
   return [...cmsPages, ...docs, ...pdfs];
 });
@@ -472,14 +470,14 @@ export default defineNuxtConfig({
   pdfSearchIndex: {
     cacheDir: '.nuxt/.pdf-cache',
     concurrency: 4,
-    contentSources: ['cms', 'content'],  // hints; the route logic is consumer-owned
+    contentSources: ['cms', 'content'], // hints; the route logic is consumer-owned
   },
 });
 ```
 
 ### Design notes
 
-- **The shared Nitro route is a *template*, not a generated file.** The
+- **The shared Nitro route is a _template_, not a generated file.** The
   consumer site copies it and adapts the CMS fetch call to its own
   endpoint. We don't try to auto-fetch unknown CMS APIs.
 - `extractPdfsFromContentDoc` traverses the parsed AST from `@nuxt/content`
@@ -568,8 +566,8 @@ proper title.
     "title": "R3 Annual Report 2024",
     "text": "PROGRAM ANNUAL REPORT | 2024 RESTORE, REINVEST AND RENEW…",
     "pages": 42,
-    "extractedAt": "2026-05-15T13:42:18.391Z"
-  }
+    "extractedAt": "2026-05-15T13:42:18.391Z",
+  },
 ]
 ```
 
@@ -586,15 +584,15 @@ typing.
 
 All failures are non-fatal:
 
-| Failure | Behavior |
-|---|---|
-| Network error (DNS, timeout, refused) | Log warning, return `{ url, title, text: '' }` |
-| HTTP non-2xx | Log warning with status, return empty text |
-| Body bigger than `maxBytes` | Log warning, return empty text |
-| pdf.js parse error (corrupt PDF) | Log warning with error message, return empty text |
-| Encrypted PDF (no password) | Log warning, return empty text |
-| Image-only / scanned PDF | Empty text returned silently (text layer is genuinely empty) |
-| Cache write error (disk full, EACCES) | Log warning, return extracted text without caching |
+| Failure                               | Behavior                                                     |
+| ------------------------------------- | ------------------------------------------------------------ |
+| Network error (DNS, timeout, refused) | Log warning, return `{ url, title, text: '' }`               |
+| HTTP non-2xx                          | Log warning with status, return empty text                   |
+| Body bigger than `maxBytes`           | Log warning, return empty text                               |
+| pdf.js parse error (corrupt PDF)      | Log warning with error message, return empty text            |
+| Encrypted PDF (no password)           | Log warning, return empty text                               |
+| Image-only / scanned PDF              | Empty text returned silently (text layer is genuinely empty) |
+| Cache write error (disk full, EACCES) | Log warning, return extracted text without caching           |
 
 Consumers receive `{ ..., text: '' }` for failed entries. The index stays
 valid. Search just doesn't match those PDFs. The build doesn't fail.
@@ -719,22 +717,22 @@ document.
     ".": "./dist/index.js",
     "./fuse": "./dist/fuse.js",
     "./snippet": "./dist/snippet.js",
-    "./mcp": "./dist/mcp.js"
+    "./mcp": "./dist/mcp.js",
   },
   "bin": {
-    "pdf-search-index": "./dist/cli.js"
+    "pdf-search-index": "./dist/cli.js",
   },
   "dependencies": {
     "unpdf": "^1.6.0",
     "p-limit": "^6.0.0",
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
   },
   "peerDependencies": {
-    "fuse.js": "^7.0.0"
+    "fuse.js": "^7.0.0",
   },
   "peerDependenciesMeta": {
-    "fuse.js": { "optional": true }
-  }
+    "fuse.js": { "optional": true },
+  },
 }
 ```
 
@@ -779,7 +777,7 @@ Each step gets its own commit; each package gets its own changeset entry.
 - **Astro integration test:** Tiny Astro fixture project with one
   collection, one page, one PDF; run `astro build`, assert the JSON output.
 - **Nuxt module test:** Tiny Nuxt 4 fixture project with `@nuxt/content`
-  + a mocked CMS fetch; run `nuxt build`, assert the JSON output.
+  - a mocked CMS fetch; run `nuxt build`, assert the JSON output.
 - **CI matrix:** Node 20 + 22 on Ubuntu (Mac/Windows added if real CI
   pain emerges).
 
@@ -789,15 +787,15 @@ Each step gets its own commit; each package gets its own changeset entry.
 
 Tracked here so the v1 scope stays disciplined:
 
-| Feature | When |
-|---|---|
-| OCR for scanned PDFs | Separate package `@icjia/pdf-search-index-ocr` when a real consumer site needs it |
-| ETag-based cache invalidation | When in-place PDF mutation becomes a real pain point |
-| Auth-protected PDF sources | When a consumer needs it; ships as `fetchHeaders` option |
-| Multi-format siblings (docx/xlsx/pptx) | Separate packages when prioritized |
-| PDF metadata index (author, subject, etc.) | Easy add later; not in v1 scope |
-| Per-page snippet links (`...#page=N`) | Requires `mergePages: false` adoption first |
-| Client-side runtime extraction (Web Worker) | Only if a site exceeds the 1,000-PDF ceiling |
+| Feature                                     | When                                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| OCR for scanned PDFs                        | Separate package `@icjia/pdf-search-index-ocr` when a real consumer site needs it |
+| ETag-based cache invalidation               | When in-place PDF mutation becomes a real pain point                              |
+| Auth-protected PDF sources                  | When a consumer needs it; ships as `fetchHeaders` option                          |
+| Multi-format siblings (docx/xlsx/pptx)      | Separate packages when prioritized                                                |
+| PDF metadata index (author, subject, etc.)  | Easy add later; not in v1 scope                                                   |
+| Per-page snippet links (`...#page=N`)       | Requires `mergePages: false` adoption first                                       |
+| Client-side runtime extraction (Web Worker) | Only if a site exceeds the 1,000-PDF ceiling                                      |
 
 ---
 
@@ -821,14 +819,14 @@ When v1 ships:
 
 All Appendix A questions from the original design doc are resolved:
 
-| # | Decision |
-|---|---|
-| A.1 Concurrency | `p-limit(4)` default, configurable |
-| A.2 Merged vs per-page | `mergePages: true` default; `mergePages: false` opt-in for `{ pageNum, text }[]` |
-| A.3 Title heuristics | link-text → pdf.js info-dict title → humanized filename |
-| A.4 JSON byte-stability | Omit `extractedAt` on cache hits |
-| A.5 CLI exit codes | Exit 0 default; `--strict` flips to exit 1 on any failure |
-| A.6 MCP scope | Ship BOTH `get_pdf_index` (raw) AND `search_pdfs` (Fuse-ranked) |
+| #                       | Decision                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| A.1 Concurrency         | `p-limit(4)` default, configurable                                               |
+| A.2 Merged vs per-page  | `mergePages: true` default; `mergePages: false` opt-in for `{ pageNum, text }[]` |
+| A.3 Title heuristics    | link-text → pdf.js info-dict title → humanized filename                          |
+| A.4 JSON byte-stability | Omit `extractedAt` on cache hits                                                 |
+| A.5 CLI exit codes      | Exit 0 default; `--strict` flips to exit 1 on any failure                        |
+| A.6 MCP scope           | Ship BOTH `get_pdf_index` (raw) AND `search_pdfs` (Fuse-ranked)                  |
 
 ---
 
@@ -854,5 +852,5 @@ changes:
 
 ---
 
-*Spec authored 2026-05-15 after a brainstorming pass against
-`docs/PDF_SEARCH_DESIGN.md` and the R3 reference impl.*
+_Spec authored 2026-05-15 after a brainstorming pass against
+`docs/PDF_SEARCH_DESIGN.md` and the R3 reference impl._

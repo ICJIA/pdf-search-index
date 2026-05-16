@@ -1,0 +1,4 @@
+public/searchIndex.json
+dist/
+.pdf-cache/
+node_modules/

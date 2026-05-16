@@ -1,0 +1,28 @@
+{
+  "name": "@icjia/pdf-search-index-monorepo",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "test": "pnpm -r --filter \"./packages/*\" test",
+    "test:watch": "pnpm -r --parallel --filter \"./packages/*\" test:watch",
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r --filter \"./packages/*\" typecheck",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0",
+    "@types/node": "^22.0.0",
+    "oxlint": "^0.15.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  }
+}

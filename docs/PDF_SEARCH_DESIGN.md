@@ -4,18 +4,18 @@ A small drop-in npm package for adding **full-text PDF search** to static
 sites that already use **Fuse.js** (or MiniSearch / Lunr / FlexSearch) for
 client-side fuzzy search. PDFs become first-class search rows alongside
 your pages and posts: a query like "applicant portal" matches the body of
-the *linked PDF*, returns it as a result, and — with the included snippet
+the _linked PDF_, returns it as a result, and — with the included snippet
 helper — shows the surrounding text with the match highlighted.
 
-| | |
-|---|---|
-| **Status** | Design. Inline reference implementation live in this repo at `astro/src/lib/pdfText.ts` + `astro/src/pages/searchIndex.json.ts`. |
-| **Target package** | `@icjia/pdf-search-index` (npm, scoped to the ICJIA org) |
-| **Target repo** | `github.com/ICJIA/pdf-search-index` (new — to be created) |
-| **Scale target** | 10–1,000 PDFs per site (most ICJIA sites: 10–20) |
-| **Architecture** | Build-time extraction; runtime is just a JSON fetch |
-| **Distribution** | Library + CLI + MCP server, all from one repo |
-| **License (proposed)** | MIT |
+|                        |                                                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Status**             | Design. Inline reference implementation live in this repo at `astro/src/lib/pdfText.ts` + `astro/src/pages/searchIndex.json.ts`. |
+| **Target package**     | `@icjia/pdf-search-index` (npm, scoped to the ICJIA org)                                                                         |
+| **Target repo**        | `github.com/ICJIA/pdf-search-index` (new — to be created)                                                                        |
+| **Scale target**       | 10–1,000 PDFs per site (most ICJIA sites: 10–20)                                                                                 |
+| **Architecture**       | Build-time extraction; runtime is just a JSON fetch                                                                              |
+| **Distribution**       | Library + CLI + MCP server, all from one repo                                                                                    |
+| **License (proposed)** | MIT                                                                                                                              |
 
 ---
 
@@ -25,13 +25,13 @@ ICJIA sites publish a lot of PDFs — annual reports, FAQs, technical
 documents, board materials — that are effectively invisible to site
 search today. Most ICJIA sites use **Fuse.js** for client-side fuzzy
 search, which works great for pages and news posts but only ever matches
-the *prose that links to a PDF*, never the PDF's content. A user
+the _prose that links to a PDF_, never the PDF's content. A user
 searching for "lieutenant governor" gets nothing when the only mention is
 inside a PDF body.
 
 The fix is conceptually simple: extract text from each PDF at build time,
 append it to your Fuse index as a normal row. Apache Solr has done this
-for a decade via Tika — but Solr is a JVM-based search *server* and
+for a decade via Tika — but Solr is a JVM-based search _server_ and
 massive overkill for a static-site ICJIA deployment. This package is the
 **Tika-equivalent, no Solr**: extract text at build time, output JSON,
 let your existing client-side search engine handle the query.
@@ -64,7 +64,7 @@ The next step is generalizing that pattern.
   ≈200-line core.
 - **Snippet / highlight helper.** A `snippetFor(fuseResult)` function
   that returns HTML with `<mark>` around the match — the part that makes
-  search results *useful* instead of just *correct*.
+  search results _useful_ instead of just _correct_.
 - **Cache.** Extracted text is keyed by URL hash; re-runs are instant.
 - **Graceful degradation.** A corrupt PDF doesn't fail the build — it
   logs and skips. The index stays valid.
@@ -106,7 +106,7 @@ const allRows = [...yourPageRows, ...pdfRows];
 const fuse = new Fuse(allRows, { keys: ['title', 'text'], includeMatches: true });
 ```
 
-If you *don't* already have Fuse wired up, the dedicated adapter does
+If you _don't_ already have Fuse wired up, the dedicated adapter does
 both steps for you:
 
 ```ts
@@ -189,11 +189,11 @@ Options:
 
 ```ts
 interface ExtractOptions {
-  cacheDir?: string;       // default: '.pdf-cache'
-  fetchTimeout?: number;   // default: 30000 (ms)
-  maxBytes?: number;       // default: 100MB
-  fetch?: typeof fetch;    // inject a custom fetch (e.g. for auth)
-  cache?: 'use' | 'bypass' | 'refresh';  // default: 'use'
+  cacheDir?: string; // default: '.pdf-cache'
+  fetchTimeout?: number; // default: 30000 (ms)
+  maxBytes?: number; // default: 100MB
+  fetch?: typeof fetch; // inject a custom fetch (e.g. for auth)
+  cache?: 'use' | 'bypass' | 'refresh'; // default: 'use'
 }
 ```
 
@@ -239,16 +239,17 @@ object with explicit `title` / `id`.
 
 ```ts
 interface IndexedPdf {
-  id: string;            // 'pdf-' + first 12 hex chars of SHA-256(url)
-  url: string;           // canonical URL
-  title: string;         // link-text title, or filename-derived
-  text: string;          // extracted body text, single string, no markup
-  pages?: number;        // page count from pdf.js
-  extractedAt?: string;  // ISO timestamp, present if not from cache
+  id: string; // 'pdf-' + first 12 hex chars of SHA-256(url)
+  url: string; // canonical URL
+  title: string; // link-text title, or filename-derived
+  text: string; // extracted body text, single string, no markup
+  pages?: number; // page count from pdf.js
+  extractedAt?: string; // ISO timestamp, present if not from cache
 }
 ```
 
 This shape is intentionally Fuse-friendly:
+
 - `id` is a stable Fuse key
 - `title` and `text` are the natural Fuse `keys: [...]`
 - `url` is the direct-link target for search-result anchors
@@ -272,7 +273,7 @@ const fuse = new Fuse(allRows, {
   keys: ['title', 'text'],
   threshold: 0.3,
   ignoreLocation: true,
-  includeMatches: true,  // required for the snippet helper
+  includeMatches: true, // required for the snippet helper
 });
 ```
 
@@ -313,7 +314,7 @@ for (const page of pages) {
 }
 
 // Dedupe by id (same PDF linked from multiple pages → one row)
-const uniquePdfs = [...new Map(allPdfs.map(p => [p.id, p])).values()];
+const uniquePdfs = [...new Map(allPdfs.map((p) => [p.id, p])).values()];
 
 const fuse = new Fuse([...pages, ...uniquePdfs], {
   keys: ['title', 'body', 'text'],
@@ -330,15 +331,16 @@ const results = fuse.search('applicant portal');
 
 for (const r of results) {
   const html = snippetHTMLFor(r, {
-    contextChars: 80,       // chars before + after match (default: 80)
-    matchKey: 'text',       // which Fuse key to snippet (default: 'text')
-    collapseWhitespace: true,  // default: true — PDF text has weird wrap
+    contextChars: 80, // chars before + after match (default: 80)
+    matchKey: 'text', // which Fuse key to snippet (default: 'text')
+    collapseWhitespace: true, // default: true — PDF text has weird wrap
   });
   // html: "…the <mark>applicant portal</mark> requires registration…"
 }
 ```
 
 The helper:
+
 - Picks the longest match span (Fuse can return multiple per key)
 - Slices ±N chars of context around it
 - Collapses whitespace (PDF text from pdf.js often has line-wrap noise)
@@ -352,6 +354,7 @@ Output is safe to `v-html` / `dangerouslySetInnerHTML` directly.
 Combine PDFs with pages in one index, then filter by `type` in the UI.
 The R3 search component does exactly this — see `astro/src/components/
 Search.vue` in this repo for a working reference of:
+
 - Query-driven filter chips (hidden until a query has matches)
 - Per-type counts based on Fuse results, not raw index size
 - Zero-match chips disabled
@@ -403,7 +406,7 @@ file and a query.
 ## 8. MCP server
 
 Useful when you want Claude (or any MCP-capable LLM) to search inside
-PDFs *during a conversation* — for example, when a user asks "what does
+PDFs _during a conversation_ — for example, when a user asks "what does
 the R3 FAQ say about prequalification?" and you want the LLM to actually
 read the PDF, not guess.
 
@@ -424,13 +427,13 @@ npx @icjia/pdf-search-index/mcp
 
 ### Tool surface
 
-| Tool | Purpose |
-|---|---|
-| `index_pdfs` | Given a URL list (or sitemap URL), extract + return the index JSON. |
-| `search_pdfs` | Given an index (or a URL list) + a query, return matched snippets. |
-| `extract_pdf` | Single-URL extraction. Returns full text + page count. |
-| `clear_cache` | Manual cache flush. |
-| `get_status` | Server / library / pdf.js versions, cache stats. |
+| Tool          | Purpose                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| `index_pdfs`  | Given a URL list (or sitemap URL), extract + return the index JSON. |
+| `search_pdfs` | Given an index (or a URL list) + a query, return matched snippets.  |
+| `extract_pdf` | Single-URL extraction. Returns full text + page count.              |
+| `clear_cache` | Manual cache flush.                                                 |
+| `get_status`  | Server / library / pdf.js versions, cache stats.                    |
 
 All tools accept an optional `cacheDir` so a single-session conversation
 doesn't pollute the user's persistent cache.
@@ -480,7 +483,7 @@ export default {
 };
 ```
 
-The Astro and Nuxt packages are *separate* from the core — they're small
+The Astro and Nuxt packages are _separate_ from the core — they're small
 adapters. Core consumers don't pay for framework dependencies they
 aren't using.
 
@@ -490,14 +493,14 @@ aren't using.
 
 Use **pdf.js via `unpdf`**. Rationale:
 
-| Library | Verdict |
-|---|---|
+| Library                         | Verdict                                                                                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`unpdf`** (Anthony Fu / unjs) | ✅ Chosen. Modern ESM-first wrapper around pdf.js. Clean API: `getDocumentProxy(buf)` → `extractText(pdf, { mergePages: true })`. Pure JS, no native deps. |
-| `pdf-parse` | Mature, but has a known top-level "test PDF" auto-run quirk that requires a workaround import path. Use as fallback if `unpdf` ever has issues. |
-| `pdfjs-dist` directly | More verbose API but no extra wrapper. Acceptable for power users who need per-page granular control. |
-| `pdftotext` (poppler-utils) | Best-in-class text quality. **Excludes serverless/CI environments** without explicit binary installation. Disqualifying for "drop-in" goal. |
-| Apache Tika | Multi-format extractor + server. **Wrong tool** — heavyweight JVM, multi-format isn't a goal, and we don't want a server. |
-| `qpdf` | **Not a text extractor.** Common confusion: qpdf is for PDF *manipulation* (split/rotate/encrypt/repair). Doesn't extract text. |
+| `pdf-parse`                     | Mature, but has a known top-level "test PDF" auto-run quirk that requires a workaround import path. Use as fallback if `unpdf` ever has issues.            |
+| `pdfjs-dist` directly           | More verbose API but no extra wrapper. Acceptable for power users who need per-page granular control.                                                      |
+| `pdftotext` (poppler-utils)     | Best-in-class text quality. **Excludes serverless/CI environments** without explicit binary installation. Disqualifying for "drop-in" goal.                |
+| Apache Tika                     | Multi-format extractor + server. **Wrong tool** — heavyweight JVM, multi-format isn't a goal, and we don't want a server.                                  |
+| `qpdf`                          | **Not a text extractor.** Common confusion: qpdf is for PDF _manipulation_ (split/rotate/encrypt/repair). Doesn't extract text.                            |
 
 In v1 we wrap `unpdf` only. If a v2 needs poppler-quality extraction, we
 can add an opt-in `extractor: 'unpdf' | 'pdftotext'` flag and shell out
@@ -522,7 +525,7 @@ Lookup is **read-through, write-back**:
 No automatic invalidation. **Rationale**: PDFs in most CMS systems are
 content-addressed at the storage layer — a "new version" gets a new URL
 with a new hash suffix (Strapi does this, S3 versioned buckets do this).
-If a PDF *is* mutated in place, the user can either:
+If a PDF _is_ mutated in place, the user can either:
 
 - `rm -rf .pdf-cache/` before the build to refresh everything, or
 - `npx @icjia/pdf-search-index --refresh <url>` to refresh one.
@@ -543,8 +546,8 @@ PDF per build; not worth the default trade-off for most consumers.
     "title": "R3 Annual Report 2024",
     "text": "PROGRAM ANNUAL REPORT | 2024 RESTORE, REINVEST AND RENEW…",
     "pages": 42,
-    "extractedAt": "2026-05-15T13:42:18.391Z"
-  }
+    "extractedAt": "2026-05-15T13:42:18.391Z",
+  },
 ]
 ```
 
@@ -564,15 +567,15 @@ import type { IndexedPdf } from '@icjia/pdf-search-index';
 
 All failures are **non-fatal**:
 
-| Failure mode | Behavior |
-|---|---|
-| Network error (DNS, timeout, refused) | Log warning, return `{ url, title, text: '' }` |
-| HTTP non-2xx | Log warning with status, return empty text |
-| Body bigger than `maxBytes` | Log warning, return empty text |
-| pdf.js parse error (corrupt PDF) | Log warning with error message, return empty text |
-| Encrypted PDF (no password) | Log warning, return empty text |
-| Image-only / scanned PDF | Empty text returned silently — text layer is genuinely empty |
-| Cache write error (disk full, EACCES) | Log warning, proceed with extracted text |
+| Failure mode                          | Behavior                                                     |
+| ------------------------------------- | ------------------------------------------------------------ |
+| Network error (DNS, timeout, refused) | Log warning, return `{ url, title, text: '' }`               |
+| HTTP non-2xx                          | Log warning with status, return empty text                   |
+| Body bigger than `maxBytes`           | Log warning, return empty text                               |
+| pdf.js parse error (corrupt PDF)      | Log warning with error message, return empty text            |
+| Encrypted PDF (no password)           | Log warning, return empty text                               |
+| Image-only / scanned PDF              | Empty text returned silently — text layer is genuinely empty |
+| Cache write error (disk full, EACCES) | Log warning, proceed with extracted text                     |
 
 Consumers receive `{ ..., text: '' }` for failed entries. The index stays
 valid. Search just doesn't match those PDFs. The build doesn't fail.
@@ -585,15 +588,15 @@ ship a quietly-stale index.
 
 ## 14. Future extensions (post-v1)
 
-| Extension | Sketch |
-|---|---|
-| **OCR for scanned PDFs** | Opt-in `ocr: true` option. Layer Tesseract.js on top — costly (~30s/page) but unlocks image-only PDFs. Probably ships as `@icjia/pdf-search-index-ocr` so the core stays lean. |
-| **Per-page snippets** | `mergePages: false` mode that returns `{ pageNum, text }[]`. Snippet helper would link directly to `…#page=N` in compatible PDF viewers. |
-| **ETag-based cache invalidation** | Opt-in `cacheMode: 'etag'`. HEAD per cached entry to detect upstream changes. |
-| **Streaming / incremental indexing** | For larger sites: read a manifest of previously-indexed URLs, only extract the delta. |
-| **Multi-format siblings** | `@icjia/docx-search-index` (mammoth), `@icjia/xlsx-search-index` (SheetJS). Same shape, different extractor. |
-| **PDF metadata in index** | Extract pdf.js info dict (title, author, subject) as separate fields. Useful when the link-text title is generic ("Click here") but the PDF itself has a proper title. |
-| **Client-side runtime extraction** | A Web Worker that extracts on demand — useful for sites with truly enormous PDF corpora where build-time extraction is prohibitive. Probably overkill for any ICJIA site (1,000 PDFs is the ceiling). |
+| Extension                            | Sketch                                                                                                                                                                                                |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OCR for scanned PDFs**             | Opt-in `ocr: true` option. Layer Tesseract.js on top — costly (~30s/page) but unlocks image-only PDFs. Probably ships as `@icjia/pdf-search-index-ocr` so the core stays lean.                        |
+| **Per-page snippets**                | `mergePages: false` mode that returns `{ pageNum, text }[]`. Snippet helper would link directly to `…#page=N` in compatible PDF viewers.                                                              |
+| **ETag-based cache invalidation**    | Opt-in `cacheMode: 'etag'`. HEAD per cached entry to detect upstream changes.                                                                                                                         |
+| **Streaming / incremental indexing** | For larger sites: read a manifest of previously-indexed URLs, only extract the delta.                                                                                                                 |
+| **Multi-format siblings**            | `@icjia/docx-search-index` (mammoth), `@icjia/xlsx-search-index` (SheetJS). Same shape, different extractor.                                                                                          |
+| **PDF metadata in index**            | Extract pdf.js info dict (title, author, subject) as separate fields. Useful when the link-text title is generic ("Click here") but the PDF itself has a proper title.                                |
+| **Client-side runtime extraction**   | A Web Worker that extracts on demand — useful for sites with truly enormous PDF corpora where build-time extraction is prohibitive. Probably overkill for any ICJIA site (1,000 PDFs is the ceiling). |
 
 ---
 
@@ -601,13 +604,14 @@ ship a quietly-stale index.
 
 The R3 Astro site (this repo) is the proving ground. The relevant files:
 
-| Path | Purpose |
-|---|---|
-| `astro/src/lib/pdfText.ts` | The extractor + cache (≈100 lines). Demonstrates URL scanning, fetch, unpdf, cache, error handling. |
-| `astro/src/pages/searchIndex.json.ts` | The Astro endpoint that builds the JSON index (≈110 lines). Demonstrates merging PDF rows with CMS rows, de-duping across pages, the parent-row + PDF-row pattern. |
-| `astro/src/components/Search.vue` | The Vue island that consumes the index and renders results (≈250 lines). Demonstrates query-driven filter chips, snippet rendering with `<mark>`-highlighted matches, direct-link PDF results in new tabs. |
+| Path                                  | Purpose                                                                                                                                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `astro/src/lib/pdfText.ts`            | The extractor + cache (≈100 lines). Demonstrates URL scanning, fetch, unpdf, cache, error handling.                                                                                                        |
+| `astro/src/pages/searchIndex.json.ts` | The Astro endpoint that builds the JSON index (≈110 lines). Demonstrates merging PDF rows with CMS rows, de-duping across pages, the parent-row + PDF-row pattern.                                         |
+| `astro/src/components/Search.vue`     | The Vue island that consumes the index and renders results (≈250 lines). Demonstrates query-driven filter chips, snippet rendering with `<mark>`-highlighted matches, direct-link PDF results in new tabs. |
 
 What R3 has validated:
+
 - ✅ Extraction works against Strapi-hosted PDFs at 7+ documents (the
   largest is 137 KB of text, the smallest is ~3 KB)
 - ✅ Cache makes second-and-later builds instant
@@ -618,6 +622,7 @@ What R3 has validated:
   warning and got skipped; the index built fine
 
 What R3 still doesn't exercise:
+
 - ⏳ Image-only / scanned PDFs (no examples in the corpus today)
 - ⏳ Truly large PDFs (most R3 PDFs are <100 pages)
 - ⏳ ETag-based cache invalidation (no need yet)
@@ -706,7 +711,7 @@ npm i @icjia/pdf-search-index
 **Search result template** — open PDFs in a new tab, render the snippet:
 
 ```vue
- <li v-for="r in results" :key="r.item.id">
+<li v-for="r in results" :key="r.item.id">
    <a
      :href="r.item.path"
 +    :target="r.item.type === 'pdf' ? '_blank' : undefined"
@@ -756,8 +761,8 @@ Then in your search code:
 
 ```js
 const [pages, pdfs] = await Promise.all([
-  fetch('/search.json').then(r => r.json()),
-  fetch('/pdf-search.json').then(r => r.json()),
+  fetch('/search.json').then((r) => r.json()),
+  fetch('/pdf-search.json').then((r) => r.json()),
 ]);
 
 const fuse = new Fuse([...pages, ...pdfs], {
@@ -782,12 +787,12 @@ For all three integration patterns:
 
 Four decisions when bringing this to a new site:
 
-| Decision | Default | When to override |
-|---|---|---|
-| Which collections to scan for PDF links | All with a `body` field | Skip a collection if its PDFs are never user-facing |
-| Cache directory | `.pdf-cache/` | Match your CI's persistent-cache convention (e.g. `.cache/pdf-text/` on Vercel) |
-| Include the "PDFs" filter chip in the UI | Yes if site has ≥3 PDFs | Hide if PDFs are too few to be their own category |
-| Snippet context length (chars before + after match) | 80 | Up to 200 if you have horizontal space; down to 40 for mobile-first |
+| Decision                                            | Default                 | When to override                                                                |
+| --------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| Which collections to scan for PDF links             | All with a `body` field | Skip a collection if its PDFs are never user-facing                             |
+| Cache directory                                     | `.pdf-cache/`           | Match your CI's persistent-cache convention (e.g. `.cache/pdf-text/` on Vercel) |
+| Include the "PDFs" filter chip in the UI            | Yes if site has ≥3 PDFs | Hide if PDFs are too few to be their own category                               |
+| Snippet context length (chars before + after match) | 80                      | Up to 200 if you have horizontal space; down to 40 for mobile-first             |
 
 ### 16.6. Migration order for existing ICJIA sites
 
@@ -807,7 +812,7 @@ When this package ships, the natural rollout order:
 ## 17. Prior art
 
 - **Apache Tika** — multi-format extractor + Java server. The mature
-  reference. Heavyweight (JVM, full server). What we're *not* building.
+  reference. Heavyweight (JVM, full server). What we're _not_ building.
 - **Solr ExtractingRequestHandler** + **Elasticsearch ingest-attachment**
   — both backed by Tika. Same shape: extract once, feed an inverted
   index. We're swapping Solr for a JSON file and Tika for pdf.js.
@@ -899,20 +904,20 @@ These are real questions worth resolving before v1 ships, not after.
     ".": "./dist/index.js",
     "./fuse": "./dist/fuse.js",
     "./snippet": "./dist/snippet.js",
-    "./mcp": "./dist/mcp.js"
+    "./mcp": "./dist/mcp.js",
   },
   "bin": {
-    "pdf-search-index": "./dist/cli.js"
+    "pdf-search-index": "./dist/cli.js",
   },
   "dependencies": {
-    "unpdf": "^1.6.0"
+    "unpdf": "^1.6.0",
   },
   "peerDependencies": {
-    "fuse.js": "^7.0.0"
+    "fuse.js": "^7.0.0",
   },
   "peerDependenciesMeta": {
-    "fuse.js": { "optional": true }
-  }
+    "fuse.js": { "optional": true },
+  },
 }
 ```
 
@@ -921,5 +926,5 @@ These are real questions worth resolving before v1 ships, not after.
 
 ---
 
-*Last revised 2026-05-15. Companion to the R3 inline reference at*
-*`github.com/ICJIA/icjia-r3-v5-nuxt/blob/main/astro/src/lib/pdfText.ts`.*
+_Last revised 2026-05-15. Companion to the R3 inline reference at_
+_`github.com/ICJIA/icjia-r3-v5-nuxt/blob/main/astro/src/lib/pdfText.ts`._

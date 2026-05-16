@@ -1,0 +1,9 @@
+{
+  "name": "astro-pdf-search-fixture",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "dependencies": {
+    "astro": "^5.0.0"
+  }
+}
