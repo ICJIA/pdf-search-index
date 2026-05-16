@@ -50,7 +50,12 @@
             rel="noopener noreferrer"
             class="search__result-link"
           >
-            <h3 class="search__result-title">{{ r.item.title }}</h3>
+            <h3 class="search__result-title">
+              {{ r.item.title }}
+              <span v-if="matchCount(r) > 1" class="search__result-matches"
+                >{{ matchCount(r) }} matches</span
+              >
+            </h3>
             <span v-if="includeScore && typeof r.score === 'number'" class="search__result-score"
               >Score: {{ r.score.toFixed(3) }}</span
             >
@@ -395,7 +400,7 @@ const DEFAULTS = {
   isCaseSensitive: false,
   includeScore: false,
   shouldSort: true,
-  findAllMatches: false,
+  findAllMatches: true,
   ignoreFieldNorm: false,
   fieldNormWeight: 1.0,
   useExtendedSearch: false,
@@ -540,7 +545,18 @@ function snippet(r: FuseResult<IndexedPdf>): string {
   // PDF text and joined with ' … '. When the matches are clustered close
   // together (their context windows overlap) the picker drops the shorter
   // one — so users see distinct passages, not three views of the same hit.
-  return snippetHTMLFor(r, { contextChars: 100, matchKey: 'text', maxSnippets: 3 });
+  return snippetHTMLFor(r, { contextChars: 100, matchKey: 'text', maxSnippets: 8 });
+}
+
+/**
+ * Total number of body-text match spans across this result. Used to surface
+ * "12 matches in this PDF" so the user sees the full hit count even when the
+ * rendered snippet only shows the top N. Counts indices from every match
+ * entry on `text` key; ignores title-key matches.
+ */
+function matchCount(r: FuseResult<IndexedPdf>): number {
+  const textMatches = (r.matches ?? []).filter((m) => m.key === 'text');
+  return textMatches.reduce((sum, m) => sum + (m.indices?.length ?? 0), 0);
 }
 
 function resetDefaults(): void {
@@ -781,6 +797,25 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.005em;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.search__result-matches {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #a3e635;
+  background: rgba(163, 230, 53, 0.1);
+  border: 1px solid rgba(163, 230, 53, 0.3);
+  border-radius: 4px;
 }
 
 .search__result-score {
@@ -801,15 +836,11 @@ onMounted(async () => {
   line-height: 1.55;
   color: var(--text-muted);
   /*
-   * Multi-snippet (up to 3) often needs more room than a single span did.
-   * Cap at 5 lines so a result card still stays scannable, but allow the
-   * extra room when there are multiple highlighted passages.
+   * Now that findAllMatches defaults to true and maxSnippets is 8, a single
+   * card can carry 8 distinct passages. Removing the line-clamp lets the
+   * card grow with the matches — the visual height itself becomes a signal
+   * for "this PDF is a strong hit" relative to one-snippet cards.
    */
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .search__result-cta {
