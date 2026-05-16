@@ -506,9 +506,9 @@ const pdfCount = corpus.length || docs.length;
                   {p.textChars < 50 && (
                     <span
                       class="corpus__badge corpus__badge--ocr"
-                      title="This PDF has no text layer — it's image-only or a scan. Run ocrmypdf on it first to add searchable text."
+                      title="This PDF has no text layer — it's image-only or a scan. The package extracts no body text from it; Fuse can still match against the title. Run ocrmypdf on the source to add searchable body text."
                     >
-                      Needs OCR
+                      Needs OCR — title only
                     </span>
                   )}
                 </h3>
