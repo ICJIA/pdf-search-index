@@ -325,6 +325,26 @@
       </p>
     </div>
   </section>
+
+  <section class="index-inspect" aria-labelledby="index-inspect-heading">
+    <h2 id="index-inspect-heading" class="index-inspect__heading">Inspect the search index</h2>
+    <div class="index-card">
+      <p class="index-card__intro">
+        Curious how the package&rsquo;s output looks before it hits Fuse? This is the raw
+        <code>IndexedPdf[]</code> array that ships as <code>/searchIndex.pdfs.json</code>. Each row
+        carries the URL, title, full extracted text, page count, and a stable hash-derived id. Your
+        search engine of choice consumes this same shape — Fuse here, MiniSearch / Orama / Lunr /
+        Algolia / Typesense elsewhere.
+      </p>
+      <details class="index-details">
+        <summary class="index-details__summary">
+          <span class="index-details__chevron" aria-hidden="true"></span>
+          Show the parsed search index
+        </summary>
+        <pre class="index-details__pre"><code>{{ indexDump }}</code></pre>
+      </details>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -427,6 +447,8 @@ const configSnippet = computed(() => {
   includeMatches: true,
 });`;
 });
+
+const indexDump = computed(() => JSON.stringify(rows.value, null, 2));
 
 function snippet(r: FuseResult<IndexedPdf>): string {
   return snippetHTMLFor(r, { contextChars: 120, matchKey: 'text' });
@@ -748,12 +770,14 @@ onMounted(async () => {
  * ============================================================ */
 
 .tune,
-.why {
+.why,
+.index-inspect {
   margin-top: 3rem;
 }
 
 .tune__heading,
-.why__heading {
+.why__heading,
+.index-inspect__heading {
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -762,7 +786,8 @@ onMounted(async () => {
 }
 
 .tune__card,
-.why__card {
+.why__card,
+.index-card {
   position: relative;
   padding: 2rem 1.5rem;
   background: #101015;
@@ -774,7 +799,8 @@ onMounted(async () => {
 }
 
 .tune__card::before,
-.why__card::before {
+.why__card::before,
+.index-card::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
@@ -1096,19 +1122,136 @@ input.tune__number:disabled {
   color: var(--text);
 }
 
+/* ============================================================
+ * Index inspect card — expandable JSON preview of the raw index.
+ * Uses native <details> for accessibility + zero-JS toggle.
+ * ============================================================ */
+
+.index-card {
+  padding: 1.5rem;
+}
+
+.index-card__intro {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 75ch;
+}
+
+.index-card__intro code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--text);
+}
+
+.index-details {
+  /* Suppress the default UA disclosure triangle */
+  list-style: none;
+}
+
+.index-details__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.95rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.index-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.index-details__summary::marker {
+  content: '';
+}
+
+.index-details__summary:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.index-details__summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.index-details__chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 150ms ease;
+}
+
+.index-details[open] > .index-details__summary .index-details__chevron {
+  transform: rotate(90deg);
+}
+
+.index-details__pre {
+  margin: 1rem 0 0;
+  padding: 1rem 1.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text);
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.index-details__pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre;
+}
+
 @media (max-width: 640px) {
   .tune__card,
-  .why__card {
+  .why__card,
+  .index-card {
     padding: 1.5rem 1rem;
     border-radius: 10px;
+  }
+  .index-card {
+    padding: 1.25rem 1rem;
   }
   .tune__controls {
     grid-template-columns: 1fr;
     gap: 1.25rem;
   }
   .tune__heading,
-  .why__heading {
+  .why__heading,
+  .index-inspect__heading {
     font-size: 1.25rem;
+  }
+  .index-details__pre {
+    max-height: 360px;
+    font-size: 0.72rem;
   }
 }
 </style>
