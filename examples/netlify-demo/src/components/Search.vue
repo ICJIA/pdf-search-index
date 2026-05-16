@@ -30,6 +30,16 @@
             >{{ results.length }} {{ results.length === 1 ? 'match' : 'matches' }}.</template
           >
         </p>
+        <p v-if="useExtendedSearch" class="search__hint">
+          Extended search is on. Try
+          <code>=exact</code>, <code>!not</code>, <code>^prefix</code>, or <code>end$</code>.
+          <a
+            href="https://www.fusejs.io/examples.html#extended-search"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Reference &rarr;</a
+          >
+        </p>
       </div>
 
       <ul v-if="results.length" class="search__results">
@@ -41,6 +51,9 @@
             class="search__result-link"
           >
             <h3 class="search__result-title">{{ r.item.title }}</h3>
+            <span v-if="includeScore && typeof r.score === 'number'" class="search__result-score"
+              >Score: {{ r.score.toFixed(3) }}</span
+            >
             <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
             <span class="search__result-cta">Open PDF</span>
           </a>
@@ -52,6 +65,8 @@
   <section class="tune" aria-labelledby="tune-heading">
     <h2 id="tune-heading" class="tune__heading">Tune Fuse.js, live</h2>
     <div class="tune__card">
+      <!-- Match scoring -->
+      <h3 class="tune__group-heading">Match scoring</h3>
       <div class="tune__controls">
         <div class="tune__control">
           <label for="tune-threshold">Threshold: {{ threshold.toFixed(2) }}</label>
@@ -67,7 +82,7 @@
             aria-valuemin="0"
             aria-valuemax="1"
           />
-          <p class="tune__help">0.0 = exact match only · 1.0 = match almost anything</p>
+          <p class="tune__help">0.0 = exact match · 1.0 = match almost anything</p>
         </div>
 
         <div class="tune__control">
@@ -75,9 +90,44 @@
             <input id="tune-ignore-location" v-model="ignoreLocation" type="checkbox" />
             <span>ignoreLocation</span>
           </label>
+          <p class="tune__help">Search the entire field (recommended for long PDF text).</p>
+        </div>
+
+        <div class="tune__control" :class="{ 'tune__control--disabled': ignoreLocation }">
+          <label for="tune-distance">distance: {{ distance }}</label>
+          <input
+            id="tune-distance"
+            v-model.number="distance"
+            type="number"
+            min="0"
+            max="10000"
+            step="100"
+            class="tune__number"
+            :disabled="ignoreLocation"
+          />
+          <p class="tune__help">Search-window radius. Only matters when ignoreLocation is off.</p>
+          <p v-if="ignoreLocation" class="tune__hint-disabled">
+            Active only when ignoreLocation is off
+          </p>
+        </div>
+
+        <div class="tune__control" :class="{ 'tune__control--disabled': ignoreLocation }">
+          <label for="tune-location">location: {{ location }}</label>
+          <input
+            id="tune-location"
+            v-model.number="location"
+            type="number"
+            min="0"
+            max="10000"
+            step="10"
+            class="tune__number"
+            :disabled="ignoreLocation"
+          />
           <p class="tune__help">
-            When on, Fuse searches the entire field. When off, matches near the start of the field
-            score higher — usually wrong for long PDF text.
+            Where in the field to anchor the search. Only matters when ignoreLocation is off.
+          </p>
+          <p v-if="ignoreLocation" class="tune__hint-disabled">
+            Active only when ignoreLocation is off
           </p>
         </div>
 
@@ -91,9 +141,108 @@
             max="8"
             class="tune__number"
           />
+          <p class="tune__help">Drop matches shorter than this many characters.</p>
+        </div>
+      </div>
+
+      <hr class="tune__divider" />
+
+      <!-- Result behavior -->
+      <h3 class="tune__group-heading">Result behavior</h3>
+      <div class="tune__controls">
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-case-sensitive">
+            <input id="tune-case-sensitive" v-model="isCaseSensitive" type="checkbox" />
+            <span>isCaseSensitive</span>
+          </label>
+          <p class="tune__help">Match the exact case of the query.</p>
+        </div>
+
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-include-score">
+            <input id="tune-include-score" v-model="includeScore" type="checkbox" />
+            <span>includeScore</span>
+          </label>
           <p class="tune__help">
-            Drop matches shorter than this many characters. Raises signal-to-noise but misses short
-            query terms.
+            Surface Fuse&rsquo;s 0&ndash;1 match score on each result. (0 is best.)
+          </p>
+        </div>
+
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-should-sort">
+            <input id="tune-should-sort" v-model="shouldSort" type="checkbox" />
+            <span>shouldSort</span>
+          </label>
+          <p class="tune__help">
+            Sort results by relevance. Turn off to see Fuse&rsquo;s input-order output.
+          </p>
+        </div>
+
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-find-all">
+            <input id="tune-find-all" v-model="findAllMatches" type="checkbox" />
+            <span>findAllMatches</span>
+          </label>
+          <p class="tune__help">
+            Don&rsquo;t stop at the first match per field. Slower; broader snippets.
+          </p>
+        </div>
+      </div>
+
+      <hr class="tune__divider" />
+
+      <!-- Advanced scoring -->
+      <h3 class="tune__group-heading">Advanced scoring</h3>
+      <div class="tune__controls">
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-ignore-field-norm">
+            <input id="tune-ignore-field-norm" v-model="ignoreFieldNorm" type="checkbox" />
+            <span>ignoreFieldNorm</span>
+          </label>
+          <p class="tune__help">
+            Don&rsquo;t penalize matches in long fields. Useful for body-heavy PDFs.
+          </p>
+        </div>
+
+        <div class="tune__control">
+          <label for="tune-field-norm-weight"
+            >fieldNormWeight: {{ fieldNormWeight.toFixed(1) }}</label
+          >
+          <input
+            id="tune-field-norm-weight"
+            v-model.number="fieldNormWeight"
+            type="range"
+            min="0"
+            max="2"
+            step="0.1"
+            class="tune__slider"
+            :aria-valuenow="fieldNormWeight"
+            aria-valuemin="0"
+            aria-valuemax="2"
+          />
+          <p class="tune__help">How much field length penalizes the score. 0 = no penalty.</p>
+        </div>
+      </div>
+
+      <hr class="tune__divider" />
+
+      <!-- Extended syntax -->
+      <h3 class="tune__group-heading">Extended syntax &amp; keys</h3>
+      <div class="tune__controls">
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-use-extended">
+            <input id="tune-use-extended" v-model="useExtendedSearch" type="checkbox" />
+            <span>useExtendedSearch</span>
+          </label>
+          <p class="tune__help">
+            Enable Fuse extended syntax: <code>='exact</code>, <code>!not</code>,
+            <code>^prefix</code>, <code>end$</code>.
+            <a
+              href="https://www.fusejs.io/examples.html#extended-search"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Reference &rarr;</a
+            >
           </p>
         </div>
 
@@ -192,15 +341,37 @@ const inputEl = ref<HTMLInputElement | null>(null);
 // Tuner state — defaults match the canonical configuration the package
 // recommends. These drive a computed Fuse instance below; the rest of
 // the app is unaffected since this is scoped to the demo component.
-const DEFAULT_THRESHOLD = 0.3;
-const DEFAULT_IGNORE_LOCATION = true;
-const DEFAULT_MIN_MATCH_CHAR_LENGTH = 2;
+const DEFAULTS = {
+  threshold: 0.2,
+  distance: 100,
+  location: 0,
+  ignoreLocation: true,
+  minMatchCharLength: 2,
+  isCaseSensitive: false,
+  includeScore: false,
+  shouldSort: true,
+  findAllMatches: false,
+  ignoreFieldNorm: false,
+  fieldNormWeight: 1.0,
+  useExtendedSearch: false,
+  searchTitle: true,
+  searchText: true,
+} as const;
 
-const threshold = ref(DEFAULT_THRESHOLD);
-const ignoreLocation = ref(DEFAULT_IGNORE_LOCATION);
-const minMatchCharLength = ref(DEFAULT_MIN_MATCH_CHAR_LENGTH);
-const searchTitle = ref(true);
-const searchText = ref(true);
+const threshold = ref<number>(DEFAULTS.threshold);
+const distance = ref<number>(DEFAULTS.distance);
+const location = ref<number>(DEFAULTS.location);
+const ignoreLocation = ref<boolean>(DEFAULTS.ignoreLocation);
+const minMatchCharLength = ref<number>(DEFAULTS.minMatchCharLength);
+const isCaseSensitive = ref<boolean>(DEFAULTS.isCaseSensitive);
+const includeScore = ref<boolean>(DEFAULTS.includeScore);
+const shouldSort = ref<boolean>(DEFAULTS.shouldSort);
+const findAllMatches = ref<boolean>(DEFAULTS.findAllMatches);
+const ignoreFieldNorm = ref<boolean>(DEFAULTS.ignoreFieldNorm);
+const fieldNormWeight = ref<number>(DEFAULTS.fieldNormWeight);
+const useExtendedSearch = ref<boolean>(DEFAULTS.useExtendedSearch);
+const searchTitle = ref<boolean>(DEFAULTS.searchTitle);
+const searchText = ref<boolean>(DEFAULTS.searchText);
 
 const keysSelected = computed(() => searchTitle.value || searchText.value);
 
@@ -217,8 +388,17 @@ const fuseInstance = computed(() => {
   return new Fuse(rows.value, {
     keys: activeKeys.value,
     threshold: threshold.value,
+    distance: distance.value,
+    location: location.value,
     ignoreLocation: ignoreLocation.value,
     minMatchCharLength: minMatchCharLength.value,
+    isCaseSensitive: isCaseSensitive.value,
+    includeScore: includeScore.value,
+    shouldSort: shouldSort.value,
+    findAllMatches: findAllMatches.value,
+    ignoreFieldNorm: ignoreFieldNorm.value,
+    fieldNormWeight: fieldNormWeight.value,
+    useExtendedSearch: useExtendedSearch.value,
     includeMatches: true,
   });
 });
@@ -234,7 +414,16 @@ const configSnippet = computed(() => {
   keys: ${keysLiteral},
   threshold: ${threshold.value.toFixed(2)},
   ignoreLocation: ${ignoreLocation.value},
+  location: ${location.value},
+  distance: ${distance.value},
   minMatchCharLength: ${minMatchCharLength.value},
+  isCaseSensitive: ${isCaseSensitive.value},
+  includeScore: ${includeScore.value},
+  shouldSort: ${shouldSort.value},
+  findAllMatches: ${findAllMatches.value},
+  ignoreFieldNorm: ${ignoreFieldNorm.value},
+  fieldNormWeight: ${fieldNormWeight.value.toFixed(1)},
+  useExtendedSearch: ${useExtendedSearch.value},
   includeMatches: true,
 });`;
 });
@@ -244,11 +433,20 @@ function snippet(r: FuseResult<IndexedPdf>): string {
 }
 
 function resetDefaults(): void {
-  threshold.value = DEFAULT_THRESHOLD;
-  ignoreLocation.value = DEFAULT_IGNORE_LOCATION;
-  minMatchCharLength.value = DEFAULT_MIN_MATCH_CHAR_LENGTH;
-  searchTitle.value = true;
-  searchText.value = true;
+  threshold.value = DEFAULTS.threshold;
+  distance.value = DEFAULTS.distance;
+  location.value = DEFAULTS.location;
+  ignoreLocation.value = DEFAULTS.ignoreLocation;
+  minMatchCharLength.value = DEFAULTS.minMatchCharLength;
+  isCaseSensitive.value = DEFAULTS.isCaseSensitive;
+  includeScore.value = DEFAULTS.includeScore;
+  shouldSort.value = DEFAULTS.shouldSort;
+  findAllMatches.value = DEFAULTS.findAllMatches;
+  ignoreFieldNorm.value = DEFAULTS.ignoreFieldNorm;
+  fieldNormWeight.value = DEFAULTS.fieldNormWeight;
+  useExtendedSearch.value = DEFAULTS.useExtendedSearch;
+  searchTitle.value = DEFAULTS.searchTitle;
+  searchText.value = DEFAULTS.searchText;
 }
 
 /**
@@ -393,6 +591,40 @@ onMounted(async () => {
   color: var(--text-muted);
 }
 
+.search__hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.search__hint code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.05em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--text);
+}
+
+.search__hint a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.search__hint a:hover,
+.search__hint a:focus-visible {
+  text-decoration: none;
+  outline: none;
+}
+
+.search__hint a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .search__results {
   list-style: none;
   padding: 0;
@@ -437,6 +669,18 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.005em;
+}
+
+.search__result-score {
+  display: inline-block;
+  margin: 0 0 0.5rem;
+  padding: 0.1em 0.4em;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
 }
 
 .search__snippet {
@@ -546,17 +790,55 @@ onMounted(async () => {
   opacity: 0.65;
 }
 
+.tune__group-heading {
+  margin: 0 0 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-family: var(--font-sans);
+}
+
+.tune__group-heading:not(:first-child) {
+  margin-top: 0.25rem;
+}
+
+.tune__divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0;
+  opacity: 0.6;
+}
+
 .tune__controls {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem 2rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .tune__control {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+/*
+ * Disabled-state opacity is bounded by WCAG 1.4.3 contrast (4.5:1 for body
+ * text on the #101015 card surface). At --text-muted (#a0a0aa) the raw
+ * contrast is ~7.3:1; multiplying by opacity 0.85 lands at ~5.0:1 — still
+ * comfortably AA. The italic "Active only when ignoreLocation is off" hint
+ * carries the primary disabled cue; the opacity is just visual reinforcement.
+ */
+.tune__control--disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.tune__control--disabled label,
+.tune__control--disabled input {
+  cursor: not-allowed;
 }
 
 .tune__control label,
@@ -571,6 +853,38 @@ onMounted(async () => {
   font-size: 0.82rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.tune__help code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.05em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--text);
+}
+
+.tune__help a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.tune__help a:hover,
+.tune__help a:focus-visible {
+  text-decoration: none;
+  outline: none;
+}
+.tune__help a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.tune__hint-disabled {
+  margin: 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--text-muted);
 }
 
 /* Slider */
@@ -650,7 +964,7 @@ input[type='range'].tune__slider:focus-visible {
 
 /* Number input */
 input.tune__number {
-  width: 5rem;
+  width: 6rem;
   height: 36px;
   padding: 0 0.6rem;
   font-family: var(--font-mono);
@@ -671,10 +985,14 @@ input.tune__number:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 }
+input.tune__number:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* Live config preview */
 .tune__config {
-  margin-top: 0.5rem;
+  margin-top: 1.25rem;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
