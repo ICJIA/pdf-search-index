@@ -902,28 +902,42 @@ A copy-paste Nitro route template lives at [`packages/nuxt-pdf-search-index/src/
 
 ## Examples
 
-The [`examples/`](./examples) directory has seven runnable example sites, each demonstrating one integration pattern. Every example consumes the packages via the pnpm workspace link and reads PDFs from the shared [`examples/_fixtures/`](./examples/_fixtures) directory via `file://` URLs + a tiny `local-fetch.mjs` helper (so they work offline).
+### Live demo
+
+The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus, a sticky search bar, and live highlighted snippets across the four committed PDFs.
+
+> Screenshot (when deployed): dark-mode search interface, four ICJIA PDFs listed with title/page count/file size, sticky search bar at top, live-highlighted snippets in result cards.
+
+A reference deployment lives at `https://pdf-search-index-demo.netlify.app` _(replace with your own subdomain after deploying — see "Deploying the live demo to Netlify" below)_.
+
+The [`examples/`](./examples) directory has eight runnable example sites in total, each demonstrating one integration pattern. Every example consumes the packages via the pnpm workspace link and reads PDFs from the shared [`examples/_fixtures/`](./examples/_fixtures) directory via `file://` URLs + a tiny `local-fetch.mjs` helper (so they work offline).
 
 The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly-clicked public samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)). They were not curated to make the examples look good — they're four arbitrary PDFs from the live public corpus, preserved with their original CMS filenames. None of them contain PII. Replace them with any PDFs you like; every example auto-discovers `.pdf` files in that directory at build time. See [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for the full provenance note.
 
-| Example                               | Stack                               | Adapter / API                                                   | Run                                              |
-| ------------------------------------- | ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
-| [`plain-node`](./examples/plain-node) | Node 20+, no UI                     | Programmatic (`indexPdfs`, `createFuseIndex`, `snippetHTMLFor`) | `pnpm --filter @icjia-examples/plain-node start` |
-| [`html`](./examples/html)             | Vanilla HTML + Fuse CDN             | Programmatic, build via Node script                             | `pnpm --filter @icjia-examples/html dev`         |
-| [`vue`](./examples/vue)               | Vite + Vue 3 + Fuse                 | Programmatic + `snippetHTMLFor`                                 | `pnpm --filter @icjia-examples/vue dev`          |
-| [`astro`](./examples/astro)           | Astro 5 + Vue island + Fuse         | `@icjia/astro-pdf-search-index`                                 | `pnpm --filter @icjia-examples/astro dev`        |
-| [`nextjs`](./examples/nextjs)         | Next.js 15 App Router + Fuse        | Programmatic + `snippetHTMLFor`                                 | `pnpm --filter @icjia-examples/nextjs dev`       |
-| [`eleventy`](./examples/eleventy)     | 11ty 3 + Fuse CDN                   | Programmatic, inline JSON island                                | `pnpm --filter @icjia-examples/eleventy dev`     |
-| [`nuxt-mixed`](./examples/nuxt-mixed) | Nuxt 4 + `@nuxt/content` + mock CMS | `@icjia/nuxt-pdf-search-index` (both helpers)                   | `pnpm --filter @icjia-examples/nuxt-mixed dev`   |
+| Example                                   | Stack                               | Adapter / API                                                   | Run                                              |
+| ----------------------------------------- | ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| [`netlify-demo`](./examples/netlify-demo) | Astro 5 + Vue + dark-mode UI        | `@icjia/astro-pdf-search-index` — **polished, deployable**      | `pnpm --filter @icjia-examples/netlify-demo dev` |
+| [`plain-node`](./examples/plain-node)     | Node 20+, no UI                     | Programmatic (`indexPdfs`, `createFuseIndex`, `snippetHTMLFor`) | `pnpm --filter @icjia-examples/plain-node start` |
+| [`html`](./examples/html)                 | Vanilla HTML + Fuse CDN             | Programmatic, build via Node script                             | `pnpm --filter @icjia-examples/html dev`         |
+| [`vue`](./examples/vue)                   | Vite + Vue 3 + Fuse                 | Programmatic + `snippetHTMLFor`                                 | `pnpm --filter @icjia-examples/vue dev`          |
+| [`astro`](./examples/astro)               | Astro 5 + Vue island + Fuse         | `@icjia/astro-pdf-search-index` — minimal smoke test            | `pnpm --filter @icjia-examples/astro dev`        |
+| [`nextjs`](./examples/nextjs)             | Next.js 15 App Router + Fuse        | Programmatic + `snippetHTMLFor`                                 | `pnpm --filter @icjia-examples/nextjs dev`       |
+| [`eleventy`](./examples/eleventy)         | 11ty 3 + Fuse CDN                   | Programmatic, inline JSON island                                | `pnpm --filter @icjia-examples/eleventy dev`     |
+| [`nuxt-mixed`](./examples/nuxt-mixed)     | Nuxt 4 + `@nuxt/content` + mock CMS | `@icjia/nuxt-pdf-search-index` (both helpers)                   | `pnpm --filter @icjia-examples/nuxt-mixed dev`   |
 
 ### Examples — step-by-step
 
-1. **Clone, install, and confirm fixtures are present:**
+1. **Clone and install:**
 
    ```bash
    git clone https://github.com/ICJIA/pdf-search-index.git
    cd pdf-search-index
    pnpm install
+   ```
+
+2. **Confirm fixtures are in place:**
+
+   ```bash
    ls examples/_fixtures/*.pdf
    ```
 
@@ -932,32 +946,37 @@ The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly
    [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for
    provenance). No PII.
 
-2. **Pick an example and run its dev script:**
+3. **Pick an example and run its dev script.** Start with `netlify-demo`
+   if you want to see the package in a polished, ship-ready site:
 
    ```bash
+   # Polished, deployable Astro 5 site — see "Deploying the live demo
+   # to Netlify" below. (RECOMMENDED — this is the flagship demo.)
+   pnpm --filter @icjia-examples/netlify-demo dev   # http://localhost:4322/
+
    # Programmatic API, no UI
    pnpm --filter @icjia-examples/plain-node start
 
    # Vanilla HTML + Fuse via CDN
-   pnpm --filter @icjia-examples/html dev          # http://localhost:4173/
+   pnpm --filter @icjia-examples/html dev           # http://localhost:4173/
 
    # Vite + Vue 3
-   pnpm --filter @icjia-examples/vue dev           # http://localhost:5173/
+   pnpm --filter @icjia-examples/vue dev            # http://localhost:5173/
 
-   # Astro 5 + Vue island + integration
-   pnpm --filter @icjia-examples/astro dev         # http://localhost:4321/
+   # Minimal Astro 5 + Vue island (integration smoke test)
+   pnpm --filter @icjia-examples/astro dev          # http://localhost:4321/
 
    # Next.js 15 App Router
-   pnpm --filter @icjia-examples/nextjs dev        # http://localhost:3000/
+   pnpm --filter @icjia-examples/nextjs dev         # http://localhost:3000/
 
    # 11ty 3 + inline JSON island
-   pnpm --filter @icjia-examples/eleventy dev      # http://localhost:8080/
+   pnpm --filter @icjia-examples/eleventy dev       # http://localhost:8080/
 
    # Nuxt 4 + @nuxt/content + mocked CMS
-   pnpm --filter @icjia-examples/nuxt-mixed dev    # http://localhost:3001/
+   pnpm --filter @icjia-examples/nuxt-mixed dev     # http://localhost:3001/
    ```
 
-3. **Try a query that matches the committed fixtures.** The four samples
+4. **Try a query that matches the committed fixtures.** The four samples
    are about stigma, drug testing, methamphetamine trends, and juvenile
    justice — so search terms that work out of the box include:
    - `"stigma"` — matches the Stigma PDF
@@ -965,7 +984,7 @@ The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly
    - `"juvenile"` or `"snapshot"` — matches the JJ statewide snapshot
    - `"drug testing"` — matches the drug-testing lit review
 
-4. **Build for production:**
+5. **Build for production:**
 
    ```bash
    pnpm --filter @icjia-examples/<name> build
@@ -973,7 +992,30 @@ The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly
    ```
 
    Each example documents its build output and serve command in its own
-   README — see the table above.
+   README — see the table above. For the Netlify-deployable variant, see
+   "Deploying the live demo to Netlify" below.
+
+### Deploying the live demo to Netlify
+
+The [`examples/netlify-demo/`](./examples/netlify-demo) example is built around an **Astro 5** site that deploys to Netlify with zero manual config beyond pointing Netlify at the repo. The included [`examples/netlify-demo/netlify.toml`](./examples/netlify-demo/netlify.toml) handles Node version, build command, publish directory, and long-lived asset headers for the served PDFs.
+
+To deploy your own copy:
+
+1. **Fork or clone** [`https://github.com/ICJIA/pdf-search-index`](https://github.com/ICJIA/pdf-search-index) so Netlify can read it.
+2. **Sign in** at [https://app.netlify.com](https://app.netlify.com). The free tier is sufficient.
+3. **"Add new site" → "Import from Git"** → connect your GitHub account → pick the `pdf-search-index` repo.
+4. In the build-settings dialog, leave most defaults but confirm:
+   - **Base directory**: `examples/netlify-demo`
+   - **Build command**: `pnpm install --frozen-lockfile=false && pnpm build` _(auto-detected from `netlify.toml`)_
+   - **Publish directory**: `dist` _(auto-detected from `netlify.toml`)_
+   - **Node version**: `22` _(auto-detected from `netlify.toml`'s `NODE_VERSION`)_
+5. Click **Deploy**. Netlify clones the repo, runs the build from `examples/netlify-demo`, and gives you a live URL like `https://YOUR-SITE-NAME.netlify.app` within ~2 minutes.
+
+Subsequent pushes to `main` (or whichever branch you've pointed Netlify at) trigger automatic redeploys. Pull requests get deploy previews automatically.
+
+After your first deploy, update [`examples/netlify-demo/astro.config.ts`](./examples/netlify-demo/astro.config.ts)'s `site:` field to match your Netlify subdomain so Astro's canonical URLs are correct in the rendered HTML.
+
+The full long-form deployment guide — including troubleshooting and the two-URL build-vs-runtime pattern — lives in [`examples/netlify-demo/README.md`](./examples/netlify-demo/README.md).
 
 ### Side-by-side integration code
 
