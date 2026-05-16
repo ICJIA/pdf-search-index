@@ -1,5 +1,12 @@
 # @icjia/pdf-search-index
 
+## 1.0.1
+
+### Patch Changes
+
+- Documentation: the monorepo's top-level `README.md` gained a comprehensive "Where your PDFs can live" section covering four hosting patterns — alongside the site (`public/`), external CMS (Strapi 3/4/5, Sanity, Contentful, Drupal), external CDN (S3, Cloudflare R2), and local-only (`file://`). Strapi consumers get concrete v3/v4/v5 code samples plus the three common quirks (relative URLs, token-gated media, structured media relations).
+- Repo tooling: added `publish.sh` for direct-to-main coordinated releases across all three packages.
+
 ## 1.0.0
 
 ### Major Changes

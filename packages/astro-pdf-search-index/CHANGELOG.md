@@ -1,5 +1,11 @@
 # @icjia/astro-pdf-search-index
 
+## 1.0.1
+
+### Patch Changes
+
+- Lockstep release; package source is unchanged from 1.0.0. The monorepo's top-level README gained a comprehensive "Where your PDFs can live" section that covers Astro consumers picking up this integration — see the [README](https://github.com/ICJIA/pdf-search-index#where-your-pdfs-can-live) for the full hosting matrix (static `public/`, external CMS including Strapi v3/v4/v5, external CDN, local `file://`).
+
 ## 1.0.0
 
 ### Major Changes
