@@ -77,7 +77,7 @@ onMounted(async () => {
   all.value = [...body.cms, ...body.content, ...body.pdfs];
   fuse.value = new Fuse(all.value, {
     keys: ['title', 'text'],
-    threshold: 0.3,
+    threshold: 0.2,
     ignoreLocation: true,
     minMatchCharLength: 2,
     includeMatches: true,

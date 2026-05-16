@@ -166,8 +166,15 @@ const pdfCount = corpus.length || docs.length;
       }
     </style>
     <style>
+      /*
+       * Edge-to-edge layout: the wrap fills the viewport width with side
+       * padding rather than being a narrow centered column. Prose blocks
+       * inside still have their own max-width (set on <p>) so long lines
+       * stay readable, but cards (search, tune, why, index) stretch.
+       */
       .wrap {
-        max-width: 720px;
+        width: 100%;
+        max-width: 1280px;
         margin: 0 auto;
         padding: 3rem 1.25rem 0;
       }
@@ -179,15 +186,20 @@ const pdfCount = corpus.length || docs.length;
       }
       @media (min-width: 768px) {
         .wrap {
-          max-width: 768px;
-          padding-left: 2rem;
-          padding-right: 2rem;
+          padding-left: 2.5rem;
+          padding-right: 2.5rem;
         }
         main.wrap {
           padding-top: 4rem;
         }
         footer.wrap {
           padding-bottom: 4rem;
+        }
+      }
+      @media (min-width: 1280px) {
+        .wrap {
+          padding-left: 4rem;
+          padding-right: 4rem;
         }
       }
 
@@ -304,6 +316,35 @@ const pdfCount = corpus.length || docs.length;
         margin: 0 0 0.4rem;
         font-size: 1rem;
         font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+      }
+      .corpus__badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.5rem;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        border-radius: 4px;
+        border: 1px solid;
+      }
+      .corpus__badge--ocr {
+        color: #fbbf24;
+        background: rgba(251, 191, 36, 0.08);
+        border-color: rgba(251, 191, 36, 0.35);
+      }
+      .corpus__note code {
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+        background: var(--surface);
+        padding: 0.05em 0.35em;
+        border-radius: 3px;
+        border: 1px solid var(--border);
       }
       .corpus__meta {
         display: flex;
@@ -460,7 +501,17 @@ const pdfCount = corpus.length || docs.length;
           {
             corpus.map((p) => (
               <li>
-                <h3 class="corpus__title">{p.title}</h3>
+                <h3 class="corpus__title">
+                  {p.title}
+                  {p.textChars < 50 && (
+                    <span
+                      class="corpus__badge corpus__badge--ocr"
+                      title="This PDF has no text layer — it's image-only or a scan. Run ocrmypdf on it first to add searchable text."
+                    >
+                      Needs OCR
+                    </span>
+                  )}
+                </h3>
                 <p class="corpus__meta">
                   {p.pages !== null && <span>{p.pages} pages</span>}
                   <span>{formatBytes(p.pdfBytes)}</span>
@@ -472,6 +523,14 @@ const pdfCount = corpus.length || docs.length;
                     icjia.illinois.gov
                   </a>
                   ; contains no PII.
+                  {p.textChars < 50 && (
+                    <>
+                      {' '}
+                      This one is image-only — the extractor returns empty text and Fuse can't match it.
+                      Run <code>ocrmypdf</code> on the source PDF first to add a searchable text layer;
+                      this package then indexes it normally on the next build.
+                    </>
+                  )}
                 </p>
                 <a
                   class="corpus__cta"

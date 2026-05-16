@@ -1201,14 +1201,44 @@ All failures are **non-fatal by default**. The index stays valid; failed rows ha
 
 For CI where a broken upload pipeline should fail the build, run the CLI with `--strict` to flip to `exit 1`.
 
-OCR for scanned PDFs is out of scope for v1 — it lands in a separate `@icjia/pdf-search-index-ocr` package when a real consumer needs it.
+OCR for scanned PDFs is out of scope for v1 — see the next section for the recommended pre-OCR workflow.
+
+---
+
+## OCR — working with image-only / scanned PDFs
+
+This package extracts the **text layer** of a PDF (whatever `pdf.js` already knows how to read). It does **not** do OCR. Image-only PDFs — scans, photographs-saved-as-PDF, image-export-to-PDF outputs — have no text layer, so they come back as `{ ..., text: '' }` and Fuse can't match them. You can detect this in the output: a row with `text.length` near zero is almost certainly image-only.
+
+The [live demo](https://icjia-pdf-search.netlify.app/) tags such PDFs with a "Needs OCR" badge in the corpus list — `examples/_fixtures/non-text-searchable.pdf` is the canonical example (a deliberately image-only fixture committed for exactly this demo case).
+
+**The recommended workflow:** OCR your PDFs _before_ they reach this package. The standard tool is [`ocrmypdf`](https://github.com/ocrmypdf/OCRmyPDF) — it wraps Tesseract and adds a real text layer to an existing PDF without changing its visual appearance.
+
+```bash
+# One PDF
+ocrmypdf input.pdf output.pdf
+
+# Whole directory, skip ones that already have text
+find ./pdfs -name '*.pdf' -exec ocrmypdf --skip-text {} {} \;
+```
+
+The OCR'd PDF then has a text layer this package picks up normally on the next build. Run it once when you add the PDF to your CMS / static directory — not at every build.
+
+For a CMS pipeline (Strapi, Sanity, Contentful, Drupal, WordPress) the right hook is the upload-completed lifecycle event: when an editor uploads a PDF, run `ocrmypdf` on it before storage. Most CMSes have a plugin or webhook slot for this; if not, run a nightly batch.
+
+**If you can't pre-OCR** — for instance, you're indexing third-party PDFs you don't control — then this package isn't the right fit alone. Options:
+
+- **Tesseract.js in a build script.** Runs OCR purely in JavaScript. Slower than native Tesseract but no system deps. Pre-process each image-only PDF and stitch the OCR output into a new PDF before passing the URL to `indexPdfs`.
+- **Cloud OCR APIs.** Google Document AI, AWS Textract, Adobe Extract API, Mathpix. Each adds API cost + a build-time call but produces high-quality extracted text.
+- **Watch for `@icjia/pdf-search-index-ocr`.** The spec parks a sibling package for "ocrmypdf-in-a-box-without-system-deps" mode. Not yet on the roadmap with a hard date; depends on consumer demand.
+
+If you ship to production with a mix of OCR'd and image-only PDFs, the empty-text rows are still in your index — Fuse just won't match them. They surface in the result list when the user filters by metadata (title, file path) but never via body-content queries. Some consumer sites display a small "scanned — search by title only" affordance next to such rows; the demo's "Needs OCR" badge is one way to do this.
 
 ---
 
 ## Troubleshooting
 
 **My index has rows but `text` is empty.**
-The PDF is likely image-only / scanned. Open it in a viewer; if you can't select text, neither can `pdf.js`. OCR is on the post-v1 roadmap.
+The PDF is image-only or scanned (no text layer). Open it in a viewer; if you can't select text, neither can `pdf.js`. See [OCR — working with image-only / scanned PDFs](#ocr--working-with-image-only--scanned-pdfs) for the recommended `ocrmypdf` workflow.
 
 **`fetch error … TypeError: fetch failed`**
 Some PDF hosts reject default Node user agents or require cookies. Pass a custom `fetch` (or `fetchHeaders` once that ships) with appropriate headers.

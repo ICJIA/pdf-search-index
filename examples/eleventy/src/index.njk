@@ -86,7 +86,7 @@ layout: false
       const rows = JSON.parse(document.getElementById('rows').textContent);
       const fuse = new Fuse(rows, {
         keys: ['title', 'text'],
-        threshold: 0.3,
+        threshold: 0.2,
         ignoreLocation: true,
         minMatchCharLength: 2,
         includeMatches: true,

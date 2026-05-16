@@ -1,5 +1,15 @@
 # @icjia/astro-pdf-search-index
 
+## 1.0.3
+
+### Patch Changes
+
+Lockstep documentation release. No package source changes from 1.0.2; this bump exists so the expanded standalone integration guide ships to consumers reading the README on npmjs.com.
+
+- Standalone integration guide: registration, options, three full integration patterns, authentication, troubleshooting, security notes.
+- Cross-references to the live demo at <https://icjia-pdf-search.netlify.app/> (source: `examples/netlify-demo/`) — a polished, dark-mode reference deployment of this integration.
+- The v1.0.2 security audit findings are now prominent in every README. See the [core CHANGELOG entry for 1.0.2](../core/CHANGELOG.md#102) for the full list.
+
 ## 1.0.2
 
 ### Patch Changes

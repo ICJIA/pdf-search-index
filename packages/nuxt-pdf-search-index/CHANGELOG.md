@@ -1,5 +1,14 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.0.3
+
+### Patch Changes
+
+Lockstep documentation release. No package source changes from 1.0.2.
+
+- Expanded standalone integration guide focused on the Nuxt 4 + Strapi workflow: three full server-route recipes (Strapi v3, v4, v5), the v3/v4/v5 response-shape differences, the three common Strapi quirks (relative URLs, token-gated media, structured media relations), authentication, client-side wiring.
+- The v1.0.2 security audit findings are now prominent in every README. See the [core CHANGELOG entry for 1.0.2](../core/CHANGELOG.md#102) for the full list.
+
 ## 1.0.2
 
 ### Patch Changes

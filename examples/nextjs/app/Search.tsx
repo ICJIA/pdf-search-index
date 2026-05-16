@@ -23,7 +23,7 @@ export default function Search() {
     () =>
       new Fuse(rows, {
         keys: ['title', 'text'],
-        threshold: 0.3,
+        threshold: 0.2,
         ignoreLocation: true,
         minMatchCharLength: 2,
         includeMatches: true,

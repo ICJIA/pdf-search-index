@@ -51,7 +51,7 @@ onMounted(async () => {
   rows.value = (await res.json()) as IndexedPdf[];
   fuse.value = new Fuse(rows.value, {
     keys: ['title', 'text'],
-    threshold: 0.3,
+    threshold: 0.2,
     ignoreLocation: true,
     minMatchCharLength: 2,
     includeMatches: true,
