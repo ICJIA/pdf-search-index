@@ -38,6 +38,33 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
 ---
 
+## Table of contents
+
+- [Security](#security) — audit findings, fixes shipped in 1.0.2
+- [Why this exists](#why-this-exists)
+- [The 30-second integration](#the-30-second-integration)
+- [Install](#install)
+- [Where your PDFs can live](#where-your-pdfs-can-live)
+- [Using a search engine other than Fuse.js](#using-a-search-engine-other-than-fusejs)
+- [Core API](#core-api)
+- [Fuse helper (`/fuse` entry)](#fuse-helper-fuse-entry)
+- [Snippet helper (`/snippet` entry)](#snippet-helper-snippet-entry)
+- [CLI (`pdf-search-index` bin)](#cli-pdf-search-index-bin)
+- [MCP server (`/mcp` entry)](#mcp-server-mcp-entry)
+- [Astro integration](#astro-integration)
+- [Nuxt 4 module](#nuxt-4-module)
+- [Examples](#examples) — including the [live Netlify demo](#live-demo)
+- [Caching](#caching)
+- [Error handling](#error-handling)
+- [Troubleshooting](#troubleshooting)
+- [Limits and non-goals](#limits-and-non-goals)
+- [Security considerations & audit history](#security-considerations--audit-history)
+- [Development](#development)
+- [Design docs](#design-docs)
+- [License](#license)
+
+---
+
 ## Security
 
 **Audited and patched in v1.0.2 (released 2026-05-16).** All three packages in this monorepo were put through an adversarial red/blue team security audit. 21 findings surfaced; 11 ship as fixes in v1.0.2. Run a recent `@icjia/pdf-search-index` and you get the hardened defaults out of the box.
@@ -723,7 +750,7 @@ import { createFuseIndex } from '@icjia/pdf-search-index/fuse';
 
 const fuse = await createFuseIndex({
   urls: ['https://example.com/a.pdf', 'https://example.com/b.pdf'],
-  fuseOptions: { threshold: 0.3, includeMatches: true },
+  fuseOptions: { threshold: 0.2, includeMatches: true },
 });
 
 const results = fuse.search('methamphetamine');
@@ -734,7 +761,7 @@ The defaults Fuse uses (when you pass `fuseOptions`, they're merged on top of):
 ```ts
 {
   keys: ['title', 'text'],
-  threshold: 0.3,
+  threshold: 0.2,
   ignoreLocation: true,
   minMatchCharLength: 2,
   includeMatches: true,
@@ -764,11 +791,22 @@ Picks the longest match span in the matched key, slices ±N chars of context, co
 
 **Options:**
 
-| Option               | Type      | Default  | Notes                                           |
-| -------------------- | --------- | -------- | ----------------------------------------------- |
-| `contextChars`       | `number`  | `80`     | Characters of context on each side of the match |
-| `matchKey`           | `string`  | `'text'` | Which Fuse `matches` entry to use               |
-| `collapseWhitespace` | `boolean` | `true`   | Collapse `\s+` to single space inside output    |
+| Option               | Type      | Default  | Notes                                                                                                                                |
+| -------------------- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `contextChars`       | `number`  | `80`     | Characters of context on each side of the match                                                                                      |
+| `matchKey`           | `string`  | `'text'` | Which Fuse `matches` entry to use                                                                                                    |
+| `collapseWhitespace` | `boolean` | `true`   | Collapse `\s+` to single space inside output                                                                                         |
+| `maxSnippets`        | `number`  | `1`      | (1.0.3+) Render up to N non-overlapping snippets per result, ordered by document position. Default `1` is byte-identical to ≤ 1.0.2. |
+| `separator`          | `string`  | `' … '`  | (1.0.3+) Joins snippets when `maxSnippets > 1`. Default is space + horizontal ellipsis + space.                                      |
+
+**Multi-snippet example:**
+
+```ts
+const html = snippetHTMLFor(fuseResult, { maxSnippets: 3, contextChars: 100 });
+// → "…drug <mark>testing</mark> required for… … evidence-based <mark>testing</mark> protocols… …<mark>testing</mark> programs are…"
+```
+
+The picker greedily takes the N **longest** non-overlapping spans (overlap = context windows intersect), then re-sorts them by start position so snippets appear in document order. Clustered hits collapse into one window; widely-spread hits surface as distinct passages.
 
 ---
 

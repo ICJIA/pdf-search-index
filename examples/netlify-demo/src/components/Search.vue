@@ -188,10 +188,7 @@
           </p>
         </div>
 
-        <div
-          class="tune__control"
-          :class="{ 'tune__control--disabled': useExtendedSearch }"
-        >
+        <div class="tune__control" :class="{ 'tune__control--disabled': useExtendedSearch }">
           <label class="tune__checkbox" for="tune-token-search">
             <input
               id="tune-token-search"
@@ -489,10 +486,7 @@ function tokenizeAndSearch(
       if (existing) {
         existing.tokenHits += 1;
         existing.result.score = Math.min(existing.result.score ?? 1, r.score ?? 1);
-        existing.result.matches = [
-          ...(existing.result.matches ?? []),
-          ...(r.matches ?? []),
-        ];
+        existing.result.matches = [...(existing.result.matches ?? []), ...(r.matches ?? [])];
       } else {
         byId.set(id, { result: { ...r }, tokenHits: 1 });
       }

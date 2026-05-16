@@ -179,10 +179,7 @@ describe('snippetHTMLFor — maxSnippets', () => {
     // length-sort would put it first. We expect document order, not length
     // order, in the final output.
     const text = [filler, 'short', filler, 'much-longer-match', filler].join(' ');
-    const indices: [number, number][] = [
-      range(text, 'short'),
-      range(text, 'much-longer-match'),
-    ];
+    const indices: [number, number][] = [range(text, 'short'), range(text, 'much-longer-match')];
     const html = snippetHTMLFor(mkResult(text, indices), {
       contextChars: 20,
       maxSnippets: 2,

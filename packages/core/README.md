@@ -16,7 +16,7 @@ pnpm add @icjia/pdf-search-index
 yarn add @icjia/pdf-search-index
 ```
 
-Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` or `/snippet` subpaths. **Pin to `~7.3.0` in your `package.json` until Fuse.js 7.4 leaves beta** (`"fuse.js": "~7.3.0"`). The package's `peerDependencies` range stays loose (`^7.0.0`) so a future 7.x update doesn't force a major bump here, but the v1.0.3 examples all pin to `~7.3.0` for stability.
+Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` or `/snippet` subpaths. The package's `peerDependencies` range is `"^7.0.0 || >=7.4.0-beta.0"` so both stable Fuse 7.x and the Fuse 7.4 beta channel resolve. The v1.0.3 examples in this monorepo pin to **`7.4.0-beta.6`** to demo the newest beta surface; consumers who prefer stability can pin to a stable `~7.3.0` and the peer still resolves.
 
 ## Security
 
@@ -31,7 +31,7 @@ Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` o
 
 **C2 (SSRF allowlist), I2 (cache-key URL normalization), I5 (CLI sitemap hardening), I6 (`maxUrls` cap)** are deferred to v1.1 / v2.0 because they need an opt-in flag design or a breaking change. Configure outbound network policy in your CI environment as a mitigation in the meantime.
 
-26 new regression tests cover the audit fixes; total test count now 105 (was 79). Read the full audit reference, trust model, and migration notes in the [top-level README's Security section](../../README.md#security) and [Security considerations & audit history](../../README.md#security-considerations--audit-history).
+26 new regression tests cover the audit fixes (105 total in 1.0.2, up from 79; 1.0.3 adds 6 more snippet `maxSnippets` tests → 111). Read the full audit reference, trust model, and migration notes in the [top-level README's Security section](../../README.md#security) and [Security considerations & audit history](../../README.md#security-considerations--audit-history).
 
 ## The 30-second integration
 
@@ -191,7 +191,7 @@ For frameworks without an adapter (Vite, Next.js, Eleventy, SvelteKit, Remix, pl
 
 ## Versioning
 
-Currently at **1.0.2** (security release — see [CHANGELOG.md](./CHANGELOG.md)). All three packages in this monorepo move in lockstep.
+Currently at **1.0.3** (documentation + ecosystem release, additive `snippetHTMLFor` `maxSnippets` option, fuse.js dev/example pin moved to `7.4.0-beta.6` — see [CHANGELOG.md](./CHANGELOG.md)). All three packages in this monorepo move in lockstep.
 
 ## License
 

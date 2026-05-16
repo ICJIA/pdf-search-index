@@ -12,6 +12,27 @@ npm install @icjia/pdf-search-index @icjia/nuxt-pdf-search-index
 
 Peer dependency: `nuxt@^4.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
+## Table of contents
+
+- [Install](#install)
+- [Security](#security)
+- [Register in `nuxt.config.ts`](#register-in-nuxtconfigts)
+- [The two server helpers](#the-two-server-helpers)
+- [The Nitro server-route template](#the-nitro-server-route-template)
+- [Recipe A — Strapi v5-only](#recipe-a--strapi-v5-only)
+- [Recipe B — `@nuxt/content`-only](#recipe-b--nuxtcontent-only)
+- [Recipe C — Mixed CMS + `@nuxt/content` (the design target)](#recipe-c--mixed-cms--nuxtcontent-the-design-target)
+- [Strapi quirks](#strapi-quirks)
+- [Module options](#module-options)
+- [Per-call options](#per-call-options)
+- [Authentication](#authentication)
+- [Client-side: fetching `/api/searchIndex` and wiring to Fuse](#client-side-fetching-apisearchindex-and-wiring-to-fuse)
+- [Troubleshooting](#troubleshooting)
+- [Operational notes on security](#operational-notes-on-security)
+- [Canonical example](#canonical-example)
+- [Versioning](#versioning)
+- [License](#license)
+
 ## Security
 
 **Audited and hardened in v1.0.2 (released 2026-05-16).** The Nuxt module went through an adversarial red/blue team review alongside the core package; v1.0.2 ships the Critical and Important fixes that affect the helper signatures used by your Nitro route. Most-relevant items for the Nuxt surface:
@@ -355,7 +376,7 @@ onMounted(async () => {
 
   fuse = new Fuse(all, {
     keys: ['title', 'text'],
-    threshold: 0.3,
+    threshold: 0.2,
     ignoreLocation: true,
     minMatchCharLength: 2,
     includeMatches: true,
@@ -426,7 +447,7 @@ The example covers all three recipes' patterns (CMS body extraction, `@nuxt/cont
 
 ## Versioning
 
-Currently at **1.0.2** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes.
+Currently at **1.0.3** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ## License
 

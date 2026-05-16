@@ -12,6 +12,22 @@ npm install @icjia/pdf-search-index @icjia/astro-pdf-search-index
 
 Peer dependency: `astro@^5.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
+## Table of contents
+
+- [Install](#install)
+- [Security](#security)
+- [Configure in `astro.config.ts`](#configure-in-astroconfigts)
+- [How it works](#how-it-works)
+- [Options](#options)
+- [Common patterns](#common-patterns)
+- [Authentication (custom fetch)](#authentication-custom-fetch)
+- [Using the emitted index in a Vue / React / Svelte island](#using-the-emitted-index-in-a-vue--react--svelte-island)
+- [Troubleshooting](#troubleshooting)
+- [Security defenses inherited from core](#security-defenses-inherited-from-core)
+- [Canonical examples](#canonical-examples)
+- [Versioning](#versioning)
+- [License](#license)
+
 ## Security
 
 **Audited and hardened in v1.0.2 (released 2026-05-16).** The adapter went through an adversarial red/blue team review alongside the core package; v1.0.2 ships the Astro-specific fixes plus all the core hardening that flows through. Most-relevant items for the Astro surface:
@@ -153,7 +169,7 @@ onMounted(async () => {
   ]);
   fuse = new Fuse([...pages, ...pdfs], {
     keys: ['title', 'text'],
-    threshold: 0.3,
+    threshold: 0.2,
     ignoreLocation: true,
     minMatchCharLength: 2,
     includeMatches: true,
@@ -229,7 +245,7 @@ pnpm --filter @icjia-examples/netlify-demo build # produces dist/ + dist/pdfs/
 
 ## Versioning
 
-Currently at **1.0.2** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes.
+Currently at **1.0.3** (lockstep with `@icjia/pdf-search-index`). See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ## License
 

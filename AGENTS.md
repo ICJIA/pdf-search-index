@@ -14,7 +14,7 @@
 | `@icjia/astro-pdf-search-index` | Astro 5 — emits `public/<endpoint>.json` via `astro:build:start` | `import pdfSearch from '@icjia/astro-pdf-search-index'`                |
 | `@icjia/nuxt-pdf-search-index`  | Nuxt 4 — auto-imports server helpers into Nitro `#imports`       | `extractPdfsFromCmsBody` / `extractPdfsFromContentDoc` from `#imports` |
 
-All three move in lockstep at version **1.0.2+**.
+All three move in lockstep at version **1.0.3+**.
 
 ## Live demo
 
@@ -112,7 +112,7 @@ onMounted(async () => {
   ]);
   fuse.value = new Fuse([...pages, ...pdfs], {
     keys: ['title', 'text'],
-    threshold: 0.3,
+    threshold: 0.2,
     includeMatches: true,
   });
 });
