@@ -1,6 +1,6 @@
 {
   "name": "@icjia/pdf-search-index",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Full-text PDF search for static sites that already use Fuse.js.",
   "type": "module",
   "license": "MIT",
