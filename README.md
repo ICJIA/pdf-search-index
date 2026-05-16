@@ -34,6 +34,8 @@ PDFs become first-class search rows alongside your pages and posts. A query like
 
 ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
+**Live demo:** **<https://icjia-pdf-search.netlify.app/>** — search across 7 ICJIA-public PDFs with live snippet highlighting and a Fuse.js options tuner. See [Examples](#examples) below for how it works and how to deploy your own.
+
 ---
 
 ## Security
@@ -959,7 +961,7 @@ The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-de
 
 > Screenshot (when deployed): dark-mode search interface, ICJIA PDFs listed with title/page count/file size, sticky search bar at top, live-highlighted snippets in result cards.
 
-A reference deployment lives at `https://pdf-search-index-demo.netlify.app` _(replace with your own subdomain after deploying — see "Deploying the live demo to Netlify" below)_.
+The reference deployment lives at **<https://icjia-pdf-search.netlify.app/>** — click through to try it. To deploy your own copy under your own subdomain, see "Deploying the live demo to Netlify" below.
 
 The [`examples/`](./examples) directory has eight runnable example sites in total, each demonstrating one integration pattern. Every example consumes the packages via the pnpm workspace link and reads PDFs from the shared [`examples/_fixtures/`](./examples/_fixtures) directory via `file://` URLs + a tiny `local-fetch.mjs` helper (so they work offline).
 

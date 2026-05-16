@@ -18,7 +18,7 @@ All three move in lockstep at version **1.0.2+**.
 
 ## Live demo
 
-A polished, dark-mode reference deployment of the Astro integration lives at [`examples/netlify-demo/`](./examples/netlify-demo) and is set up to deploy to Netlify with one click — see the top-level [README.md](./README.md#live-demo) for the deployed URL and the deploy guide. If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
+The reference deployment is live at **<https://icjia-pdf-search.netlify.app/>** — a dark-mode Astro 5 + Vue 3 site indexing 7 ICJIA-public PDFs with live snippet highlighting and a Fuse.js options tuner. Source: [`examples/netlify-demo/`](./examples/netlify-demo). If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
 
 ## Decision: which integration path is the consumer on?
 

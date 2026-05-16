@@ -7,7 +7,7 @@ import { localFetch } from './local-fetch.mjs';
 // after your first Netlify deploy with your real *.netlify.app subdomain
 // (or your custom domain).
 export default defineConfig({
-  site: 'https://pdf-search-index-demo.netlify.app',
+  site: 'https://icjia-pdf-search.netlify.app',
   integrations: [
     vue(),
     pdfSearch({

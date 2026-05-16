@@ -287,32 +287,43 @@ onMounted(async () => {
   color: var(--text);
 }
 
+/*
+ * The Try It card is the primary call-to-action on the page — anchor it
+ * visually with a noticeably higher elevation than the surrounding Tune
+ * and Why-Fuse cards. Three reinforcing signals:
+ *   1. Lighter surface (#1c1c26 vs page #0a0a0c) — a real step up
+ *   2. Stronger border (--border-strong instead of --border)
+ *   3. A more prominent lime accent strip + subtle lime glow ring
+ */
 .search__card {
   position: relative;
   padding: 2rem 1.5rem;
-  background: #101015;
-  border: 1px solid var(--border);
+  background: #1c1c26;
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.02),
-    0 8px 32px -16px rgba(0, 0, 0, 0.5);
+    0 0 0 1px rgba(163, 230, 53, 0.07),
+    0 0 40px -20px rgba(163, 230, 53, 0.18),
+    0 18px 48px -20px rgba(0, 0, 0, 0.6);
 }
 
-/* Subtle accent strip along the top edge to signal "interactive panel". */
+/* Prominent lime accent strip along the top edge — primary visual anchor. */
 .search__card::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
-  height: 2px;
+  height: 3px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--accent) 70%, transparent) 50%,
+    rgba(163, 230, 53, 0.4) 15%,
+    rgba(163, 230, 53, 0.95) 50%,
+    rgba(163, 230, 53, 0.4) 85%,
     transparent 100%
   );
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
-  opacity: 0.65;
+  opacity: 1;
 }
 
 .search__bar {
@@ -321,10 +332,10 @@ onMounted(async () => {
   z-index: 10;
   margin: -2rem -1.5rem 0;
   padding: 1.25rem 1.5rem 1.25rem;
-  background: color-mix(in srgb, #101015 92%, transparent);
+  background: color-mix(in srgb, #1c1c26 92%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
 }

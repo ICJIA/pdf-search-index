@@ -1,5 +1,7 @@
 # netlify-demo — the polished, deployable example
 
+**Live: <https://icjia-pdf-search.netlify.app/>**
+
 This is the **flagship live demo** for the `@icjia/pdf-search-index` package: an Astro 5 site with a Vue 3 search island, the canonical `@icjia/astro-pdf-search-index` integration, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is a one-click operation.
 
 If you're skimming the repo trying to figure out what a real production-shaped consumer site looks like, **start here** — not in `examples/astro/`. That one is the minimal "does the integration work?" smoke test. This one is what you'd actually ship.
