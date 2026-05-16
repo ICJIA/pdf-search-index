@@ -424,14 +424,14 @@ All three packages move in lockstep. Currently at **1.0.3** (additive `snippetHT
 
 The live demo at `examples/netlify-demo/` overrides a couple of core defaults intentionally — keep these straight when copying patterns:
 
-| Setting | Core default (`DEFAULT_FUSE_OPTIONS`) | Demo default |
-|---|---|---|
-| `threshold` | `0.2` | `0.2` (same) |
-| `ignoreLocation` | `true` | `true` (same) |
-| `minMatchCharLength` | `2` | `2` (same) |
-| `findAllMatches` | _(Fuse default: `false`)_ | **`true`** — to populate the per-result match count badge and the distributed multi-snippet picker |
-| Snippet `maxSnippets` | `1` | **`8`** — with the demo-side `distributeMatches` pre-processor |
-| Token-search wrapper | not applied | **on by default** — multi-word queries are split and OR-merged |
+| Setting               | Core default (`DEFAULT_FUSE_OPTIONS`) | Demo default                                                                                       |
+| --------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `threshold`           | `0.2`                                 | `0.2` (same)                                                                                       |
+| `ignoreLocation`      | `true`                                | `true` (same)                                                                                      |
+| `minMatchCharLength`  | `2`                                   | `2` (same)                                                                                         |
+| `findAllMatches`      | _(Fuse default: `false`)_             | **`true`** — to populate the per-result match count badge and the distributed multi-snippet picker |
+| Snippet `maxSnippets` | `1`                                   | **`8`** — with the demo-side `distributeMatches` pre-processor                                     |
+| Token-search wrapper  | not applied                           | **on by default** — multi-word queries are split and OR-merged                                     |
 
 A real consumer site adopting the package picks up the core defaults automatically. They can opt into the demo's stricter behavior by setting `findAllMatches: true` on their Fuse instance, passing `maxSnippets: N` to `snippetHTMLFor`, and (if desired) copying `tokenizeAndSearch` + `distributeMatches` from the demo's `Search.vue` directly — both are MIT-licensed and self-contained.
 
