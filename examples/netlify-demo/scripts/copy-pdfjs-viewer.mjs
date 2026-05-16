@@ -163,7 +163,58 @@ try {
   if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
 }
 
-// --- 5. Summarise size so the prebuild log makes the cost visible.
+// --- 5. Patch viewer.css to override find-highlight colors.
+//
+// Mozilla's default highlight colors are muted magenta (~rgba(180, 0, 170, 0.25))
+// for regular matches and a desaturated green for the currently-focused match.
+// On a dark-mode demo with lime accents elsewhere, those defaults read as a
+// dim purple smudge — users have a hard time seeing which words in the PDF
+// the viewer actually matched. We override to high-contrast lime (for all
+// matches) + amber (for the currently-focused match, so the user can navigate
+// matches via the viewer's find-bar next/prev and clearly see where they are).
+//
+// pdf.js 5.x exposes these via CSS custom properties; older selectors are
+// added as a defensive fallback. The !important on the legacy selectors is
+// required because pdf.js's own viewer.css applies them with normal
+// specificity and our additions need to win.
+const viewerCssPath = resolve(outDir, 'web', 'viewer.css');
+try {
+  const existing = await readFile(viewerCssPath, 'utf8');
+  if (!existing.includes('icjia-pdf-search-index demo overrides')) {
+    const overrides = `
+
+/* === @icjia/pdf-search-index demo overrides — high-contrast find highlights === */
+:root,
+.viewer {
+  /* Regular matches: lime, ~50% alpha so text underneath stays legible */
+  --highlight-bg-color: rgba(163, 230, 53, 0.55);
+  /* Currently-focused match: amber, slightly hotter so navigation is obvious */
+  --highlight-selected-bg-color: rgba(250, 204, 21, 0.75);
+  /* High-contrast-mode variants */
+  --hcm-highlight-bg-color: rgba(163, 230, 53, 0.7);
+  --hcm-highlight-selected-bg-color: rgba(250, 204, 21, 0.9);
+}
+
+/* Defensive fallbacks for selectors used before the CSS-variable refactor */
+.textLayer .highlight {
+  background-color: rgba(163, 230, 53, 0.55) !important;
+}
+.textLayer .highlight.selected {
+  background-color: rgba(250, 204, 21, 0.75) !important;
+}
+.textLayer .highlight.appended {
+  background-color: rgba(163, 230, 53, 0.55) !important;
+}
+`;
+    await writeFile(viewerCssPath, existing + overrides);
+    console.log('  Patched viewer.css with high-contrast lime/amber find highlights');
+  }
+} catch (err) {
+  if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
+  console.warn('  viewer.css not found at expected path; skipping highlight-color patch');
+}
+
+// --- 6. Summarise size so the prebuild log makes the cost visible.
 async function dirSize(dir) {
   let total = 0;
   const stack = [dir];
