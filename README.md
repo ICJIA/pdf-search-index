@@ -329,14 +329,16 @@ const rows = await indexPdfs(
 
 Every pattern above goes through the same options object. The full list:
 
-| Option         | Type                             | Default                      | What it's for                                                                |
-| -------------- | -------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
-| `cacheDir`     | `string`                         | `'.pdf-cache'`               | Where extracted text is cached on disk between builds                        |
-| `fetch`        | `typeof fetch`                   | global `fetch`               | **The escape hatch** — auth headers, `file://` URLs, signed URLs, redirects  |
-| `fetchTimeout` | `number` (ms)                    | `30000`                      | Abort the fetch after this many ms                                           |
-| `maxBytes`     | `number`                         | `100 * 1024 * 1024` (100 MB) | Reject PDFs larger than this                                                 |
-| `concurrency`  | `number`                         | `4`                          | Parallel downloads via `p-limit`                                             |
-| `cache`        | `'use' \| 'bypass' \| 'refresh'` | `'use'`                      | `bypass` skips read+write; `refresh` overwrites cache; `use` is read-through |
+| Option                  | Type                             | Default                    | What it's for                                                                                     |
+| ----------------------- | -------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `cacheDir`              | `string`                         | `'.pdf-cache'`             | Where extracted text is cached on disk between builds                                             |
+| `fetch`                 | `typeof fetch`                   | global `fetch`             | **The escape hatch** — auth headers, `file://` URLs, signed URLs, redirects                       |
+| `fetchTimeout`          | `number` (ms)                    | `30000`                    | Abort the fetch after this many ms                                                                |
+| `maxBytes`              | `number`                         | `32 * 1024 * 1024` (32 MB) | Reject PDFs larger than this (declared `Content-Length` first, then streaming cap)                |
+| `maxExtractedTextChars` | `number`                         | `5_000_000`                | Cap on extracted text length per PDF (defends against compression-bomb PDFs)                      |
+| `concurrency`           | `number`                         | `4`                        | Parallel downloads via `p-limit`                                                                  |
+| `cache`                 | `'use' \| 'bypass' \| 'refresh'` | `'use'`                    | `bypass` skips read+write; `refresh` overwrites cache; `use` is read-through                      |
+| `debug`                 | `boolean`                        | `false`                    | When `true`, failure logs include the full URL and underlying error message (default scrubs both) |
 
 For the Astro and Nuxt adapters, these flow through too — see the [Astro integration](#astro-integration) and [Nuxt 4 module](#nuxt-4-module) sections for the adapter-specific option tables.
 
@@ -599,14 +601,16 @@ console.log(text.slice(0, 200));
 
 **Options** (`ExtractOptions`):
 
-| Option         | Type                             | Default                      | Notes                                            |
-| -------------- | -------------------------------- | ---------------------------- | ------------------------------------------------ |
-| `cacheDir`     | `string`                         | `'.pdf-cache'`               | Where extracted text is cached on disk           |
-| `fetchTimeout` | `number` (ms)                    | `30000`                      | Abort the fetch after this many ms               |
-| `maxBytes`     | `number`                         | `100 * 1024 * 1024` (100 MB) | Reject PDFs larger than this                     |
-| `fetch`        | `typeof fetch`                   | global `fetch`               | Inject your own (auth headers, `file://`, tests) |
-| `cache`        | `'use' \| 'bypass' \| 'refresh'` | `'use'`                      | `bypass` skips read+write; `refresh` overwrites  |
-| `mergePages`   | `boolean`                        | `true`                       | When `false`, returns one entry per page         |
+| Option                  | Type                             | Default                    | Notes                                                                                                       |
+| ----------------------- | -------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `cacheDir`              | `string`                         | `'.pdf-cache'`             | Where extracted text is cached on disk                                                                      |
+| `fetchTimeout`          | `number` (ms)                    | `30000`                    | Abort the fetch after this many ms                                                                          |
+| `maxBytes`              | `number`                         | `32 * 1024 * 1024` (32 MB) | Reject PDFs larger than this. Lowered from 100 MB in 1.0.2 — opt up via this option if you host larger PDFs |
+| `maxExtractedTextChars` | `number`                         | `5_000_000` (5 MB)         | Truncate extracted text above this length. Defends against compression-bomb-style PDFs                      |
+| `fetch`                 | `typeof fetch`                   | global `fetch`             | Inject your own (auth headers, `file://`, tests)                                                            |
+| `cache`                 | `'use' \| 'bypass' \| 'refresh'` | `'use'`                    | `bypass` skips read+write; `refresh` overwrites                                                             |
+| `mergePages`            | `boolean`                        | `true`                     | When `false`, returns one entry per page                                                                    |
+| `debug`                 | `boolean`                        | `false`                    | When `true`, failure logs include the full URL and underlying error message (default scrubs both)           |
 
 ### `indexPdfs(urls, options?) → Promise<IndexedPdf[]>`
 
@@ -1097,6 +1101,73 @@ First build is genuinely O(N PDFs) bytes-downloaded + parse-time. Subsequent bui
 - **Not a Fuse competitor.** We emit JSON. Consumers pick their search engine.
 - **No automatic ETag-based cache invalidation in v1.**
 - **Scale target: 10–1,000 PDFs per site.** Above that, look at server-side indexers.
+
+---
+
+## Security considerations
+
+This package is **build-time tooling**. It runs against URL lists you (or your CMS authors) explicitly supplied, on the developer's or CI machine, never against user-submitted input at request time. The threat model and the defenses below reflect that scope.
+
+### Trust model
+
+| Input source                                                  | Trust level                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| URLs you pass directly to `indexPdfs([...])`                  | **Trusted** as developer input — they're code.                                                                                                                                                                          |
+| Markdown bodies fed to `extractPdfsFromBody(body)` / adapters | **Trusted as developer-author**, but the _content_ may be authored by CMS editors. Malicious-author scenarios (compromised CMS, hostile content) are partially defended against (see below).                            |
+| PDF byte streams downloaded from those URLs                   | **Untrusted** — the bytes are parsed by `unpdf` / `pdfjs-dist`. We add belt-and-suspenders caps on size and extracted-text length.                                                                                      |
+| LLM-supplied tool arguments via the MCP server                | **Untrusted** — the LLM may have been prompt-injected via PDF content it just summarized. The MCP `cacheDir` argument is jailed to a per-process safe base; you can't redirect cache I/O to arbitrary filesystem paths. |
+
+What this package does **not** defend against (out of scope for build-time tooling):
+
+- A compromised dependency in your build pipeline.
+- A malicious developer pushing a URL list that points at internal-network targets (no SSRF allowlist in 1.0.x — on the 1.1 roadmap).
+- A hostile PDF parser exploit in `pdfjs-dist` (track upstream advisories).
+
+### Defenses added in 1.0.2
+
+| Defense                               | Default                           | Knob                                       |
+| ------------------------------------- | --------------------------------- | ------------------------------------------ |
+| Bounded URL-scanner regex             | `{1,2048}` URL / `{0,1024}` query | none (regex is internal)                   |
+| Markdown-body length cap before scan  | 1 MB                              | none — scan skipped above this size        |
+| `Content-Length` pre-check on fetch   | enforced                          | `maxBytes` option                          |
+| Streaming `maxBytes` enforcement      | 32 MB                             | `maxBytes` option                          |
+| Extracted-text length cap             | 5 MB chars                        | `maxExtractedTextChars` option             |
+| Scrubbed failure logs (origin only)   | enabled                           | `debug: true` to opt out                   |
+| Categorized parse-error tags          | enabled                           | `debug: true` for full message             |
+| Atomic cache writes + content hash    | enabled                           | none — sidecar gains `contentSha` field    |
+| Restrictive cache file modes          | `0o600` / dir `0o700`             | none — POSIX-only, ignored on Windows      |
+| MCP `cacheDir` jail                   | enabled                           | throws on out-of-jail paths                |
+| Astro `endpoint` path-traversal guard | enabled                           | throws on out-of-publicDir paths           |
+| HTML-safe JSON serializer             | exported as `safeJSONForHTML`     | used by CLI `--out` and Astro adapter emit |
+
+### Embedding the index into HTML
+
+If you inline the emitted JSON into a `<script type="application/json">` block on your page, **use `safeJSONForHTML` rather than `JSON.stringify`**. PDF text containing `</script>` (literally — copy-pasted from a PDF) would otherwise let an attacker break out of the embedding:
+
+```ts
+import { safeJSONForHTML, indexPdfs } from '@icjia/pdf-search-index';
+
+const rows = await indexPdfs([
+  /* urls */
+]);
+const html = `<script id="pdf-index" type="application/json">${safeJSONForHTML(rows)}</script>`;
+```
+
+`safeJSONForHTML` also escapes U+2028 / U+2029, which older JS engines treat as line terminators inside string literals.
+
+The CLI's `--out` writer and the Astro adapter's emit both use `safeJSONForHTML` by default. You only need to call it yourself if you're serializing rows manually inside a build script that inlines them into HTML.
+
+### Migration notes from 1.0.1
+
+- **Default `maxBytes` lowered from 100 MB to 32 MB.** If you legitimately host PDFs larger than 32 MB, pass `{ maxBytes: 100 * 1024 * 1024 }` (or whatever cap fits your dataset). The library logs a warning when a PDF is rejected on size grounds.
+- **Extracted text capped at 5 MB chars by default.** If a real PDF in your corpus exceeds 5 MB of plain text, raise `maxExtractedTextChars` accordingly.
+- **Failure logs are now scrubbed by default** — full URLs and underlying error messages are gated behind `debug: true`. For CI triage, flip the flag.
+- **MCP `cacheDir` is now jailed under `<os.tmpdir>/pdf-search-index-mcp/...`.** If your LLM client was passing absolute paths, switch to relative subdirectory names.
+- **Astro `endpoint` is validated** — it must resolve inside `publicDir`. Existing valid configurations (relative paths inside `public/`) keep working.
+
+### Audit reference
+
+The 1.0.2 changes implement the **C1, C3, C4, C5** Critical fixes and **I1, I3, I4, I7, I8** Important fixes from the security audit run against 1.0.1. **C2** (SSRF allowlist), **I2** (cache-key normalization), **I5** (CLI sitemap rewrite), and **I6** (`maxUrls` cap) are deferred to 1.1 / 2.0 because they require either an opt-in flag design or a breaking change.
 
 ---
 

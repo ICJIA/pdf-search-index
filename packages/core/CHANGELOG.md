@@ -1,5 +1,48 @@
 # @icjia/pdf-search-index
 
+## 1.0.2
+
+### Patch Changes
+
+Security release. Implements the audit's 1.0.x patch scope: 4 Critical + 5 Important + 2 Minor findings against 1.0.1.
+
+**Critical fixes:**
+
+- **C1 / ReDoS in URL scanner.** `extractPdfUrlsFromMarkdown` regex patterns were vulnerable to catastrophic-backtracking on adversarial markdown bodies — `'[X](https://a'.repeat(N)` would burn O(N²) CPU. The patterns now use bounded greedy quantifiers (`{1,2048}` URL / `{0,1024}` query) and the scan is skipped entirely for markdown bodies above 1 MB.
+- **C3 / Body size limit applied after full buffer.** `fetchPdfBytes` materialized the entire response body before checking `maxBytes`. Now: declared `Content-Length` is checked first; if absent, the body is streamed via `getReader()` and the download is aborted once the running total exceeds `maxBytes`. Default `maxBytes` lowered from 100 MB to 32 MB; consumers that legitimately host larger PDFs can opt up.
+- **C4 / MCP `cacheDir` attacker-controlled.** Every MCP tool that accepted `cacheDir` from the LLM client now routes it through `safeCacheDir()` which jails the path under `<os.tmpdir>/pdf-search-index-mcp/`. Out-of-jail paths throw before any fs operation. `clearCache` also gained a strict-allowlist filter — it only deletes files matching the exact `<16hex>.txt` / `<16hex>.meta.json` pattern.
+
+**Important fixes:**
+
+- **I1 / Internal URLs leaking into CI logs.** All `console.warn` calls that include a URL now route through a new `scrubUrl` helper that drops path, query, and fragment — only `protocol://host` is logged. Full URLs and full error messages are gated behind a new `debug: true` `ExtractOptions` flag.
+- **I3 / Extracted text length cap.** New `maxExtractedTextChars` `ExtractOptions` field (default 5 MB). Defends against compression-bomb-style PDFs whose flate-compressed streams decompress to hundreds of megabytes of text.
+- **I4 / JSON not safe for `<script>` embedding.** New top-level export: `safeJSONForHTML(obj, indent?)`. Escapes `<`, `-->`, and U+2028 / U+2029. Used internally by the CLI's `--out` writer and the Astro adapter's emit so PDF text containing `</script>` can't break out of inlined `<script type="application/json">...</script>` blocks.
+- **I7 / Cache write TOCTOU + non-atomic write.** `writeCache` now writes both files to per-PID-and-random temp names, then renames into place atomically. The sidecar gained a `contentSha` field — `readCache` verifies the SHA-256 of the on-disk text matches the sidecar's hash, treating mismatches as a miss (defends against parallel-build interleavings and external corruption).
+- **I8 / Encrypted PDF state leaks via error message.** pdf.js parse errors are now categorized (`'encrypted PDF'` / `'corrupt PDF structure'` / `'PDF font error'` / `'PDF parse error'`) before logging. Full message is suppressed unless `debug: true` is passed.
+
+**Minor fixes:**
+
+- **M2 / Cache file permissions.** `writeCache` writes files with mode `0o600` and creates the cache directory with mode `0o700`. POSIX-only; no-op on Windows.
+- **M3 / Control char sanitization in logs.** URLs and error messages have ASCII control characters (`\x00-\x1f`, `\x7f`) replaced with `?` before being passed to `console.warn` — prevents terminal-escape smuggling via crafted CMS content.
+
+**New public exports:**
+
+- `safeJSONForHTML(obj, indent?)` — HTML-safe JSON serializer.
+- `scrubUrl(url)` — origin-only URL redaction helper.
+
+**New `ExtractOptions` fields:**
+
+- `maxExtractedTextChars?: number` (default 5,000,000)
+- `debug?: boolean` (default `false`)
+
+**Changed defaults:**
+
+- `maxBytes`: 100 MB → 32 MB.
+- Parse-error logs: full message → categorized tag.
+- Fetch-failure logs: full URL → origin only.
+
+Consumers whose PDFs are larger than 32 MB, or whose corpora contain >5 MB of plain text per document, should opt up via the new options. See the top-level README's "Security considerations" section for the full migration notes.
+
 ## 1.0.1
 
 ### Patch Changes
