@@ -116,6 +116,47 @@ Same PDF: [Annual Report Again](${baseUrl}/small-text.pdf)`;
     expect(typeof integration.hooks['astro:build:start']).toBe('function');
   });
 
+  it('rejects an endpoint that resolves outside publicDir (C5: path traversal)', async () => {
+    const integration = pdfSearchIntegration({
+      collections: ['resources'],
+      endpoint: '../../escape.json',
+      cacheDir: join(workDir, '.astro/.pdf-cache'),
+    });
+
+    await expect(runIntegration(integration, workDir)).rejects.toThrow(
+      /resolves outside publicDir/,
+    );
+  });
+
+  it('escapes `</script>` in the emitted JSON (I4: HTML-safe encoding)', async () => {
+    // Add a markdown entry where the body contains a sneaky PDF link
+    // with a title that ends in `</script>`. This text ends up in the
+    // emitted JSON and would let an attacker break out of a
+    // `<script type="application/json">...</script>` embedding if the
+    // JSON were emitted via plain `JSON.stringify`.
+    const sneakyMd = `---
+title: Sneaky
+---
+
+[Stigma PDF For Posting </script><script>alert(1)</script>](${baseUrl}/small-text.pdf?sneaky=1)`;
+    await writeFile(join(workDir, 'src/content/resources/sneaky.md'), sneakyMd);
+
+    const integration = pdfSearchIntegration({
+      collections: ['resources'],
+      endpoint: 'searchIndex.pdfs.json',
+      cacheDir: join(workDir, '.astro/.pdf-cache'),
+    });
+
+    await runIntegration(integration, workDir);
+
+    const raw = await readFile(join(workDir, 'public/searchIndex.pdfs.json'), 'utf-8');
+    expect(raw).not.toMatch(/<\/script>/i);
+    expect(raw).toContain('\\u003c');
+    // The data still round-trips through JSON.parse correctly.
+    const rows = JSON.parse(raw) as Array<{ title: string }>;
+    expect(rows.some((r) => /<\/script>/i.test(r.title))).toBe(true);
+  });
+
   it('threads a custom fetch option through to extractPdfsFromBody', async () => {
     const calls: string[] = [];
     const customFetch: typeof fetch = async (input, init) => {

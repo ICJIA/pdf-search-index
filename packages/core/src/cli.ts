@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
-import { indexPdfs, extractPdfText, extractPdfsFromBody } from './index.js';
+import { indexPdfs, extractPdfText, extractPdfsFromBody, safeJSONForHTML } from './index.js';
 import { clearCache, listCache, removeCache } from './cache.js';
 import type { IndexedPdf } from './types.js';
 import { snippetHTMLFor } from './snippet.js';
@@ -191,6 +191,12 @@ async function emit(rows: IndexedPdf[], opts: RootOptions): Promise<void> {
     output = rows.map((r) => r.text).join('\n');
   } else if (opts.ndjson) {
     output = rows.map((r) => JSON.stringify(r)).join('\n');
+  } else if (opts.out) {
+    // File output is the most common path-of-attack into a static site
+    // (the JSON gets inlined into HTML). Use the HTML-safe serializer so
+    // PDF text containing `</script>` can't break out of a surrounding
+    // `<script type="application/json">...</script>` embedding.
+    output = safeJSONForHTML(rows, 2);
   } else {
     output = JSON.stringify(rows, null, 2);
   }

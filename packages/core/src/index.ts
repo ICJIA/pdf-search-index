@@ -5,8 +5,9 @@ import { createLimiter } from './concurrency.js';
 import type { ExtractOptions, IndexPdfsOptions, IndexedPdf, UrlOrEntry } from './types.js';
 
 export type { IndexedPdf, ExtractOptions, IndexPdfsOptions, UrlOrEntry } from './types.js';
-export { extractPdfText, extractPdfMetadata } from './extractor.js';
+export { extractPdfText, extractPdfMetadata, scrubUrl } from './extractor.js';
 export { extractPdfUrlsFromMarkdown } from './url-scan.js';
+export { safeJSONForHTML } from './json-safe.js';
 
 function shortHash(url: string): string {
   return createHash('sha256').update(url).digest('hex').slice(0, 12);

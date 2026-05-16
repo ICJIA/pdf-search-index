@@ -1,9 +1,9 @@
 import type { AstroIntegration } from 'astro';
-import { extractPdfsFromBody } from '@icjia/pdf-search-index';
+import { extractPdfsFromBody, safeJSONForHTML } from '@icjia/pdf-search-index';
 import type { IndexedPdf, IndexPdfsOptions } from '@icjia/pdf-search-index';
 import { writeFile, mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep as pathSep } from 'node:path';
 
 // Re-export so consumers of @icjia/astro-pdf-search-index don't need to
 // install @icjia/pdf-search-index just to type-annotate the rows.
@@ -98,8 +98,24 @@ export default function pdfSearchIntegration(
         }
 
         const outPath = join(publicDir, endpoint);
+
+        // Path-traversal guard: `endpoint: '../../etc/escape.json'` would
+        // otherwise let an attacker write outside publicDir. Compare the
+        // resolved absolute paths.
+        const publicDirAbs = resolve(publicDir);
+        const outAbs = resolve(outPath);
+        if (outAbs !== publicDirAbs && !outAbs.startsWith(publicDirAbs + pathSep)) {
+          throw new Error(
+            `pdfSearchIntegration: endpoint "${endpoint}" resolves outside publicDir ("${outAbs}" is not under "${publicDirAbs}"). Use a relative path that stays inside publicDir.`,
+          );
+        }
+
         await mkdir(dirname(outPath), { recursive: true });
-        await writeFile(outPath, JSON.stringify(allRows, null, 2), 'utf-8');
+        // The emitted JSON ships in `public/` and is commonly inlined into
+        // an HTML page via `<script type="application/json">`. Use the
+        // HTML-safe serializer so PDF text containing `</script>` can't
+        // break out of that embedding.
+        await writeFile(outPath, safeJSONForHTML(allRows, 2), 'utf-8');
       },
     },
   };
