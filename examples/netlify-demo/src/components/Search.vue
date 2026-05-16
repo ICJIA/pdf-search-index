@@ -733,12 +733,24 @@ onMounted(async () => {
 .search__card {
   position: relative;
   padding: 2rem 1.5rem;
-  background: #1c1c26;
+  /*
+   * Layered background: faint lime wash (top to ~70%) over the same deep
+   * neutral surface used elsewhere. Reinforces "this is the interactive
+   * section" without enough saturation to clash with the lime <mark>
+   * highlights in the result snippets below. The wash alpha is ~0.045 so
+   * over #1c1c26 the resulting top edge sits well inside imperceptible
+   * range for non-large text contrast — the badge ("N matches") and other
+   * interior text still pass WCAG AA against the practically-unchanged
+   * surface color.
+   */
+  background:
+    linear-gradient(180deg, rgba(163, 230, 53, 0.045) 0%, rgba(163, 230, 53, 0) 70%),
+    #1c1c26;
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   box-shadow:
-    0 0 0 1px rgba(163, 230, 53, 0.07),
-    0 0 40px -20px rgba(163, 230, 53, 0.18),
+    0 0 0 1px rgba(163, 230, 53, 0.12),
+    0 0 50px -22px rgba(163, 230, 53, 0.22),
     0 18px 48px -20px rgba(0, 0, 0, 0.6);
 }
 
