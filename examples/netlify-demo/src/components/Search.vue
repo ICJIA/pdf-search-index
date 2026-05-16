@@ -187,6 +187,34 @@
             Don&rsquo;t stop at the first match per field. Slower; broader snippets.
           </p>
         </div>
+
+        <div
+          class="tune__control"
+          :class="{ 'tune__control--disabled': useExtendedSearch }"
+        >
+          <label class="tune__checkbox" for="tune-token-search">
+            <input
+              id="tune-token-search"
+              v-model="tokenSearch"
+              type="checkbox"
+              :disabled="useExtendedSearch"
+            />
+            <span>tokenSearch</span>
+          </label>
+          <p class="tune__help">
+            Split multi-word queries into tokens and merge matches per token. Improves recall for
+            short queries like &ldquo;drug testing&rdquo; where either word alone is a useful hit.
+            <a
+              href="https://www.fusejs.io/token-search.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Reference &rarr;</a
+            >
+          </p>
+          <p v-if="useExtendedSearch" class="tune__hint-disabled">
+            Disabled when useExtendedSearch is on (extended already tokens with its own operators)
+          </p>
+        </div>
       </div>
 
       <hr class="tune__divider" />
@@ -374,6 +402,7 @@ const DEFAULTS = {
   ignoreFieldNorm: false,
   fieldNormWeight: 1.0,
   useExtendedSearch: false,
+  tokenSearch: true,
   searchTitle: true,
   searchText: true,
 } as const;
@@ -390,6 +419,7 @@ const findAllMatches = ref<boolean>(DEFAULTS.findAllMatches);
 const ignoreFieldNorm = ref<boolean>(DEFAULTS.ignoreFieldNorm);
 const fieldNormWeight = ref<number>(DEFAULTS.fieldNormWeight);
 const useExtendedSearch = ref<boolean>(DEFAULTS.useExtendedSearch);
+const tokenSearch = ref<boolean>(DEFAULTS.tokenSearch);
 const searchTitle = ref<boolean>(DEFAULTS.searchTitle);
 const searchText = ref<boolean>(DEFAULTS.searchText);
 
@@ -423,13 +453,71 @@ const fuseInstance = computed(() => {
   });
 });
 
+/**
+ * Token-search wrapper — strategy described at
+ * https://www.fusejs.io/token-search.html
+ *
+ * For multi-word queries (e.g. "drug testing"), splits on whitespace,
+ * runs `fuse.search()` for each token, and merges per-item by best score.
+ * Items that match more tokens rank higher; ties broken by score.
+ *
+ * Not a Fuse built-in — Fuse 7 expects a single query string. This is a
+ * demo-side wrapper that consumers can copy. Kept off the core package so
+ * core's surface stays minimal.
+ *
+ * Falls back to a single `fuse.search(query)` call when the query has
+ * only one token, or when extended search is on (extended has its own
+ * token operators).
+ */
+function tokenizeAndSearch(
+  fuse: Fuse<IndexedPdf>,
+  q: string,
+  minMatch: number,
+): FuseResult<IndexedPdf>[] {
+  const tokens = q
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length >= minMatch);
+  if (tokens.length <= 1) return fuse.search(q);
+
+  const byId = new Map<string, { result: FuseResult<IndexedPdf>; tokenHits: number }>();
+  for (const token of tokens) {
+    const tokenResults = fuse.search(token);
+    for (const r of tokenResults) {
+      const id = r.item.id;
+      const existing = byId.get(id);
+      if (existing) {
+        existing.tokenHits += 1;
+        existing.result.score = Math.min(existing.result.score ?? 1, r.score ?? 1);
+        existing.result.matches = [
+          ...(existing.result.matches ?? []),
+          ...(r.matches ?? []),
+        ];
+      } else {
+        byId.set(id, { result: { ...r }, tokenHits: 1 });
+      }
+    }
+  }
+
+  return [...byId.values()]
+    .sort((a, b) => {
+      if (b.tokenHits !== a.tokenHits) return b.tokenHits - a.tokenHits;
+      return (a.result.score ?? 1) - (b.result.score ?? 1);
+    })
+    .map((entry) => entry.result);
+}
+
 const results = computed<FuseResult<IndexedPdf>[]>(() => {
-  if (!fuseInstance.value || !query.value.trim()) return [];
+  if (!fuseInstance.value || !query.value.trim() || !keysSelected.value) return [];
+  if (tokenSearch.value && !useExtendedSearch.value) {
+    return tokenizeAndSearch(fuseInstance.value, query.value, minMatchCharLength.value);
+  }
   return fuseInstance.value.search(query.value);
 });
 
 const configSnippet = computed(() => {
   const keysLiteral = activeKeys.value.length ? `['${activeKeys.value.join("', '")}']` : '[]';
+  const tokenSearchActive = tokenSearch.value && !useExtendedSearch.value;
   return `new Fuse(rows, {
   keys: ${keysLiteral},
   threshold: ${threshold.value.toFixed(2)},
@@ -445,7 +533,10 @@ const configSnippet = computed(() => {
   fieldNormWeight: ${fieldNormWeight.value.toFixed(1)},
   useExtendedSearch: ${useExtendedSearch.value},
   includeMatches: true,
-});`;
+});
+
+// Demo-only: tokenSearch wrapper splits multi-word queries${tokenSearchActive ? ' (active)' : ' (off)'}.
+// See https://www.fusejs.io/token-search.html`;
 });
 
 const indexDump = computed(() => JSON.stringify(rows.value, null, 2));
@@ -467,6 +558,7 @@ function resetDefaults(): void {
   ignoreFieldNorm.value = DEFAULTS.ignoreFieldNorm;
   fieldNormWeight.value = DEFAULTS.fieldNormWeight;
   useExtendedSearch.value = DEFAULTS.useExtendedSearch;
+  tokenSearch.value = DEFAULTS.tokenSearch;
   searchTitle.value = DEFAULTS.searchTitle;
   searchText.value = DEFAULTS.searchText;
 }
