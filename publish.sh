@@ -6,10 +6,6 @@
 # in lockstep across all three packages, commits, tags, pushes, and publishes.
 # No Release PR — main is the release branch.
 #
-# (.github/workflows/release.yml + changesets exist in this repo, but the
-# preferred workflow is this script. Use changesets only if you specifically
-# want the Release-PR pattern.)
-#
 # Usage:
 #   ./publish.sh              # patch bump across all three packages (default)
 #   ./publish.sh patch        # same as above

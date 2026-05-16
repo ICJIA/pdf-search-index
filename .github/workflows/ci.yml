@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # Opt into the Node 24 runtime for JS actions ahead of the June 2026 forced
+  # upgrade — silences the deprecation warning and verifies our action set
+  # under what'll be the default. Action authors who haven't migrated yet
+  # would surface here as failures we'd want to know about early.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -13,9 +20,9 @@ jobs:
         node: [20, 22]
     steps:
       - uses: actions/checkout@v4
+      # pnpm version is read from package.json's `packageManager` field —
+      # don't pass `version:` here, it would conflict with that field.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
