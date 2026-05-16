@@ -16,7 +16,7 @@ pnpm add @icjia/pdf-search-index
 yarn add @icjia/pdf-search-index
 ```
 
-Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` or `/snippet` subpaths.
+Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` or `/snippet` subpaths. **Pin to `~7.3.0` in your `package.json` until Fuse.js 7.4 leaves beta** (`"fuse.js": "~7.3.0"`). The package's `peerDependencies` range stays loose (`^7.0.0`) so a future 7.x update doesn't force a major bump here, but the v1.0.3 examples all pin to `~7.3.0` for stability.
 
 ## Security
 

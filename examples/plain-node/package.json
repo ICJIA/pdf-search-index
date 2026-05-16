@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "@icjia/pdf-search-index": "workspace:*",
-    "fuse.js": "^7.0.0"
+    "fuse.js": "~7.3.0"
   }
 }

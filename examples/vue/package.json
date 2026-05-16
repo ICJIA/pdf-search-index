@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@icjia/pdf-search-index": "workspace:*",
-    "fuse.js": "^7.0.0",
+    "fuse.js": "~7.3.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {

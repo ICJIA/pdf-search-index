@@ -17,7 +17,7 @@
     "@icjia/astro-pdf-search-index": "workspace:*",
     "@icjia/pdf-search-index": "workspace:*",
     "astro": "^5.0.0",
-    "fuse.js": "^7.0.0",
+    "fuse.js": "~7.3.0",
     "vue": "^3.5.0"
   }
 }
