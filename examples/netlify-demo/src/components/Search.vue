@@ -71,7 +71,17 @@
   </section>
 
   <section class="tune" aria-labelledby="tune-heading">
-    <h2 id="tune-heading" class="tune__heading">Tune Fuse.js, live</h2>
+    <h2 id="tune-heading" class="tune__heading">
+      Tune Fuse.js, live
+      <a
+        href="https://github.com/krisk/Fuse/releases/tag/v7.4.0-beta.6"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="tune__version-pill"
+        aria-label="View fuse.js v7.4.0-beta.6 release on GitHub"
+        >v7.4.0-beta.6</a
+      >
+    </h2>
     <div class="tune__card">
       <!-- Match scoring -->
       <h3 class="tune__group-heading">Match scoring</h3>
@@ -164,6 +174,17 @@
             <span>isCaseSensitive</span>
           </label>
           <p class="tune__help">Match the exact case of the query.</p>
+        </div>
+
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-ignore-diacritics">
+            <input id="tune-ignore-diacritics" v-model="ignoreDiacritics" type="checkbox" />
+            <span>ignoreDiacritics <span class="tune__badge-new">new in 7.4</span></span>
+          </label>
+          <p class="tune__help">
+            Strip accents before comparison (&ldquo;na&iuml;ve&rdquo; matches &ldquo;naive&rdquo;,
+            &ldquo;caf&eacute;&rdquo; matches &ldquo;cafe&rdquo;). Useful for multilingual corpora.
+          </p>
         </div>
 
         <div class="tune__control">
@@ -276,6 +297,20 @@
               rel="noopener noreferrer"
               >Reference &rarr;</a
             >
+          </p>
+        </div>
+
+        <div class="tune__control">
+          <label class="tune__checkbox" for="tune-use-token-search">
+            <input id="tune-use-token-search" v-model="useTokenSearch" type="checkbox" />
+            <span>useTokenSearch <span class="tune__badge-new">new in 7.4</span></span>
+          </label>
+          <p class="tune__help">
+            Fuse-native token search with TF-IDF scoring. Splits the query into tokens internally
+            and ranks results by term-frequency &times; inverse-document-frequency &mdash; better
+            relevance than our demo-side
+            <code>tokenSearch</code> wrapper above for multi-word queries. Distinct from the
+            wrapper: this is built into the Fuse runtime.
           </p>
         </div>
 
@@ -401,13 +436,15 @@ const DEFAULTS = {
   ignoreLocation: true,
   minMatchCharLength: 2,
   isCaseSensitive: false,
+  ignoreDiacritics: false, // New in fuse.js 7.4-beta — strip é→e, ñ→n, etc.
   includeScore: false,
   shouldSort: true,
   findAllMatches: true,
   ignoreFieldNorm: false,
   fieldNormWeight: 1.0,
   useExtendedSearch: false,
-  tokenSearch: true,
+  useTokenSearch: false, // New in fuse.js 7.4-beta — native TF-IDF tokenization
+  tokenSearch: true, // Demo-side wrapper (distinct from native useTokenSearch)
   searchTitle: true,
   searchText: true,
 } as const;
@@ -418,12 +455,14 @@ const location = ref<number>(DEFAULTS.location);
 const ignoreLocation = ref<boolean>(DEFAULTS.ignoreLocation);
 const minMatchCharLength = ref<number>(DEFAULTS.minMatchCharLength);
 const isCaseSensitive = ref<boolean>(DEFAULTS.isCaseSensitive);
+const ignoreDiacritics = ref<boolean>(DEFAULTS.ignoreDiacritics);
 const includeScore = ref<boolean>(DEFAULTS.includeScore);
 const shouldSort = ref<boolean>(DEFAULTS.shouldSort);
 const findAllMatches = ref<boolean>(DEFAULTS.findAllMatches);
 const ignoreFieldNorm = ref<boolean>(DEFAULTS.ignoreFieldNorm);
 const fieldNormWeight = ref<number>(DEFAULTS.fieldNormWeight);
 const useExtendedSearch = ref<boolean>(DEFAULTS.useExtendedSearch);
+const useTokenSearch = ref<boolean>(DEFAULTS.useTokenSearch);
 const tokenSearch = ref<boolean>(DEFAULTS.tokenSearch);
 const searchTitle = ref<boolean>(DEFAULTS.searchTitle);
 const searchText = ref<boolean>(DEFAULTS.searchText);
@@ -448,12 +487,14 @@ const fuseInstance = computed(() => {
     ignoreLocation: ignoreLocation.value,
     minMatchCharLength: minMatchCharLength.value,
     isCaseSensitive: isCaseSensitive.value,
+    ignoreDiacritics: ignoreDiacritics.value,
     includeScore: includeScore.value,
     shouldSort: shouldSort.value,
     findAllMatches: findAllMatches.value,
     ignoreFieldNorm: ignoreFieldNorm.value,
     fieldNormWeight: fieldNormWeight.value,
     useExtendedSearch: useExtendedSearch.value,
+    useTokenSearch: useTokenSearch.value,
     includeMatches: true,
   });
 });
@@ -520,7 +561,8 @@ const results = computed<FuseResult<IndexedPdf>[]>(() => {
 const configSnippet = computed(() => {
   const keysLiteral = activeKeys.value.length ? `['${activeKeys.value.join("', '")}']` : '[]';
   const tokenSearchActive = tokenSearch.value && !useExtendedSearch.value;
-  return `new Fuse(rows, {
+  return `// fuse.js v7.4.0-beta.6
+new Fuse(rows, {
   keys: ${keysLiteral},
   threshold: ${threshold.value.toFixed(2)},
   ignoreLocation: ${ignoreLocation.value},
@@ -528,16 +570,20 @@ const configSnippet = computed(() => {
   distance: ${distance.value},
   minMatchCharLength: ${minMatchCharLength.value},
   isCaseSensitive: ${isCaseSensitive.value},
+  ignoreDiacritics: ${ignoreDiacritics.value}, // new in 7.4-beta
   includeScore: ${includeScore.value},
   shouldSort: ${shouldSort.value},
   findAllMatches: ${findAllMatches.value},
   ignoreFieldNorm: ${ignoreFieldNorm.value},
   fieldNormWeight: ${fieldNormWeight.value.toFixed(1)},
   useExtendedSearch: ${useExtendedSearch.value},
+  useTokenSearch: ${useTokenSearch.value}, // new in 7.4-beta — native TF-IDF
   includeMatches: true,
 });
 
 // Demo-only: tokenSearch wrapper splits multi-word queries${tokenSearchActive ? ' (active)' : ' (off)'}.
+// (Distinct from useTokenSearch above — the wrapper works in any Fuse version;
+//  useTokenSearch is the 7.4-beta native implementation with TF-IDF scoring.)
 // See https://www.fusejs.io/token-search.html`;
 });
 
@@ -652,12 +698,14 @@ function resetDefaults(): void {
   ignoreLocation.value = DEFAULTS.ignoreLocation;
   minMatchCharLength.value = DEFAULTS.minMatchCharLength;
   isCaseSensitive.value = DEFAULTS.isCaseSensitive;
+  ignoreDiacritics.value = DEFAULTS.ignoreDiacritics;
   includeScore.value = DEFAULTS.includeScore;
   shouldSort.value = DEFAULTS.shouldSort;
   findAllMatches.value = DEFAULTS.findAllMatches;
   ignoreFieldNorm.value = DEFAULTS.ignoreFieldNorm;
   fieldNormWeight.value = DEFAULTS.fieldNormWeight;
   useExtendedSearch.value = DEFAULTS.useExtendedSearch;
+  useTokenSearch.value = DEFAULTS.useTokenSearch;
   tokenSearch.value = DEFAULTS.tokenSearch;
   searchTitle.value = DEFAULTS.searchTitle;
   searchText.value = DEFAULTS.searchText;
@@ -1042,6 +1090,62 @@ onMounted(async () => {
   letter-spacing: -0.01em;
   margin: 0 0 1rem;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Pinned-version pill next to the "Tune Fuse.js, live" heading. Tells the
+ * reader exactly which Fuse build the live tuner is exercising — clickable,
+ * opens the release notes on GitHub. Monospace + slightly muted so it reads
+ * as metadata rather than a primary visual element. */
+.tune__version-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+.tune__version-pill:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.tune__version-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* "new in 7.4" badge attached to specific tuner options. Lime-tinted to tie
+ * into the demo's accent without shouting. Plain text — not a link. */
+.tune__badge-new {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4em;
+  padding: 0.08rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a3e635;
+  background: rgba(163, 230, 53, 0.1);
+  border: 1px solid rgba(163, 230, 53, 0.32);
+  border-radius: 3px;
+  white-space: nowrap;
 }
 
 .tune__card,
