@@ -1255,6 +1255,9 @@ The integration hooks into `astro:build:start`, which only fires during `astro b
 **My CI build is slow.**
 First build is genuinely O(N PDFs) bytes-downloaded + parse-time. Subsequent builds hit the cache. Persist `.pdf-cache/` between CI runs (GitHub Actions: `actions/cache@v4` keyed on a stable cache key).
 
+**In-PDF highlights only work in Firefox.**
+The PDF viewer's `#search=<query>` URL fragment is honored reliably only by Firefox (whose built-in viewer is Mozilla's pdf.js); Chrome/Edge (PDFium) ignore it and Safari is inconsistent. The `examples/netlify-demo/` bundles Mozilla's pdf.js viewer at `/pdfjs-viewer/web/viewer.html` and routes result clicks through it so the same `#search=` behaviour works in every browser. ~7 MB of viewer assets on disk; ~2 MB gzipped over the wire; long-cached with `Cache-Control: immutable` because they're versioned by the installed `pdfjs-dist` release. See [`examples/netlify-demo/README.md`](./examples/netlify-demo/README.md#in-pdf-highlighting-via-mozilla-pdfjs-viewer) for the integration details.
+
 ---
 
 ## Limits and non-goals

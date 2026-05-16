@@ -81,6 +81,29 @@ Commit that change and Netlify will pick it up on the next push.
 
 **Broken links to PDFs.** Check that `dist/pdfs/` is populated after a build; if it's empty, the `copy:pdfs` prebuild step failed. Run `pnpm --filter @icjia-examples/netlify-demo build` locally to reproduce.
 
+## In-PDF highlighting via Mozilla pdf.js viewer
+
+Clicking a result in the search list opens the PDF in a bundled copy of Mozilla's [pdf.js](https://github.com/mozilla/pdf.js) viewer with the search term pre-filled in the viewer's find bar and every occurrence highlighted in the rendered page.
+
+**Why we bundle it.** The PDF viewer's `#search=<query>` URL fragment works reliably only in Firefox — Firefox's built-in PDF viewer _is_ pdf.js. Chrome and Edge (PDFium) silently ignore it. Safari is inconsistent. Bundling Mozilla's own viewer at `/pdfjs-viewer/web/viewer.html` gives the same fragment-driven highlight behaviour in every browser.
+
+**How it works.** A prebuild script ([`scripts/copy-pdfjs-viewer.mjs`](./scripts/copy-pdfjs-viewer.mjs)) downloads the matching `pdfjs-<version>-dist.zip` from Mozilla's GitHub releases (the version is pinned by the [`pdfjs-dist`](https://www.npmjs.com/package/pdfjs-dist) npm dep in `package.json`) and extracts it to `public/pdfjs-viewer/`. Result-card links in `Search.vue` transform `/pdfs/<file>.pdf` into `/pdfjs-viewer/web/viewer.html?file=/pdfs/<file>.pdf#search=<query>`. The viewer reads the fragment on load, opens its find bar with the query already typed, jumps to the first match, and highlights every other occurrence.
+
+**Cost.** ~7 MB on disk after trimming source maps and non-English locales; closer to ~2 MB gzipped over the wire. Long-cached via the `[[headers]]` rule in `netlify.toml` (`Cache-Control: public, max-age=31536000, immutable`) — the assets are versioned by the `pdfjs-dist` version we install, so a bump rotates the URL space and invalidates the cache automatically.
+
+**Same-origin requirement.** The viewer can only load PDFs from the same origin (or remote origins with CORS configured). Our `/pdfs/*` paths are same-origin so this works without ceremony; a real consumer site loading PDFs from a remote CMS would need CORS on the CMS.
+
+**Fuse vs viewer find semantics — known limitation.** Fuse does fuzzy matching; the viewer's `#search=` triggers a literal case-insensitive substring search. A query like "applicent" can match Fuse's result for "applicant portal" but the viewer's find won't surface highlights — the PDF still opens, the user can correct the term in the find bar. This is expected.
+
+**Disabling the viewer.** If you'd rather rely on the browser's native PDF viewer (and accept the lost cross-browser highlight behaviour):
+
+1. In `src/components/Search.vue`, remove the `viewerUrl` helper and change `:href="viewerUrl(r)"` back to `:href="publicPdfUrl(r.item.url)"`.
+2. Drop `"copy:pdfjs-viewer": "..."` from `package.json` and remove it from `prebuild` / `predev`.
+3. Remove `pdfjs-dist` from `dependencies` and re-run `pnpm install`.
+4. Drop the `[[headers]] for = "/pdfjs-viewer/*"` block in `netlify.toml`.
+
+The viewer assets directory and the cached release zip live under `public/pdfjs-viewer/` and `.pdfjs-cache/` respectively — both are gitignored and rebuilt on every `pnpm dev` / `pnpm build`.
+
 ## Architecture — the two-URL pattern
 
 The same PDF is referenced by two different URLs:
@@ -113,9 +136,11 @@ examples/netlify-demo/
 ├── tsconfig.json
 ├── scripts/
 │   ├── copy-pdfs.mjs                  # examples/_fixtures/*.pdf → public/pdfs/
+│   ├── copy-pdfjs-viewer.mjs          # fetches & vendors Mozilla pdf.js viewer
 │   └── generate-content.mjs           # writes src/content/docs/*.md with file:// URLs
 ├── public/
-│   └── pdfs/                          # populated by copy-pdfs.mjs at build
+│   ├── pdfs/                          # populated by copy-pdfs.mjs at build
+│   └── pdfjs-viewer/                  # populated by copy-pdfjs-viewer.mjs at build
 └── src/
     ├── components/
     │   └── Search.vue                 # Vue 3 island — sticky search bar + results
@@ -126,7 +151,7 @@ examples/netlify-demo/
         └── index.astro                # the front page
 ```
 
-`public/pdfs/` and `src/content/docs/` are gitignored; both are regenerated on every `dev`/`build`.
+`public/pdfs/`, `public/pdfjs-viewer/`, and `src/content/docs/` are gitignored; all three are regenerated on every `dev`/`build`.
 
 ## Swap in your own PDFs
 

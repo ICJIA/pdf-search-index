@@ -362,6 +362,8 @@ Since v1.0.2 the default cap is 5 MB of plain text per PDF (defends against comp
 
 `examples/netlify-demo/` is the production-shaped, polished variant — deployable to Netlify with the included `netlify.toml`. Use this as the starting point for a real consumer site (not the minimal Astro example, which exists only as the smallest possible integration smoke test).
 
+The netlify-demo bundles Mozilla's pdf.js viewer at `/pdfjs-viewer/web/viewer.html` so result clicks open the PDF with the search term pre-filled in the viewer's find bar and every occurrence highlighted in the rendered page. The viewer's `#search=<query>` URL fragment is honored reliably only in Firefox (whose native viewer _is_ pdf.js); Chrome/Edge ignore it and Safari is inconsistent — bundling Mozilla's own viewer gives uniform cross-browser behaviour. The `pdfjs-dist` npm package only ships the embed component; the standalone viewer (`viewer.html` + assets) comes from Mozilla's GitHub release artifact, which `scripts/copy-pdfjs-viewer.mjs` fetches at prebuild time, pinned to the installed `pdfjs-dist` version. ~7 MB on disk; gitignored and rebuilt every dev/build.
+
 Every example uses `file://` URLs against fixtures in [`examples/_fixtures/`](./examples/_fixtures/) plus a 15-line `local-fetch.mjs` helper so they work offline. The pattern is the same for real `https://` URLs — just drop the `fetch` option.
 
 ## When NOT to use this package
