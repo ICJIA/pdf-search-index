@@ -1,6 +1,15 @@
 [build]
   base    = "examples/netlify-demo"
-  command = "pnpm install --frozen-lockfile=false && pnpm build"
+  # Build order matters in this pnpm workspace:
+  #   1. install everything (creates the workspace symlinks)
+  #   2. build @icjia/pdf-search-index → packages/core/dist/   (core has no internal deps)
+  #   3. build @icjia/astro-pdf-search-index → packages/astro-pdf-search-index/dist/
+  #      (imports from core's dist/ at compile time)
+  #   4. build the demo (imports from astro adapter's dist/ at astro.config.ts load)
+  # Without steps 2 and 3, Astro fails with
+  #   "Failed to resolve entry for package @icjia/astro-pdf-search-index"
+  # because the symlinked workspace dep has no dist/.
+  command = "pnpm install --frozen-lockfile=false && pnpm -F @icjia/pdf-search-index build && pnpm -F @icjia/astro-pdf-search-index build && pnpm build"
   publish = "dist"
 
 [build.environment]
