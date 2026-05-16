@@ -1,8 +1,8 @@
 # @icjia/astro-pdf-search-index
 
-> Astro 5 integration for [`@icjia/pdf-search-index`](../core). Walks configured content collections, extracts every linked PDF's text at build time, and emits a JSON index your search UI can fetch.
+> **Apache Solr for Astro — without Solr.** Astro 5 integration for [`@icjia/pdf-search-index`](../core) that walks your content collections, extracts every linked PDF's text at build time, and emits a JSON index your search UI fetches at runtime. No JVM, no Tika service, no search server — `astro build` does the extraction; the browser does the search.
 
-Adds PDFs as first-class search rows in an Astro site already using Fuse.js (or any other client-side search engine that consumes JSON rows). The integration hooks into `astro:build:start` so the emitted index ships in your `dist/` output alongside other static assets.
+Adds PDFs as first-class search rows in an Astro site, then lets whatever client-side search engine you already use query them. **Fuse.js is recommended but optional** — the emitted JSON is plain `IndexedPdf[]` rows that work equally well with [MiniSearch](https://lucaong.github.io/minisearch/), [FlexSearch](https://github.com/nextapps-de/flexsearch), Lunr, [Pagefind](https://pagefind.app/), or your own index. The integration hooks into `astro:build:start` so the emitted JSON ships in your `dist/` output alongside other static assets.
 
 ## Install
 
@@ -30,16 +30,33 @@ Peer dependency: `astro@^5.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
 ## Security
 
-**Audited and hardened in v1.0.2 (released 2026-05-16).** The adapter went through an adversarial red/blue team review alongside the core package; v1.0.2 ships the Astro-specific fixes plus all the core hardening that flows through. Most-relevant items for the Astro surface:
+**Status as of v1.0.5 (last audited 2026-05-16):** Every Critical and Important finding against the Astro adapter surface is **remediated and verified in 1.0.2**. The one adapter-specific Critical (**C5**) plus the core flow-through fixes (C1, C3, I1, I3, I4, I7, I8) all have named regression tests and were re-verified at v1.0.5. **Zero unaddressed exploitable issues** in the documented usage envelope.
 
-- **C5 — Path-jailed `endpoint`.** The adapter's `endpoint` option must now resolve inside Astro's `publicDir`. `endpoint: '../../etc/escape.json'` throws before any filesystem write. Existing valid configurations (relative paths inside `public/`) keep working without changes.
-- **I4 — HTML-safe JSON emit.** The adapter writes the index via `safeJSONForHTML`, so PDF text containing literal `</script>` can't break out of a `<script type="application/json">` embedding in your pages. No consumer code change required — the adapter uses it on every emit.
-- **C3 + I3 (core, flow-through).** The default `maxBytes` is now **32 MB** (down from 100 MB); extracted text is capped at **5 MB** per PDF via the new `maxExtractedTextChars` option. If your CMS hosts PDFs above either threshold, raise the cap via the standard core options — see the [top-level README's Migration notes](../../README.md#migration-notes-from-101).
-- **I1, I7, I8 (core, flow-through).** URL scrubbing in failure logs, atomic cache writes with `contentSha` verification, and categorized parse-error tags all apply to the Astro emit path automatically.
+### Adapter-specific remediation detail
 
-The core deferred items (**C2** SSRF allowlist, **I2** cache-key normalization, **I5** sitemap hardening, **I6** `maxUrls` cap) are tracked for v1.1 / v2.0. Configure outbound network policy in your CI environment as a mitigation for C2 until the allowlist lands.
+| ID     | What was found                                                                                                                          | What was specifically remediated                                                                                                                                                                                       | Verified by                                                                                                                                                                      | Status                                   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **C5** | Astro `endpoint: '../../etc/escape.json'` would resolve outside `publicDir` and the build would write the index there (path traversal). | The integration resolves the output path against `publicDir` at build time and throws a clear error if it doesn't stay inside. Existing valid configurations (relative paths inside `public/`) keep working unchanged. | `test/integration.test.ts` → `"rejects an endpoint that resolves outside publicDir (C5: path traversal)"`.                                                                       | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+| **I4** | PDF text containing literal `</script>` broke out of `<script type="application/json">` islands when the JSON was inlined into HTML.    | The adapter writes the index via `safeJSONForHTML` from core (escapes `<`, `<!--`, U+2028, U+2029) rather than `JSON.stringify`. No consumer code change required — the adapter uses it on every emit.                 | `test/integration.test.ts` → `"escapes `</script>` in the emitted JSON (I4: HTML-safe encoding)"`. Plus the core export's own coverage in `packages/core/test/security.test.ts`. | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
 
-Read the full audit findings, deferred-item targets, and migration notes in the [top-level README's Security section](../../README.md#security) and the [Security considerations & audit history](../../README.md#security-considerations--audit-history) section further down.
+### Core flow-through fixes (apply automatically to the Astro emit path)
+
+| ID     | Defense it adds to your Astro build                                                                                                                                                                                                                       | Status                                   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **C1** | URL-scanner ReDoS guard. Adversarial markdown content from a CMS-author body can't stall the build.                                                                                                                                                       | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+| **C3** | Streaming body-size cap on every PDF fetch the integration performs. Default `maxBytes` 32 MB (down from 100 MB). Raise via `{ maxBytes: 100 * 1024 * 1024 }` if your CMS hosts larger PDFs.                                                              | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+| **I1** | Failure logs scrub URLs to `protocol://host` only. A failed fetch on `https://cms.example.com/admin/secret.pdf` logs as `https://cms.example.com` — the path stays out of CI logs. Pass `debug: true` per call when you need the full URL for triage.     | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+| **I3** | Per-PDF extracted-text cap at 5 MB chars (default). Defends against compression-bomb PDFs. Raise via `{ maxExtractedTextChars: 10_000_000 }` if a real PDF in your corpus has more text. See [Migration notes](../../README.md#migration-notes-from-101). | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+| **I7** | Atomic cache writes with `contentSha` verification. Parallel `astro build` invocations won't corrupt the cache.                                                                                                                                           | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+| **I8** | Categorized parse-error tags. Encrypted / corrupt / font-error PDFs surface as categorized warnings instead of leaking the underlying `pdfjs-dist` exception text.                                                                                        | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
+
+### Deferred items relevant to the Astro adapter
+
+| ID     | Status                                                                                                                                                                                                                                                                                                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **C2** | SSRF allowlist deferred to v1.1. **Active mitigation:** configure outbound network policy in your CI environment so the `astro build` step can only reach the hosts you expect (your CMS, your CDN). Most CI runners (GitHub Actions, Netlify, Vercel) support egress filtering at the worker level. The attack surface is build-time only; the typical CI runner is isolated. |
+
+For the complete cross-package picture (including the I2 / I5 / I6 deferred items relevant to the core surface), read the [top-level README's Security section](../../README.md#security) and the [Security considerations & audit history](../../README.md#security-considerations--audit-history).
 
 ## Configure in `astro.config.ts`
 

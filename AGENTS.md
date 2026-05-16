@@ -4,7 +4,7 @@
 
 ## What this package does (in one paragraph)
 
-`@icjia/pdf-search-index` extracts text from PDFs at **build time** so the PDF body becomes a normal row in your client-side search engine — the same way Apache Tika fed Solr a decade ago, but without the JVM, the search server, or the runtime indexing. Output is plain JSON (`IndexedPdf[]`). You feed it to [Fuse.js](https://www.fusejs.io/), MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, or Algolia — your call. There are no native deps. ESM only. Node 20 LTS / 22 LTS. MIT.
+**Think Apache Solr for client-side apps — without Solr.** `@icjia/pdf-search-index` extracts text from PDFs at **build time** so the PDF body becomes a normal row in whatever client-side search engine the consumer already uses. It's the Tika stage of a Solr deployment collapsed into a `pnpm build` hook: no JVM, no schema, no search server, no runtime indexing. Output is plain JSON (`IndexedPdf[]`). **Framework-agnostic** — first-party integrations for Astro 5 and Nuxt 4, and the same core works equally well from a prebuild script in Next.js, SvelteKit, Remix, Eleventy, Vite/Vue, vanilla HTML, or anything else that can run a Node script. **Fuse.js is the recommended client-side search engine** (and what every example uses), but the JSON rows feed [Fuse.js](https://www.fusejs.io/), MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, or Algolia equally well — your call. No native deps. ESM only. Node 20 LTS / 22 LTS. MIT.
 
 ## Three packages in this monorepo
 

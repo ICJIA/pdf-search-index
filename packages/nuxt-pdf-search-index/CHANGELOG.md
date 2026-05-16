@@ -1,5 +1,17 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.0.5
+
+### Patch Changes
+
+Lockstep docs-and-hardening release. Package source is byte-identical to 1.0.4 (and 1.0.3). This bump syncs the npmjs.com-rendered README with three updates:
+
+1. **New "Apache Solr for Nuxt — without Solr." elevator pitch** (Nitro framed as the Tika stage) + explicit Fuse-is-optional framing (alternatives: MiniSearch, FlexSearch, Lunr, Pagefind, custom).
+2. **Restructured Security section** — per-finding tables for the core flow-through fixes (C1, C3, I1, I3, I4, I7, I8) that apply automatically to `extractPdfsFromCmsBody` / `extractPdfsFromContentDoc`; "Zero unaddressed exploitable issues" status statement; deferred items integrated with active mitigations including the helpers' threat-surface guidance.
+3. **Third audit pass landed at the monorepo level** — verified all core flow-through fixes are still in place. No new findings against the Nuxt module surface.
+
+See the [core CHANGELOG entry for 1.0.5](../core/CHANGELOG.md#105) for the full summary including the audit transcript reference.
+
 ## 1.0.4
 
 ### Patch Changes

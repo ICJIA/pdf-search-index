@@ -1,5 +1,28 @@
 # @icjia/pdf-search-index
 
+## 1.0.5
+
+### Patch Changes
+
+Docs-and-hardening release. **Runtime behavior is byte-identical to 1.0.4** — no consumer-side behavior change. Consumers running `^1.0.3` (or `^1.0.4`) continue to work identically. This bump packages four things:
+
+**1. Elevator-pitch reframe.** The top-of-README pitch (and per-package READMEs, plus `AGENTS.md`) now leads with **"Apache Solr for client-side apps — without Solr."** — framework-agnostic positioning (first-party Astro 5 + Nuxt 4 integrations; core slots cleanly into Next.js / SvelteKit / Remix / Eleventy / Vite-Vue / vanilla HTML via a `prebuild` script), Fuse-recommended-but-optional framing (alternatives named with links: MiniSearch, Orama, FlexSearch, Lunr, Pagefind, Typesense, MeiliSearch, Algolia), and a closing paragraph quantifying the overhead this package collapses (Solr's build-time Tika stage → a `pnpm build` hook).
+
+**2. Security section restructure.** The previous counts-only summary read as if items remained outstanding. The new structure:
+
+- Leads with **"Zero unaddressed exploitable issues against the documented usage envelope"** and the verification basis (regression tests + three independent audit passes).
+- Per-finding tables (Critical / Important / Minor) with explicit columns for **What was found / What was specifically remediated / Verified by / Status** — including named-test references for every ✅ row.
+- Deferred items integrated into the per-severity tables with their active mitigations spelled out (e.g., C2 SSRF → CI egress filter mitigation), instead of a separate "outstanding" list.
+- "Verified" defined explicitly: (a) a regression test exercises the fix against the original attack input, AND (b) the fix is re-confirmed in source at v1.0.5 HEAD by the verification-pass audit.
+
+Top-level `README.md`, all three package READMEs (`core`, `astro-pdf-search-index`, `nuxt-pdf-search-index`), and `AGENTS.md` updated with the new structure.
+
+**3. Third independent adversarial red/blue audit pass (2026-05-16).** An opus-class LLM agent verified that **all 11 prior 1.0.2 fixes** (C1, C3, C4, C5, I1, I3, I4, I7, I8, M2, M3) are still in place at v1.0.5 source and exercised by their named regression tests. Adversarial probes ran at **5× the existing regression-test payload volumes** against the built `dist/` (e.g., C1 ReDoS probe → 50,000-iter `'[X](https://a'.repeat(N)` → completed in 1.41 ms). Single new finding (Informational): **V8 — `snippetHTMLFor`'s `separator` parameter is concatenated raw**, by design (so consumers can pass `'<br>'`/`'<hr>'`). Remediated by an explicit JSDoc security note on `SnippetOptions.separator` in `packages/core/src/snippet.ts` warning consumers to treat the parameter as developer-controlled input only. No code-behavior change — the function continues to concatenate `separator` raw. Audit transcript and findings table in the [top-level README's audit-history section](../../README.md#2026-05-16--v105-verification-pass).
+
+**4. New M3 regression test.** The 1.0.2 control-character sanitization fix (`scrubControl` in `extractor.ts`) was previously exercised implicitly via the URL-scrubbing tests. Pinned with an explicit named test in `packages/core/test/security.test.ts`: `'M3 explicit: strips ASCII control chars from error messages before logging'` (injects `\x00\x01\x07\x08\r` into a fetch error message and verifies each one becomes `?` in the log output). **Test count: 114 → 115 across the monorepo.**
+
+Net change in the published tarball: README content + the `SnippetOptions.separator` JSDoc note (which surfaces in `dist/snippet.d.ts`). Everything else (CHANGELOG, test additions) does not ship to consumers.
+
 ## 1.0.4
 
 ### Patch Changes

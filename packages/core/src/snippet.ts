@@ -20,6 +20,15 @@ export interface SnippetOptions {
   /**
    * String inserted between snippets when `maxSnippets > 1`. Default
    * `' … '` (space + horizontal ellipsis + space).
+   *
+   * **Security note (audit V8, 2026-05-16):** This string is concatenated
+   * raw into the returned HTML, by design — so consumers can pass `'<br>'`
+   * or `'<hr>'` if they want a markup separator. Treat `separator` as
+   * developer-controlled input only. Do NOT wire it to untrusted end-user
+   * input (e.g. a UI textbox the user types into) — that would let the
+   * user inject arbitrary HTML between snippets. The library does not
+   * escape this parameter; the contract is "developer literal, like the
+   * default ` … `".
    */
   separator?: string;
 }

@@ -224,6 +224,33 @@ describe('I1 / M3: scrubUrl drops path/query and strips control chars', () => {
     expect(combined).not.toMatch(/secret-document\.pdf/);
     expect(combined).not.toMatch(/internal\/secret/);
   });
+
+  it('M3 explicit: strips ASCII control chars from error messages before logging', async () => {
+    // Defense: ANSI red sequence + bell + NUL in an error message would
+    // otherwise survive into terminal output and (a) repaint the operator's
+    // terminal, (b) inject CRLF into log-parsing pipelines, or (c) hide
+    // characters behind backspace bytes (\x08).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Five raw control bytes between two readable runs. Each one should
+    // emerge as a literal `?` in the log — letters around them survive.
+    const hostile = 'connection failed\x00\x01\x07\x08\rsensitive-data';
+    const fetchImpl: typeof fetch = (async () => {
+      throw new Error(hostile);
+    }) as unknown as typeof fetch;
+    await extractPdfText('https://example.com/some.pdf', {
+      cacheDir,
+      fetch: fetchImpl,
+    });
+    const combined = warn.mock.calls.map((c) => c.join(' ')).join('\n');
+    // The warning fired (fetch threw, so we should see a fetch-error log).
+    expect(combined).toMatch(/fetch error/);
+    // The control bytes were replaced with `?` — no \x00-\x1f or \x7f survive.
+    expect(combined).not.toMatch(/[\x00-\x1f\x7f]/);
+    // Sanity: the surrounding non-control text DID make it through (proves
+    // we're not just dropping the whole message), and each of the 5 control
+    // bytes became exactly one `?`.
+    expect(combined).toMatch(/connection failed\?{5}sensitive-data/);
+  });
 });
 
 // ----- I4 ----------------------------------------------------------------

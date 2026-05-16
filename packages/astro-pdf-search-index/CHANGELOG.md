@@ -1,5 +1,17 @@
 # @icjia/astro-pdf-search-index
 
+## 1.0.5
+
+### Patch Changes
+
+Lockstep docs-and-hardening release. Package source is byte-identical to 1.0.4 (and 1.0.3). This bump syncs the npmjs.com-rendered README with three updates:
+
+1. **New "Apache Solr for Astro — without Solr." elevator pitch** + explicit Fuse-is-optional framing (alternatives: MiniSearch, FlexSearch, Lunr, Pagefind, custom).
+2. **Restructured Security section** — per-finding tables with explicit Found / Remediated / Verified-by / Status columns; "Zero unaddressed exploitable issues" status statement; deferred items integrated with active mitigations.
+3. **Third audit pass landed at the monorepo level** — verified the adapter-specific C5 (`endpoint` path-jail) and I4 (HTML-safe emit via `safeJSONForHTML`) fixes are still in place. No new findings against the Astro surface.
+
+See the [core CHANGELOG entry for 1.0.5](../core/CHANGELOG.md#105) for the full summary including the audit transcript reference.
+
 ## 1.0.4
 
 ### Patch Changes
