@@ -3,11 +3,33 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { pathToFileURL } from 'node:url';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import { indexPdfs, extractPdfText } from './index.js';
 import { clearCache, listCache } from './cache.js';
 import { snippetHTMLFor } from './snippet.js';
 
 const SERVER_VERSION = '0.1.0';
+
+/**
+ * Jail every MCP-tool-provided `cacheDir` under a single safe base inside
+ * the OS tmpdir. Without this, an LLM client (potentially compromised via
+ * prompt injection through PDF content the user just asked it to read)
+ * could call any tool with `cacheDir: '/Users/victim/.ssh'` and have
+ * `mkdir + writeFile` (or `clear_cache`'s `unlink`) run there.
+ */
+const SAFE_CACHE_BASE = path.resolve(tmpdir(), 'pdf-search-index-mcp');
+
+export function safeCacheDir(input: unknown): string {
+  if (typeof input !== 'string' || input === '') return SAFE_CACHE_BASE;
+  const resolved = path.resolve(SAFE_CACHE_BASE, input);
+  if (resolved !== SAFE_CACHE_BASE && !resolved.startsWith(SAFE_CACHE_BASE + path.sep)) {
+    throw new Error(
+      `cacheDir must stay within ${SAFE_CACHE_BASE}; got "${input}" which resolves to "${resolved}"`,
+    );
+  }
+  return resolved;
+}
 
 interface ToolDef {
   name: string;
@@ -30,8 +52,8 @@ const TOOLS: ToolDef[] = [
     },
     handler: async (args) => {
       const url = args.url as string;
-      const cacheDir = args.cacheDir as string | undefined;
-      return await extractPdfText(url, cacheDir ? { cacheDir } : {});
+      const cacheDir = safeCacheDir(args.cacheDir);
+      return await extractPdfText(url, { cacheDir });
     },
   },
   {
@@ -48,10 +70,10 @@ const TOOLS: ToolDef[] = [
     },
     handler: async (args) => {
       const urls = args.urls as string[];
-      const cacheDir = args.cacheDir as string | undefined;
+      const cacheDir = safeCacheDir(args.cacheDir);
       const concurrency = args.concurrency as number | undefined;
       const rows = await indexPdfs(urls, {
-        ...(cacheDir ? { cacheDir } : {}),
+        cacheDir,
         ...(concurrency !== undefined ? { concurrency } : {}),
       });
       return JSON.stringify(rows, null, 2);
@@ -65,7 +87,7 @@ const TOOLS: ToolDef[] = [
       properties: { cacheDir: { type: 'string' } },
     },
     handler: async (args) => {
-      const cacheDir = (args.cacheDir as string | undefined) ?? '.pdf-cache';
+      const cacheDir = safeCacheDir(args.cacheDir);
       const entries = await listCache(cacheDir);
       return JSON.stringify(entries, null, 2);
     },
@@ -86,8 +108,8 @@ const TOOLS: ToolDef[] = [
     handler: async (args) => {
       const urls = args.urls as string[];
       const query = args.query as string;
-      const cacheDir = args.cacheDir as string | undefined;
-      const rows = await indexPdfs(urls, cacheDir ? { cacheDir } : {});
+      const cacheDir = safeCacheDir(args.cacheDir);
+      const rows = await indexPdfs(urls, { cacheDir });
       const { default: Fuse } = await import('fuse.js');
       const { DEFAULT_FUSE_OPTIONS } = await import('./fuse.js');
       const fuse = new Fuse(rows, DEFAULT_FUSE_OPTIONS);
@@ -109,7 +131,7 @@ const TOOLS: ToolDef[] = [
       properties: { cacheDir: { type: 'string' } },
     },
     handler: async (args) => {
-      const cacheDir = (args.cacheDir as string | undefined) ?? '.pdf-cache';
+      const cacheDir = safeCacheDir(args.cacheDir);
       await clearCache(cacheDir);
       return `Cleared ${cacheDir}`;
     },
@@ -122,7 +144,7 @@ const TOOLS: ToolDef[] = [
       properties: { cacheDir: { type: 'string' } },
     },
     handler: async (args) => {
-      const cacheDir = (args.cacheDir as string | undefined) ?? '.pdf-cache';
+      const cacheDir = safeCacheDir(args.cacheDir);
       const entries = await listCache(cacheDir);
       return JSON.stringify(
         {
