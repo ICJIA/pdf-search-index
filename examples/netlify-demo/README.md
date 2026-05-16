@@ -10,7 +10,7 @@ If you're skimming the repo trying to figure out what a real production-shaped c
 - The full `@icjia/astro-pdf-search-index` integration flow: build-time PDF extraction via `pdf.js`, JSON output to `public/searchIndex.pdfs.json`, client-side fuzzy search via Fuse.js.
 - A two-URL pattern (file:// at build time, `/pdfs/*` at runtime) — see the architecture note below.
 
-The four indexed PDFs are randomly-clicked public samples from [icjia.illinois.gov](https://icjia.illinois.gov/) committed at [`examples/_fixtures/`](../_fixtures/). Drop in your own PDFs and re-run; everything auto-discovers.
+The indexed PDFs are randomly-clicked public samples from [icjia.illinois.gov](https://icjia.illinois.gov/) committed at [`examples/_fixtures/`](../_fixtures/) — they cover juvenile justice, public health, evaluation reports, and other ICJIA programmatic topics. Drop in your own PDFs and re-run; everything auto-discovers.
 
 ## Local quick-start
 
@@ -37,7 +37,7 @@ The `build` command produces:
 
 - `dist/index.html` — the static-rendered page.
 - `dist/searchIndex.pdfs.json` — the search index, one row per PDF, ready for the Vue island to fetch on mount.
-- `dist/pdfs/*.pdf` — the four indexed PDFs, served verbatim at `/pdfs/<filename>` with long-lived `Cache-Control: immutable` headers.
+- `dist/pdfs/*.pdf` — one entry per indexed PDF, served verbatim at `/pdfs/<filename>` with long-lived `Cache-Control: immutable` headers.
 
 ## Deploy to Netlify — the long version
 

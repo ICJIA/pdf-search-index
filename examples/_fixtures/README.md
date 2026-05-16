@@ -4,22 +4,21 @@ These PDFs are referenced by every example in `examples/*`. They're committed so
 
 ## Provenance — these are random clicks, not curated samples
 
-The PDFs here are **publicly available samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)) — **randomly chosen** by clicking around ICJIA's many live PDFs. There's no rhyme or reason to _which_ PDFs ended up here: they're just four arbitrary samples from the live corpus.
+The PDFs here are **publicly available samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)) — **randomly chosen** by clicking around ICJIA's many live PDFs. There's no rhyme or reason to _which_ PDFs ended up here: they're arbitrary samples from the live corpus.
 
 We're calling that out explicitly because "look how well it searches these specific PDFs" is a fair skepticism — managers and reviewers are right to wonder whether the demo was cherry-picked. It wasn't. Drop in any other PDF from any other source and the examples work identically. The randomness is the point.
 
 These PDFs were already publicly available, are included here as illustrative integration samples, and **contain no personally identifiable information (PII)**.
 
-## Files (at commit time)
+## Files
 
-The four fixtures landed here on 2026-05-15:
+The fixtures landed here on 2026-05-15 and have grown opportunistically since — to see the current list, run:
 
-- `Drug Testing Lit Review-200203T22022729.pdf`
-- `JJ_Statewide_Snapshot_2014_final_09132016-191011T20090709.pdf`
-- `Overview_Methamphetamine_Trends-191011T20091574.pdf`
-- `Stigma PDF for posting-230627T13295515.pdf`
+```bash
+ls examples/_fixtures/*.pdf
+```
 
-The cryptic timestamp suffixes are the original Drupal URL slugs from ICJIA's CMS — preserved as-is so the filenames mirror what you'd encounter on the live site.
+Topic mix as of this writing covers juvenile justice, public health, evaluation reports, methamphetamine trends, substance-use stigma, youth and alcohol, and other ICJIA programmatic topics. The cryptic timestamp suffixes on the filenames are the original Drupal URL slugs from ICJIA's CMS — preserved as-is so the filenames mirror what you'd encounter on the live site.
 
 ## Using your own PDFs
 

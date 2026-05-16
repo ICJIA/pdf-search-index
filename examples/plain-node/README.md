@@ -18,22 +18,25 @@ pnpm install
 pnpm --filter @icjia-examples/plain-node start
 ```
 
-Expected output:
+Expected output (the count, titles, and stats vary with whatever `.pdf`
+files are in `examples/_fixtures/` at the time you run this):
 
 ```
-Indexing 4 PDF(s) from /…/examples/_fixtures…
+Indexing N PDF(s) from /…/examples/_fixtures…
 Indexed rows:
   Drug Testing Lit Review …      pages=11 chars=28896
   JJ Statewide Snapshot 2014 …   pages=47 chars=51792
-  Microsoft Word - Weisner …     pages=15 chars=29701
   Stigma PDF for posting …       pages=23 chars=68557
+  …                                          …
 
 Query "applicant" → 1 match(es):
   • JJ Statewide Snapshot 2014 …
     …the <mark>applicant</mark> portal opened in March…
 ```
 
-(Exact numbers depend on your fixtures. The four committed fixtures are randomly-clicked ICJIA-public samples — see `examples/_fixtures/README.md` for provenance.)
+(Exact numbers depend on your fixtures. The committed fixtures are
+randomly-clicked ICJIA-public samples — see `examples/_fixtures/README.md`
+for provenance.)
 
 ## Try a different query
 
