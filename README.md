@@ -351,6 +351,239 @@ Cache keys are `SHA-256(url)` truncated to 16 hex chars. Implications by hosting
 
 ---
 
+## Using a search engine other than Fuse.js
+
+**Short answer: Fuse.js is optional.** The core extraction API produces plain JSON. You can feed it to any client- or server-side search engine — MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, Algolia. Fuse.js is only required if you specifically import the `/fuse` or `/snippet` helper subpaths.
+
+### What's Fuse-coupled vs framework-agnostic
+
+| Surface                                              | Fuse required? | Notes                                                                                    |
+| ---------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| `extractPdfText`, `indexPdfs`, `extractPdfsFromBody` | No             | Output is plain `IndexedPdf[]` JSON                                                      |
+| `@icjia/astro-pdf-search-index` integration          | No             | Emits the same JSON to `public/<endpoint>.json`                                          |
+| `@icjia/nuxt-pdf-search-index` helpers               | No             | Both helpers return `IndexedPdf[]` — feed to any engine                                  |
+| `pdf-search-index` CLI (root, `cache`, `verify`)     | No             | The CLI's `search` subcommand uses Fuse internally, but it's bundled — not your peer dep |
+| MCP `search_pdfs` tool                               | Internal       | Bundled with the MCP server; not a consumer concern                                      |
+| `createFuseIndex` (`/fuse` entry)                    | **Yes**        | Helper specifically for building a Fuse instance                                         |
+| `snippetHTMLFor` (`/snippet` entry)                  | **Yes**        | Types `FuseResult<T>` directly; tied to Fuse's match-indices shape                       |
+
+If you're not using Fuse, don't install `fuse.js` and don't import the `/fuse` or `/snippet` subpaths. The core stays useful — you get the indexed JSON, you pick the search engine.
+
+### The row shape every engine can consume
+
+```ts
+interface IndexedPdf {
+  id: string; // 'pdf-' + first 12 hex chars of SHA-256(url) — stable across rebuilds
+  url: string;
+  title: string;
+  text: string;
+  pages?: number;
+  extractedAt?: string;
+}
+```
+
+### Recipes — minimum-working examples for each engine
+
+All recipes assume you've already produced `rows: IndexedPdf[]` via `indexPdfs(...)` or one of the adapters. The result of each recipe is a queryable index — wire your UI to it as usual for that engine.
+
+#### MiniSearch
+
+```ts
+import MiniSearch from 'minisearch';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const rows = await indexPdfs([
+  /* urls */
+]);
+const search = new MiniSearch({
+  fields: ['title', 'text'],
+  storeFields: ['id', 'url', 'title'],
+  searchOptions: { boost: { title: 2 }, prefix: true, fuzzy: 0.2 },
+});
+search.addAll(rows);
+
+const results = search.search('applicant portal'); // → [{ id, url, title, score, match, terms }]
+```
+
+#### Orama
+
+```ts
+import { create, insertMultiple, search } from '@orama/orama';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const db = create({
+  schema: { id: 'string', url: 'string', title: 'string', text: 'string' },
+});
+const rows = await indexPdfs([
+  /* urls */
+]);
+await insertMultiple(db, rows);
+
+const results = await search(db, { term: 'applicant portal' });
+```
+
+#### Lunr.js
+
+```ts
+import lunr from 'lunr';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const rows = await indexPdfs([
+  /* urls */
+]);
+const idx = lunr(function () {
+  this.ref('id');
+  this.field('title', { boost: 10 });
+  this.field('text');
+  rows.forEach((r) => this.add(r));
+});
+
+const refs = idx.search('applicant portal').map((r) => r.ref);
+const results = refs.map((id) => rows.find((r) => r.id === id)!);
+```
+
+#### FlexSearch
+
+```ts
+import FlexSearch from 'flexsearch';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const rows = await indexPdfs([
+  /* urls */
+]);
+const index = new FlexSearch.Document({
+  document: { id: 'id', index: ['title', 'text'], store: ['url', 'title'] },
+});
+rows.forEach((r) => index.add(r));
+
+const results = index.search('applicant portal'); // → results per field
+```
+
+#### Pagefind (static-site search bundler)
+
+Pagefind crawls HTML rather than ingesting JSON, so the bridge is to emit one HTML stub per PDF that Pagefind then indexes:
+
+```ts
+import { indexPdfs } from '@icjia/pdf-search-index';
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const rows = await indexPdfs([
+  /* urls */
+]);
+await mkdir('dist/pdf-stubs', { recursive: true });
+for (const r of rows) {
+  await writeFile(
+    `dist/pdf-stubs/${r.id}.html`,
+    `<!doctype html>
+<html data-pagefind-body>
+<head><title>${r.title}</title></head>
+<body>
+  <h1 data-pagefind-meta="title">${r.title}</h1>
+  <a data-pagefind-meta="url" href="${r.url}">${r.url}</a>
+  <pre>${r.text.replace(/</g, '&lt;')}</pre>
+</body>
+</html>`,
+  );
+}
+// then: npx pagefind --site dist
+```
+
+#### Typesense
+
+```ts
+import Typesense from 'typesense';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const client = new Typesense.Client({
+  nodes: [{ host: 'localhost', port: 8108, protocol: 'http' }],
+  apiKey: process.env.TYPESENSE_API_KEY!,
+});
+
+const rows = await indexPdfs([
+  /* urls */
+]);
+await client.collections('pdfs').documents().import(rows, { action: 'upsert' });
+```
+
+#### MeiliSearch
+
+```ts
+import { MeiliSearch } from 'meilisearch';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const client = new MeiliSearch({
+  host: 'http://localhost:7700',
+  apiKey: process.env.MEILI_KEY,
+});
+const rows = await indexPdfs([
+  /* urls */
+]);
+await client.index('pdfs').addDocuments(rows);
+```
+
+#### Algolia
+
+```ts
+import { algoliasearch } from 'algoliasearch';
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const client = algoliasearch('YOUR_APP_ID', process.env.ALGOLIA_WRITE_KEY!);
+const rows = await indexPdfs([
+  /* urls */
+]);
+await client.saveObjects({
+  indexName: 'pdfs',
+  objects: rows.map((r) => ({ objectID: r.id, ...r })),
+});
+```
+
+### Snippet rendering without `snippetHTMLFor`
+
+The packaged `snippetHTMLFor` consumes Fuse's `matches[].indices` shape — `[[start, end], ...]` character offsets. Other engines either:
+
+- Return character-level match offsets in a different shape (Orama's `position[]`, MiniSearch's `match` object)
+- Return term-level matches without offsets (Lunr's `metadata`, Pagefind's excerpts)
+- Don't expose match offsets at all (FlexSearch returns just document IDs)
+
+For engines that **don't** return character offsets, the simplest snippet path is to do your own substring search for the query terms inside `r.text` and slice ±N chars around the first hit. The vanilla-HTML example does this in ~30 inline lines: see [`examples/html/public/index.html`](./examples/html/public/index.html) — search for `snippetHTMLFor`. Copy-paste, adapt the result shape to whatever your engine returns.
+
+For engines that **do** return character offsets (Orama, MiniSearch), you can write a thin adapter that maps their offset shape to Fuse's `indices` shape and re-use the package's `snippetHTMLFor`:
+
+```ts
+import { snippetHTMLFor } from '@icjia/pdf-search-index/snippet';
+
+// Example: Orama position[] → Fuse-shaped result
+function asFuseResult(oramaHit) {
+  return {
+    item: oramaHit.document,
+    matches: [
+      {
+        key: 'text',
+        value: oramaHit.document.text,
+        indices: oramaHit.positions.text.map((p) => [p.start, p.start + p.length - 1]),
+      },
+    ],
+  };
+}
+
+const html = snippetHTMLFor(asFuseResult(hit));
+```
+
+This works because `snippetHTMLFor` only looks at `r.item[matchKey]` and the longest entry in `r.matches[*].indices`. As long as your adapter populates those two fields correctly, the helper produces correct output.
+
+### Will the CLI / MCP / Astro / Nuxt surfaces work with my engine?
+
+Yes — the index emitted by each is plain JSON, decoupled from any search engine:
+
+- **CLI**: `pdf-search-index --out dist/searchIndex.json https://...` writes pure JSON
+- **MCP `index_pdfs` / `get_pdf_index`**: returns rows; you do what you want with them
+- **Astro integration**: writes `public/<endpoint>.json`
+- **Nuxt helpers**: return `IndexedPdf[]`
+
+Only the `/fuse` helper, `/snippet` helper, CLI's `search` subcommand, and MCP's `search_pdfs` tool are Fuse-internal — and the last two bundle Fuse themselves, so they don't require you to install it.
+
+---
+
 ## Core API
 
 ### `extractPdfText(url, options?) → Promise<string>`
