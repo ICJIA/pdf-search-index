@@ -1,5 +1,20 @@
 # @icjia/pdf-search-index
 
+## 1.0.3
+
+### Patch Changes
+
+Documentation + ecosystem release, plus one additive snippet feature.
+
+- **`snippetHTMLFor` — `maxSnippets` option.** New option (default `1`) renders up to N highlighted spans per result, joined by a configurable `separator` (default `' … '`). The picker greedily takes the N longest non-overlapping spans (overlap = context windows intersect), then re-sorts by document position. Default behavior is byte-identical to 1.0.2 for callers who don't set `maxSnippets`; the netlify-demo passes `{ maxSnippets: 3 }` to surface multiple passages per PDF result. Additive — no migration needed.
+- **Default Fuse threshold lowered to 0.2.** `DEFAULT_FUSE_OPTIONS.threshold` was `0.3` in 1.0.0–1.0.2; the new 0.2 default better suppresses surface-level-similar matches in long PDF bodies that users would otherwise call "wrong". Override per call via `fuseOptions: { threshold: 0.3 }` if you want the looser behavior.
+- **Live demo wired into the docs.** The flagship Netlify deployment is live at <https://icjia-pdf-search.netlify.app/> — a dark-mode Astro 5 + Vue 3 site indexing seven ICJIA-public PDFs with snippet highlighting and a live Fuse.js options tuner (including the new Fuse 7.4 beta surface). The top-level README, AGENTS.md, and per-package READMEs all link to it prominently.
+- **fuse.js pin moved to `7.4.0-beta.6`** across every workspace member (core devDep, every example). Core's `peerDependencies.fuse.js` is now `"^7.0.0 || >=7.4.0-beta.0"` so stable 7.x consumers and the 7.4 beta channel both resolve.
+- **Prominent Security section.** The v1.0.2 red/blue team audit findings (5 Critical / 8 Important / 8 Minor) and what shipped vs deferred are now surfaced near the top of every README, not buried in a "considerations" footer. Migration notes for the new defaults (`maxBytes: 32 MB`, `maxExtractedTextChars: 5 MB`, scrubbed logs, jailed MCP cacheDir) are explicit.
+- **Per-package READMEs expanded** into standalone integration guides (core 170 → 200+ lines, astro 220 → 250+ lines, nuxt 420 → 450+ lines). Strapi v3 / v4 / v5 recipes; authentication; troubleshooting; common pitfalls.
+- **MCP launch always uses `@latest`** in the documented snippets so MCP-aware clients pick up security patches without manual version bumps.
+- **`AGENTS.md`** at the repo root: an integration cheatsheet for AI coding agents (Cursor / Cline / Aider / Codex) pointed at this repo and asked to integrate the package into a new site.
+
 ## 1.0.2
 
 ### Patch Changes

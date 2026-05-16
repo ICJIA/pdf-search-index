@@ -77,3 +77,133 @@ describe('snippetHTMLFor', () => {
     expect(html).not.toMatch(/\s{2,}/);
   });
 });
+
+describe('snippetHTMLFor — maxSnippets', () => {
+  function range(text: string, needle: string, occurrence = 0): [number, number] {
+    let pos = -1;
+    for (let i = 0; i <= occurrence; i++) {
+      pos = text.indexOf(needle, pos + 1);
+      if (pos === -1) throw new Error(`occurrence ${i} of "${needle}" not found`);
+    }
+    return [pos, pos + needle.length - 1];
+  }
+
+  it('maxSnippets: 1 (default) — current behavior unchanged', () => {
+    const filler = 'x'.repeat(300);
+    const text = `${filler} alpha ${filler} alpha-beta ${filler}`;
+    const idx1 = range(text, 'alpha');
+    const idx2 = range(text, 'alpha-beta');
+    const html = snippetHTMLFor(mkResult(text, [idx1, idx2]), {
+      contextChars: 20,
+    });
+    const htmlExplicit = snippetHTMLFor(mkResult(text, [idx1, idx2]), {
+      contextChars: 20,
+      maxSnippets: 1,
+    });
+    // Defaulting to 1 must produce identical output to setting it explicitly.
+    expect(html).toBe(htmlExplicit);
+    // And it must surface only ONE highlighted span.
+    expect(html.match(/<mark>/g)?.length ?? 0).toBe(1);
+    // The longest span ("alpha-beta") must win.
+    expect(html).toContain('<mark>alpha-beta</mark>');
+  });
+
+  it('maxSnippets: 3 with 5 well-separated matches → exactly 3 non-overlapping snippets', () => {
+    const filler = 'x'.repeat(300); // big enough that snippet windows can't overlap
+    // 5 matches, each separated by a 300-char filler block.
+    const text = [
+      filler,
+      'lorem-aaa',
+      filler,
+      'lorem-bb',
+      filler,
+      'lorem-cccc', // longest
+      filler,
+      'lorem-d',
+      filler,
+      'lorem-ee',
+      filler,
+    ].join(' ');
+    const indices: [number, number][] = [
+      range(text, 'lorem-aaa'),
+      range(text, 'lorem-bb'),
+      range(text, 'lorem-cccc'),
+      range(text, 'lorem-d'),
+      range(text, 'lorem-ee'),
+    ];
+    const html = snippetHTMLFor(mkResult(text, indices), {
+      contextChars: 20,
+      maxSnippets: 3,
+      separator: ' === ',
+    });
+    // Exactly 3 highlighted spans.
+    expect(html.match(/<mark>/g)?.length ?? 0).toBe(3);
+    // The longest match must be among the chosen.
+    expect(html).toContain('<mark>lorem-cccc</mark>');
+    // The separator must appear between snippets (joining 3 → 2 separators).
+    expect(html.split(' === ').length).toBe(3);
+  });
+
+  it('maxSnippets: 3 with overlapping nearby matches → merges to 1 snippet', () => {
+    // Two matches close enough that their context windows (contextChars: 50)
+    // intersect — the longest wins, the second is dropped.
+    const text = 'pre ' + 'x'.repeat(100) + ' alpha beta gamma ' + 'y'.repeat(100) + ' post';
+    const idxBeta = range(text, 'beta');
+    const idxAlpha = range(text, 'alpha');
+    const html = snippetHTMLFor(mkResult(text, [idxAlpha, idxBeta]), {
+      contextChars: 50,
+      maxSnippets: 3,
+    });
+    // Only ONE highlight — the longest non-overlapping pick.
+    expect(html.match(/<mark>/g)?.length ?? 0).toBe(1);
+    // It should be the longer of the two ("alpha").
+    expect(html).toContain('<mark>alpha</mark>');
+  });
+
+  it('maxSnippets larger than non-overlapping match count → returns all available', () => {
+    const filler = 'x'.repeat(300);
+    const text = [filler, 'pebble', filler, 'cobblestone', filler].join(' ');
+    const indices: [number, number][] = [range(text, 'pebble'), range(text, 'cobblestone')];
+    const html = snippetHTMLFor(mkResult(text, indices), {
+      contextChars: 20,
+      maxSnippets: 10,
+    });
+    expect(html.match(/<mark>/g)?.length ?? 0).toBe(2);
+    expect(html).toContain('<mark>pebble</mark>');
+    expect(html).toContain('<mark>cobblestone</mark>');
+  });
+
+  it('multi-snippet output orders spans by document position, not by length', () => {
+    const filler = 'x'.repeat(300);
+    // Long match comes SECOND in the document — but it's the longest, so a
+    // length-sort would put it first. We expect document order, not length
+    // order, in the final output.
+    const text = [filler, 'short', filler, 'much-longer-match', filler].join(' ');
+    const indices: [number, number][] = [
+      range(text, 'short'),
+      range(text, 'much-longer-match'),
+    ];
+    const html = snippetHTMLFor(mkResult(text, indices), {
+      contextChars: 20,
+      maxSnippets: 2,
+      separator: '|||',
+    });
+    const parts = html.split('|||');
+    expect(parts.length).toBe(2);
+    // First part contains the earlier match.
+    expect(parts[0]).toContain('<mark>short</mark>');
+    // Second part contains the later match.
+    expect(parts[1]).toContain('<mark>much-longer-match</mark>');
+  });
+
+  it('uses the default " … " separator when none is supplied', () => {
+    const filler = 'x'.repeat(300);
+    const text = [filler, 'aaa', filler, 'bbb', filler].join(' ');
+    const indices: [number, number][] = [range(text, 'aaa'), range(text, 'bbb')];
+    const html = snippetHTMLFor(mkResult(text, indices), {
+      contextChars: 20,
+      maxSnippets: 2,
+    });
+    expect(html).toContain(' … ');
+  });
+});
