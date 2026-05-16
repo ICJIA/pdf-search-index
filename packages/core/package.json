@@ -65,7 +65,7 @@
     "unpdf": "^1.0.0"
   },
   "peerDependencies": {
-    "fuse.js": "^7.0.0"
+    "fuse.js": "^7.0.0 || >=7.4.0-beta.0"
   },
   "peerDependenciesMeta": {
     "fuse.js": {
@@ -74,7 +74,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "fuse.js": "~7.3.0",
+    "fuse.js": "7.4.0-beta.6",
     "pdf-lib": "^1.17.1",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",

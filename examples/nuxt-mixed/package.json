@@ -17,7 +17,7 @@
     "@icjia/pdf-search-index": "workspace:*",
     "@nuxt/content": "^3.0.0",
     "better-sqlite3": "^12.0.0",
-    "fuse.js": "~7.3.0",
+    "fuse.js": "7.4.0-beta.6",
     "nuxt": "^4.0.0"
   }
 }

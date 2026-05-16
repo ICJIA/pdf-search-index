@@ -39,8 +39,8 @@ importers:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@22.19.19)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.0)
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
       vue:
         specifier: ^3.5.0
         version: 3.5.34(typescript@5.9.3)
@@ -75,8 +75,8 @@ importers:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@22.19.19)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.0)
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
       vue:
         specifier: ^3.5.0
         version: 3.5.34(typescript@5.9.3)
@@ -87,8 +87,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
       next:
         specifier: ^15.0.0
         version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -127,8 +127,8 @@ importers:
         specifier: ^12.0.0
         version: 12.10.0
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
       nuxt:
         specifier: ^4.0.0
         version: 4.4.5(@babel/core@7.29.0)(@babel/plugin-proposal-decorators@7.29.0(@babel/core@7.29.0))(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@parcel/watcher@2.5.6)(@types/node@22.19.19)(@vue/compiler-sfc@3.5.34)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(magicast@0.5.3)(oxlint@0.15.15)(rollup-plugin-visualizer@7.0.1(rollup@4.60.4))(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.0)(typescript@5.9.3)(vite@7.3.3(@types/node@22.19.19)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.9.3))(yaml@2.9.0)
@@ -139,8 +139,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
 
   examples/vue:
     dependencies:
@@ -148,8 +148,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
       vue:
         specifier: ^3.5.0
         version: 3.5.34(typescript@5.9.3)
@@ -208,8 +208,8 @@ importers:
         specifier: ^22.0.0
         version: 22.19.19
       fuse.js:
-        specifier: ~7.3.0
-        version: 7.3.0
+        specifier: 7.4.0-beta.6
+        version: 7.4.0-beta.6
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -3805,6 +3805,10 @@ packages:
 
   fuse.js@7.3.0:
     resolution: {integrity: sha512-plz8RVjfcDedTGfVngWH1jmJvBvAwi1v2jecfDerbEnMcmOYUEEwKFTHbNoCiYyzaK2Ws8lABkTCcRSqCY1q4w==}
+    engines: {node: '>=10'}
+
+  fuse.js@7.4.0-beta.6:
+    resolution: {integrity: sha512-hOrsWHEb2USK5nft1YIKHT+i+Wc9iYFlAkJCI/r142LOn3fHm7yL6ur3qZrmtW3lsu+qKcYqiNVrMhLUBX/1Lg==}
     engines: {node: '>=10'}
 
   fzf@0.5.2:
@@ -10512,6 +10516,8 @@ snapshots:
   function-bind@1.1.2: {}
 
   fuse.js@7.3.0: {}
+
+  fuse.js@7.4.0-beta.6: {}
 
   fzf@0.5.2: {}
 
