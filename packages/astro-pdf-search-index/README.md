@@ -202,13 +202,21 @@ This adapter inherits the [core package's security model](../../README.md#securi
 
 Other defenses (URL-scanner ReDoS bound, body-size cap, extracted-text cap, scrubbed failure logs, atomic cache writes) flow through from the core package — preserve the defaults unless the consumer has a specific reason to relax them.
 
-## Canonical example
+## Canonical examples
 
-[`examples/astro/`](../../examples/astro/) — Astro 5 + Vue island + `local-fetch.mjs` for offline fixtures. Run with:
+Two flavors, same integration:
+
+- [`examples/astro/`](../../examples/astro/) — the **minimal smoke test**. Astro 5 + Vue island + `local-fetch.mjs` for offline fixtures. Read this first if you want to see the integration in isolation.
+- [`examples/netlify-demo/`](../../examples/netlify-demo/) — the **polished, deployable variant**. Same integration, dressed up: hand-designed dark-mode UI, corpus listing on the page, a `netlify.toml` so deploying to Netlify is one click. Use this as the starting point for a real consumer site.
+
+Run either with:
 
 ```bash
-pnpm --filter @icjia-examples/astro dev      # http://localhost:4321/
-pnpm --filter @icjia-examples/astro build    # produces dist/
+pnpm --filter @icjia-examples/astro dev          # http://localhost:4321/
+pnpm --filter @icjia-examples/astro build        # produces dist/
+
+pnpm --filter @icjia-examples/netlify-demo dev   # http://localhost:4322/
+pnpm --filter @icjia-examples/netlify-demo build # produces dist/ + dist/pdfs/
 ```
 
 ## Versioning

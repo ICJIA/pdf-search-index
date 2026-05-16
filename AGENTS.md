@@ -16,6 +16,10 @@
 
 All three move in lockstep at version **1.0.2+**.
 
+## Live demo
+
+A polished, dark-mode reference deployment of the Astro integration lives at [`examples/netlify-demo/`](./examples/netlify-demo) and is set up to deploy to Netlify with one click — see the top-level [README.md](./README.md#live-demo) for the deployed URL and the deploy guide. If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
+
 ## Decision: which integration path is the consumer on?
 
 Answer these in order:
@@ -345,15 +349,18 @@ Since v1.0.2 the default cap is 5 MB of plain text per PDF (defends against comp
 
 ## Canonical examples (read these to see real working code)
 
-| Use case                                                | Example directory                                |
-| ------------------------------------------------------- | ------------------------------------------------ |
-| Plain Node                                              | [`examples/plain-node/`](./examples/plain-node/) |
-| Vanilla HTML + Fuse via CDN                             | [`examples/html/`](./examples/html/)             |
-| Vite + Vue 3                                            | [`examples/vue/`](./examples/vue/)               |
-| Astro 5 + Vue island (Path B canonical)                 | [`examples/astro/`](./examples/astro/)           |
-| Next.js 15 App Router                                   | [`examples/nextjs/`](./examples/nextjs/)         |
-| Eleventy 3                                              | [`examples/eleventy/`](./examples/eleventy/)     |
-| Nuxt 4 + mixed CMS + `@nuxt/content` (Path C canonical) | [`examples/nuxt-mixed/`](./examples/nuxt-mixed/) |
+| Use case                                                | Example directory                                    |
+| ------------------------------------------------------- | ---------------------------------------------------- |
+| **Polished, deployable Astro 5 site** (Netlify-ready)   | [`examples/netlify-demo/`](./examples/netlify-demo/) |
+| Plain Node                                              | [`examples/plain-node/`](./examples/plain-node/)     |
+| Vanilla HTML + Fuse via CDN                             | [`examples/html/`](./examples/html/)                 |
+| Vite + Vue 3                                            | [`examples/vue/`](./examples/vue/)                   |
+| Astro 5 + Vue island (Path B canonical, minimal)        | [`examples/astro/`](./examples/astro/)               |
+| Next.js 15 App Router                                   | [`examples/nextjs/`](./examples/nextjs/)             |
+| Eleventy 3                                              | [`examples/eleventy/`](./examples/eleventy/)         |
+| Nuxt 4 + mixed CMS + `@nuxt/content` (Path C canonical) | [`examples/nuxt-mixed/`](./examples/nuxt-mixed/)     |
+
+`examples/netlify-demo/` is the production-shaped, polished variant — deployable to Netlify with the included `netlify.toml`. Use this as the starting point for a real consumer site (not the minimal Astro example, which exists only as the smallest possible integration smoke test).
 
 Every example uses `file://` URLs against fixtures in [`examples/_fixtures/`](./examples/_fixtures/) plus a 15-line `local-fetch.mjs` helper so they work offline. The pattern is the same for real `https://` URLs — just drop the `fetch` option.
 
