@@ -165,22 +165,31 @@ try {
 
 // --- 5. Patch viewer.css to override find-highlight colors.
 //
-// Mozilla's default highlight colors are muted magenta (~rgba(180, 0, 170, 0.25))
-// for regular matches and a desaturated green for the currently-focused match.
-// On a dark-mode demo with lime accents elsewhere, those defaults read as a
-// dim purple smudge — users have a hard time seeing which words in the PDF
-// the viewer actually matched. We override to high-contrast lime (for all
-// matches) + amber (for the currently-focused match, so the user can navigate
-// matches via the viewer's find-bar next/prev and clearly see where they are).
+// Mozilla's defaults are muted magenta (~rgb(180 0 170 / 0.25)) for regular
+// matches and dark green (~rgb(0 100 0 / 0.25)) for the focused match. On a
+// dark-mode demo with lime accents elsewhere, those colors are hard to spot.
 //
-// pdf.js 5.x exposes these via CSS custom properties; older selectors are
-// added as a defensive fallback. The !important on the legacy selectors is
-// required because pdf.js's own viewer.css applies them with normal
-// specificity and our additions need to win.
-// Marker string used by the idempotency check below. Must appear verbatim
-// inside the appended overrides block — duplicate the literal in both places
-// (or the check silently re-applies the patch on every build).
+// IMPORTANT subtlety: pdf.js v5 declares `--highlight-bg-color` and
+// `--highlight-selected-bg-color` ON `.textLayer .highlight` itself, not on
+// `:root`. CSS variable resolution looks up FROM the element, so a `:root`
+// override never gets reached — the element-local declaration wins. Earlier
+// versions of this patch overrode at `:root` and `.viewer` and the colors
+// silently didn't apply. The fix: set the variables on the same selector
+// pdf.js uses, with `!important`, AND apply direct `background-color`
+// fallbacks that cover every compound-class variant pdf.js emits
+// (`.selected`, `.appended`, `.begin`, `.end`, `.middle` — used when a
+// match spans multiple text-layer chunks like across a line break).
+//
+// User preference: single high-contrast lime color for ALL matches (regular
+// and focused alike). No amber on the focused one — the focused match still
+// gets visual emphasis from scroll-into-view + find-bar next/prev controls.
+//
+// Color: rgba(132, 204, 22, 0.75) — Tailwind lime-500 at 75% alpha. High
+// saturation, ~14:1 contrast against the typical white PDF page background.
 const PATCH_MARKER = '@icjia/pdf-search-index demo overrides';
+const HIGHLIGHT_COLOR = 'rgba(132, 204, 22, 0.75)';
+const HCM_HIGHLIGHT_COLOR = 'rgba(132, 204, 22, 0.9)';
+
 const viewerCssPath = resolve(outDir, 'web', 'viewer.css');
 try {
   const existing = await readFile(viewerCssPath, 'utf8');
@@ -188,30 +197,52 @@ try {
     const overrides = `
 
 /* === ${PATCH_MARKER} — high-contrast find highlights === */
-:root,
-.viewer {
-  /* Regular matches: lime, ~50% alpha so text underneath stays legible */
-  --highlight-bg-color: rgba(163, 230, 53, 0.55);
-  /* Currently-focused match: amber, slightly hotter so navigation is obvious */
-  --highlight-selected-bg-color: rgba(250, 204, 21, 0.75);
-  /* High-contrast-mode variants */
-  --hcm-highlight-bg-color: rgba(163, 230, 53, 0.7);
-  --hcm-highlight-selected-bg-color: rgba(250, 204, 21, 0.9);
+
+/*
+ * 1) Override the CSS variables AT the same selector pdf.js declares them on
+ *    (line ~945 of unpatched viewer.css). A :root override would be shadowed
+ *    by the local declaration on .textLayer .highlight — variable resolution
+ *    looks UP from the element, finds the local definition first, and stops.
+ *    !important ensures we win on cascade order regardless of source position.
+ */
+.textLayer .highlight {
+  --highlight-bg-color: ${HIGHLIGHT_COLOR} !important;
+  --highlight-selected-bg-color: ${HIGHLIGHT_COLOR} !important;
+  --hcm-highlight-bg-color: ${HCM_HIGHLIGHT_COLOR} !important;
+  --hcm-highlight-selected-bg-color: ${HCM_HIGHLIGHT_COLOR} !important;
 }
 
-/* Defensive fallbacks for selectors used before the CSS-variable refactor */
-.textLayer .highlight {
-  background-color: rgba(163, 230, 53, 0.55) !important;
+/*
+ * 2) Direct background-color fallbacks for every compound-class variant
+ *    pdf.js emits. Cover .selected (the focused match), .appended (highlights
+ *    added after initial render), and .begin/.middle/.end (used when a match
+ *    crosses text-layer span boundaries — e.g., across a line break).
+ *    All set to the same lime so the user sees uniform high-contrast
+ *    highlighting across every kind of match.
+ */
+.textLayer .highlight,
+.selected:is(.textLayer .highlight),
+.appended:is(.textLayer .highlight),
+.begin:is(.textLayer .highlight),
+.middle:is(.textLayer .highlight),
+.end:is(.textLayer .highlight) {
+  background-color: ${HIGHLIGHT_COLOR} !important;
 }
-.textLayer .highlight.selected {
-  background-color: rgba(250, 204, 21, 0.75) !important;
-}
-.textLayer .highlight.appended {
-  background-color: rgba(163, 230, 53, 0.55) !important;
+
+/*
+ * 3) Legacy selectors without :is() — for any pdf.js build that ships
+ *    pre-:is() CSS. Defensive belt-and-suspenders; harmless on v5+.
+ */
+.textLayer .highlight.selected,
+.textLayer .highlight.appended,
+.textLayer .highlight.begin,
+.textLayer .highlight.middle,
+.textLayer .highlight.end {
+  background-color: ${HIGHLIGHT_COLOR} !important;
 }
 `;
     await writeFile(viewerCssPath, existing + overrides);
-    console.log('  Patched viewer.css with high-contrast lime/amber find highlights');
+    console.log(`  Patched viewer.css with high-contrast lime find highlights (${HIGHLIGHT_COLOR})`);
   }
 } catch (err) {
   if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
