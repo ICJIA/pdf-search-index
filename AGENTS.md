@@ -248,6 +248,25 @@ interface IndexedPdf {
 
 Failed extractions return rows with `text: ''`, NOT a thrown error. The build never fails for bad PDFs unless the CLI is run with `--strict`. The `extractedAt` field is intentionally absent on cache hits so the emitted JSON stays byte-stable across rebuilds (clean diffs, CDN caching works).
 
+## Snippet rendering — defaults vs multi-region
+
+The `/snippet` subpath exports `snippetHTMLFor(fuseResult, options?)`:
+
+```ts
+import { snippetHTMLFor } from '@icjia/pdf-search-index/snippet';
+
+// Single-snippet default (back-compat behavior — 1.0.0 onward)
+snippetHTMLFor(r);
+// → "…the <mark>applicant</mark> portal opened in March…"
+
+// Multi-snippet (added in 1.0.3) — render up to N non-overlapping spans
+// joined by `separator` (default ' … '). Picker is greedy-longest by default.
+snippetHTMLFor(r, { maxSnippets: 8, separator: ' … ' });
+// → "…<mark>applicant</mark> registration… … <mark>applicant</mark> appeal…"
+```
+
+For long PDFs where matches cluster (common: a 100-page report with 40 occurrences of "stigma" all in chapters 2–3), the package's greedy-longest picker can yield only 1–3 visible snippets even with `maxSnippets: 8`. To force coverage of the whole document (intro / middle / end), pre-process the FuseResult to spread its match indices across spatial buckets — see [`examples/netlify-demo/src/components/Search.vue`](./examples/netlify-demo/src/components/Search.vue) `distributeMatches` for the canonical pattern. That's demo-side code; the core picker stays simple.
+
 ## The Fuse-or-not question
 
 Fuse.js is one option. The package's row shape is plain JSON — it works equally well with MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, and Algolia. Only the `/fuse` and `/snippet` subpath imports require `fuse.js` as a peer dependency; the core (`indexPdfs`, `extractPdfText`, `extractPdfsFromBody`, both Astro and Nuxt adapters) is engine-agnostic.
@@ -282,6 +301,8 @@ Or configure the CMS to emit absolute URLs (Strapi 4/5: set `url` in `config/ser
 ### 2. The extracted index is empty even though the CMS has PDF links
 
 Either (a) the regex doesn't match the URL format — debug by logging `extractPdfUrlsFromMarkdown(body)` first, or (b) the PDFs are image-only / scanned with no text layer (extractor returns `text: ''` silently — open the PDF in a viewer; if you can't select text, neither can pdf.js).
+
+For image-only PDFs the recommended workflow is to OCR them upstream of this package via [`ocrmypdf`](https://github.com/ocrmypdf/OCRmyPDF) — that adds a real text layer that this package then reads normally. The package itself does not OCR (explicit v1 non-goal; sibling `@icjia/pdf-search-index-ocr` parked on the v2 roadmap). The live demo flags such rows with a "Needs OCR — title only" badge and a `r.text.length < 50` threshold; replicate that pattern in a consumer site to surface the state to end users. Full guidance: [README's "OCR — working with image-only / scanned PDFs"](./README.md#ocr--working-with-image-only--scanned-pdfs).
 
 ### 3. An LLM (via the MCP server) wants to point `cacheDir` outside the safe base
 
@@ -395,7 +416,31 @@ Full trust model and defense table: [README "Security considerations"](./README.
 
 ## Versions
 
-All three packages move in lockstep. Currently at **1.0.3** (additive `snippetHTMLFor` `maxSnippets` option + documentation/ecosystem release on top of the v1.0.2 security baseline). Node 20 LTS / 22 LTS. ESM only. MIT licensed.
+All three packages move in lockstep. Currently at **1.0.3** (additive `snippetHTMLFor` `maxSnippets` + `separator` options + documentation/ecosystem release on top of the v1.0.2 security baseline). Node 20 LTS / 22 LTS. ESM only. MIT licensed.
+
+**`fuse.js` is pinned to `7.4.0-beta.6`** across every workspace member (core devDep + all examples). Core's peer range is `"^7.0.0 || >=7.4.0-beta.0"` so consumers can pin either stable 7.x or the beta line. **Do not "upgrade" the pin to a different beta** without verifying the new beta's API surface against the package — agents asked to "update dependencies" should leave this one alone.
+
+## Demo defaults vs core defaults
+
+The live demo at `examples/netlify-demo/` overrides a couple of core defaults intentionally — keep these straight when copying patterns:
+
+| Setting | Core default (`DEFAULT_FUSE_OPTIONS`) | Demo default |
+|---|---|---|
+| `threshold` | `0.2` | `0.2` (same) |
+| `ignoreLocation` | `true` | `true` (same) |
+| `minMatchCharLength` | `2` | `2` (same) |
+| `findAllMatches` | _(Fuse default: `false`)_ | **`true`** — to populate the per-result match count badge and the distributed multi-snippet picker |
+| Snippet `maxSnippets` | `1` | **`8`** — with the demo-side `distributeMatches` pre-processor |
+| Token-search wrapper | not applied | **on by default** — multi-word queries are split and OR-merged |
+
+A real consumer site adopting the package picks up the core defaults automatically. They can opt into the demo's stricter behavior by setting `findAllMatches: true` on their Fuse instance, passing `maxSnippets: N` to `snippetHTMLFor`, and (if desired) copying `tokenizeAndSearch` + `distributeMatches` from the demo's `Search.vue` directly — both are MIT-licensed and self-contained.
+
+## Security audit history
+
+- **2026-05-16 (v1.0.1 → v1.0.2 audit, full pass).** 21 findings: 5 Critical / 8 Important / 8 Minor. Shipped fixes: 4 Critical + 5 Important + 2 Minor. Deferred: C2 SSRF allowlist (1.1), I2 cache-key URL normalization (2.0), I5 CLI sitemap hardening (1.1), I6 `maxUrls` cap (1.1), the remaining Minor items.
+- **2026-05-16 (v1.0.3 audit, scope-limited delta).** Audited only the surfaces added 1.0.2 → 1.0.3 (`snippetHTMLFor` `maxSnippets`, fuse.js 7.4-beta, token-search wrapper, distributed picker, pdf.js viewer bundle, `viewer.css` overlay, prerelease pin behavior). **No new Critical or Important findings.** 1 Minor (viewer.css idempotency marker substring mismatch — fixed) + 5 Informational (defended with regression tests where actionable).
+
+Full audit trail in [README "Security considerations & audit history"](./README.md#security-considerations--audit-history).
 
 ## What to read after this
 
