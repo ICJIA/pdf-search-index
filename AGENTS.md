@@ -18,7 +18,7 @@ All three move in lockstep at version **1.0.3+**.
 
 ## Live demo
 
-The reference deployment is live at **<https://icjia-pdf-search.netlify.app/>** — a dark-mode Astro 5 + Vue 3 site indexing 10 ICJIA-public PDFs with live snippet highlighting, a Fuse.js options tuner (all 13 v7.4-beta options), a token-search wrapper for multi-word queries, multi-region snippet picking (passages drawn from intro / middle / end of each PDF, not clustered), an image-only "Needs OCR — title only" badge, and a bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight. Source: [`examples/netlify-demo/`](./examples/netlify-demo). If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
+The reference deployment is live at **<https://icjia-pdf-search.netlify.app/>** — a dark-mode Astro 5 + Vue 3 site indexing 10 ICJIA-public PDFs with live snippet highlighting, a Fuse.js options tuner covering every native Fuse v7.4-beta option (including the two new-in-7.4 additions: `ignoreDiacritics` for accent-insensitive matching, and `useTokenSearch` for Fuse-native TF-IDF token search) plus a demo-side `tokenSearch` wrapper that works in any Fuse version, multi-region snippet picking (passages drawn from intro / middle / end of each PDF, not clustered), an image-only "Needs OCR — title only" badge, and a bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight. Source: [`examples/netlify-demo/`](./examples/netlify-demo). If you're picking an example to model a real production site against, prefer this over the minimal [`examples/astro/`](./examples/astro/) (which exists as the smallest possible integration smoke test).
 
 ## Decision: which integration path is the consumer on?
 
@@ -424,16 +424,25 @@ All three packages move in lockstep. Currently at **1.0.3** (additive `snippetHT
 
 The live demo at `examples/netlify-demo/` overrides a couple of core defaults intentionally — keep these straight when copying patterns:
 
-| Setting               | Core default (`DEFAULT_FUSE_OPTIONS`) | Demo default                                                                                       |
-| --------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `threshold`           | `0.2`                                 | `0.2` (same)                                                                                       |
-| `ignoreLocation`      | `true`                                | `true` (same)                                                                                      |
-| `minMatchCharLength`  | `2`                                   | `2` (same)                                                                                         |
-| `findAllMatches`      | _(Fuse default: `false`)_             | **`true`** — to populate the per-result match count badge and the distributed multi-snippet picker |
-| Snippet `maxSnippets` | `1`                                   | **`8`** — with the demo-side `distributeMatches` pre-processor                                     |
-| Token-search wrapper  | not applied                           | **on by default** — multi-word queries are split and OR-merged                                     |
+| Setting                         | Core default (`DEFAULT_FUSE_OPTIONS`) | Demo default                                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `threshold`                     | `0.2`                                 | `0.2` (same)                                                                                                                                                                                                             |
+| `ignoreLocation`                | `true`                                | `true` (same)                                                                                                                                                                                                            |
+| `minMatchCharLength`            | `2`                                   | `2` (same)                                                                                                                                                                                                               |
+| `findAllMatches`                | _(Fuse default: `false`)_             | **`true`** — to populate the per-result match-count badge and feed the distributed multi-snippet picker                                                                                                                  |
+| `ignoreDiacritics` _(7.4-beta)_ | _(Fuse default: `false`)_             | `false` (same — exposed in the tuner; flip on for multilingual corpora)                                                                                                                                                  |
+| `useTokenSearch` _(7.4-beta)_   | _(Fuse default: `false`)_             | `false` (same — exposed in the tuner; **distinct from the demo's `tokenSearch` wrapper** below)                                                                                                                          |
+| Snippet `maxSnippets`           | `1`                                   | **`8`** — with the demo-side `distributeMatches` pre-processor for spatial coverage                                                                                                                                      |
+| Demo `tokenSearch` wrapper      | not applied (not a core option)       | **on by default** — splits multi-word queries on whitespace, OR-merges results per-token. Works in any Fuse version. Suppressed when `useExtendedSearch` or `useTokenSearch` is on (those handle tokenization natively). |
 
 A real consumer site adopting the package picks up the core defaults automatically. They can opt into the demo's stricter behavior by setting `findAllMatches: true` on their Fuse instance, passing `maxSnippets: N` to `snippetHTMLFor`, and (if desired) copying `tokenizeAndSearch` + `distributeMatches` from the demo's `Search.vue` directly — both are MIT-licensed and self-contained.
+
+**`useTokenSearch` (Fuse native) vs the demo's `tokenSearch` wrapper.** Both improve recall on multi-word queries, but via different mechanisms:
+
+- **`useTokenSearch: true`** is Fuse 7.4-beta's built-in token search with TF-IDF scoring — the runtime tokenizes the field text once at index time and the query at search time, then scores results by term-frequency × inverse-document-frequency. Better relevance ranking; requires the 7.4-beta pin. Recommended for new code.
+- **`tokenizeAndSearch` (demo wrapper)** is a JS-side strategy described at <https://www.fusejs.io/token-search.html> — split the query on whitespace, run `fuse.search()` once per token, merge results by id taking the lowest score across tokens. Works in any Fuse 7.x. Use this if you can't move to the 7.4-beta or want explicit control over per-token results.
+
+In the demo, both are exposed in the tuner so users can compare. Picking only one in a real consumer site is fine; combining them is wasteful (the wrapper passes the original query unchanged when either `useExtendedSearch` or `useTokenSearch` is on).
 
 ## Security audit history
 
