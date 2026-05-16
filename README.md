@@ -1209,7 +1209,7 @@ OCR for scanned PDFs is out of scope for v1 — see the next section for the rec
 
 This package extracts the **text layer** of a PDF (whatever `pdf.js` already knows how to read). It does **not** do OCR. Image-only PDFs — scans, photographs-saved-as-PDF, image-export-to-PDF outputs — have no text layer, so they come back as `{ ..., text: '' }` and Fuse can't match them. You can detect this in the output: a row with `text.length` near zero is almost certainly image-only.
 
-The [live demo](https://icjia-pdf-search.netlify.app/) tags such PDFs with a "Needs OCR" badge in the corpus list — `examples/_fixtures/non-text-searchable.pdf` is the canonical example (a deliberately image-only fixture committed for exactly this demo case).
+The [live demo](https://icjia-pdf-search.netlify.app/) tags such PDFs with a "Needs OCR — title only" badge in the corpus list. `examples/_fixtures/` ships a couple of legitimately image-only ICJIA samples (`Seniors.pdf`, `Female Criminality.pdf`) so the demo always surfaces at least one row in this state.
 
 **The recommended workflow:** OCR your PDFs _before_ they reach this package. The standard tool is [`ocrmypdf`](https://github.com/ocrmypdf/OCRmyPDF) — it wraps Tesseract and adds a real text layer to an existing PDF without changing its visual appearance.
 

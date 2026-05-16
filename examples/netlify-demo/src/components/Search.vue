@@ -581,9 +581,7 @@ function distributeMatchIndices(
       buckets[bucketIdx] = idx;
     }
   }
-  return buckets
-    .filter((b): b is SpanTuple => b !== null)
-    .sort((a, b) => a[0] - b[0]);
+  return buckets.filter((b): b is SpanTuple => b !== null).sort((a, b) => a[0] - b[0]);
 }
 
 /**
@@ -592,20 +590,13 @@ function distributeMatchIndices(
  * across the document, not just the densest cluster. See
  * `distributeMatchIndices` for the bucketing strategy.
  */
-function distributeMatches(
-  r: FuseResult<IndexedPdf>,
-  maxBuckets: number,
-): FuseResult<IndexedPdf> {
+function distributeMatches(r: FuseResult<IndexedPdf>, maxBuckets: number): FuseResult<IndexedPdf> {
   const sourceLength = r.item.text?.length ?? 0;
   const newMatches = (r.matches ?? []).map((m) => {
     if (m.key !== 'text' || !m.indices?.length) return m;
     return {
       ...m,
-      indices: distributeMatchIndices(
-        m.indices as readonly SpanTuple[],
-        sourceLength,
-        maxBuckets,
-      ),
+      indices: distributeMatchIndices(m.indices as readonly SpanTuple[], sourceLength, maxBuckets),
     };
   });
   return { ...r, matches: newMatches };
@@ -744,8 +735,7 @@ onMounted(async () => {
    * surface color.
    */
   background:
-    linear-gradient(180deg, rgba(163, 230, 53, 0.045) 0%, rgba(163, 230, 53, 0) 70%),
-    #1c1c26;
+    linear-gradient(180deg, rgba(163, 230, 53, 0.045) 0%, rgba(163, 230, 53, 0) 70%), #1c1c26;
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   box-shadow:
