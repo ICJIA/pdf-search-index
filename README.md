@@ -34,7 +34,7 @@ PDFs become first-class search rows alongside your pages and posts. A query like
 
 ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
-**Live demo:** **<https://icjia-pdf-search.netlify.app/>** — search across 7 ICJIA-public PDFs with live snippet highlighting and a Fuse.js options tuner. See [Examples](#examples) below for how it works and how to deploy your own.
+**Live demo:** **<https://icjia-pdf-search.netlify.app/>** — search across 10 ICJIA-public PDFs with live snippet highlighting, a Fuse.js options tuner, a token-search wrapper for short queries, multi-region snippet highlighting, and a bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight. See [Examples](#examples) below for how it works and how to deploy your own.
 
 ---
 
@@ -68,6 +68,11 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 ## Security
 
 **Audited and patched in v1.0.2 (released 2026-05-16).** All three packages in this monorepo were put through an adversarial red/blue team security audit. 21 findings surfaced; 11 ship as fixes in v1.0.2. Run a recent `@icjia/pdf-search-index` and you get the hardened defaults out of the box.
+
+**Last security audit:** 2026-05-16 — v1.0.3 (second pass, scope-limited to the
+deltas since v1.0.2). 1 new minor finding → 1 shipped (idempotency-marker fix
+in the demo's pdf.js viewer.css patcher), 0 deferred. Full audit history in
+[Security considerations & audit history](#security-considerations--audit-history).
 
 | Severity      | Found | Shipped in 1.0.2 | Deferred                           |
 | ------------- | ----- | ---------------- | ---------------------------------- |
@@ -995,7 +1000,7 @@ A copy-paste Nitro route template lives at [`packages/nuxt-pdf-search-index/src/
 
 ### Live demo
 
-The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus, a sticky search bar, and live highlighted snippets across every committed PDF in `examples/_fixtures/`.
+The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus (10 ICJIA-public PDFs), a sticky search bar, and live highlighted snippets across every committed PDF in `examples/_fixtures/`. Beyond the basics, it ships a live Fuse.js options tuner exposing all 13 v7.4-beta options, a token-search wrapper for multi-word queries, a multi-region snippet picker (passages spread across the document, not clustered), a "Needs OCR — title only" badge for image-only PDFs, and a bundled Mozilla pdf.js viewer (`/pdfjs-viewer/web/viewer.html`) so result clicks open the PDF with the search term pre-filled in the viewer's find bar — reliably across Chrome, Edge, Firefox, and Safari.
 
 > Screenshot (when deployed): dark-mode search interface, ICJIA PDFs listed with title/page count/file size, sticky search bar at top, live-highlighted snippets in result cards.
 
@@ -1003,7 +1008,7 @@ The reference deployment lives at **<https://icjia-pdf-search.netlify.app/>** �
 
 The [`examples/`](./examples) directory has eight runnable example sites in total, each demonstrating one integration pattern. Every example consumes the packages via the pnpm workspace link and reads PDFs from the shared [`examples/_fixtures/`](./examples/_fixtures) directory via `file://` URLs + a tiny `local-fetch.mjs` helper (so they work offline).
 
-The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly-clicked public samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)) covering juvenile justice, public health, evaluation reports, and other ICJIA programmatic topics. They were not curated to make the examples look good — they're arbitrary PDFs from the live public corpus, preserved with their original CMS filenames. None of them contain PII. Replace them with any PDFs you like; every example auto-discovers `.pdf` files in that directory at build time. See [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for the full provenance note.
+The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly-clicked public samples from ICJIA's website** ([icjia.illinois.gov](https://icjia.illinois.gov/)) covering juvenile justice, public health, evaluation reports, methamphetamine trends, substance-use stigma, elder abuse, female criminality, youth and alcohol, and other ICJIA programmatic topics. They were not curated to make the examples look good — they're arbitrary PDFs from the live public corpus, preserved with their original CMS filenames. None of them contain PII. Two fixtures (`Seniors.pdf` and `Female Criminality.pdf`) are intentionally image-only, with no text layer, so the demo always surfaces at least one "Needs OCR — title only" row. Replace them with any PDFs you like; every example auto-discovers `.pdf` files in that directory at build time. See [`examples/_fixtures/README.md`](./examples/_fixtures/README.md) for the full provenance note.
 
 | Example                                   | Stack                               | Adapter / API                                                   | Run                                              |
 | ----------------------------------------- | ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
@@ -1069,12 +1074,15 @@ The fixture PDFs in [`examples/_fixtures/`](./examples/_fixtures) are **randomly
 
 4. **Try a query that matches the committed fixtures.** The committed
    samples cover juvenile justice, public health, evaluation reports,
-   substance-use stigma, methamphetamine trends, and other ICJIA
-   programmatic topics — so search terms that work out of the box include:
+   substance-use stigma, methamphetamine trends, elder abuse, female
+   criminality, youth and alcohol, and other ICJIA programmatic topics —
+   so search terms that work out of the box include:
    - `"stigma"` — matches the Stigma PDF
    - `"methamphetamine"` — matches the meth-trends overview
    - `"juvenile"` or `"snapshot"` — matches the JJ statewide snapshot
    - `"drug testing"` — matches the drug-testing lit review
+   - `"elder abuse"` — matches Elderabuse2
+   - `"alcohol"` — matches Youth and Alcohol
 
 5. **Build for production:**
 
@@ -1341,6 +1349,39 @@ The CLI's `--out` writer and the Astro adapter's emit both use `safeJSONForHTML`
 <a id="audit-reference"></a>
 
 The 1.0.2 changes implement the Critical and Important fixes from a full adversarial red/blue team audit run against 1.0.1 on **2026-05-16**. A separate opus-class LLM agent ran proof-of-concept attack scripts in `/tmp/` against each finding before reporting, so every finding is reproducible from the audit transcript.
+
+### 2026-05-16 — v1.0.3 audit (scope-limited delta)
+
+A second adversarial red/blue team pass ran against the v1.0.3 deltas (the surfaces that didn't exist when the v1.0.2 audit ran). Scope:
+
+- Core: `snippetHTMLFor` with the new `maxSnippets` / `separator` options (the multi-snippet greedy non-overlapping picker).
+- netlify-demo: `tokenizeAndSearch` wrapper for multi-word queries.
+- netlify-demo: `distributeMatches` spatial-bucket snippet picker.
+- netlify-demo: bundled Mozilla pdf.js viewer at `public/pdfjs-viewer/` and the `#search=` URL fragment.
+- netlify-demo: post-extraction patch of pdf.js `viewer.css` in `scripts/copy-pdfjs-viewer.mjs`.
+- `fuse.js@7.4.0-beta.6` pin behavior (npm semver semantics around prereleases).
+
+**Findings:**
+
+| ID  | Severity      | What it was                                                                                                                                                                                                                                                                                                                                                                        | What we did                                                                                                                                                                                                                                                                                           |
+| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ---------------------------------------- |
+| V1  | Minor         | `copy-pdfjs-viewer.mjs` idempotency-marker mismatch — the marker substring `icjia-pdf-search-index demo overrides` is NOT a substring of `@icjia/pdf-search-index demo overrides` (the `/` between `icjia` and `pdf-search-index` breaks the match). Re-running the script without the `outDir` wipe would double-apply the CSS overrides; the wipe masked the bug in normal flow. | Marker extracted into a `PATCH_MARKER` constant referenced verbatim in both the `includes()` check and the appended overrides block — fix in `examples/netlify-demo/scripts/copy-pdfjs-viewer.mjs`. Regression-tested by re-running the script and confirming exactly one marker occurrence.          |
+| V2  | Informational | `snippetHTMLFor` with malformed indices (`[end, start]` reversed, negative, `NaN`, `Infinity`, out-of-bounds) produces degenerate but non-throwing output                                                                                                                                                                                                                          | Pinned the no-throw contract with a regression test (`test/snippet.test.ts`). Not exploitable — Fuse 7's own search only emits valid `[start, end]` tuples; the test guards against a future buggy upstream Fuse build crashing the search UI.                                                        |
+| V3  | Informational | `snippetHTMLFor` with 50,000 indices completes in <3ms on Node and <500ms in the worst case — no DoS even under adversarial input                                                                                                                                                                                                                                                  | Added a perf regression test that asserts the picker is bounded by `maxSnippets` in output and finishes in <500ms on 50,000 indices. No production code change.                                                                                                                                       |
+| V4  | Informational | Multi-snippet HTML-escape correctness — verified `</script>` and `<mark>` in source text are properly escaped across every snippet, not just the first                                                                                                                                                                                                                             | Added a regression test that adversarial PDF text containing `</script>` near every match still produces a fully-escaped multi-snippet HTML output. No production code change.                                                                                                                        |
+| V5  | Informational | `tokenizeAndSearch` result-merge could accumulate up to ~200K spans on a 100-word user query against a long PDF (~50 MB heap on a 134 KB body × 2 rows)                                                                                                                                                                                                                            | Documented as a known cost in the netlify-demo's README. Not a security issue — the user is hurting only their own tab; browser memory limits self-clamp the worst case. Per-token loop is bounded by the user's query length; merge result is bounded by Fuse's own `findAllMatches` cap.            |
+| V6  | Informational | `viewerUrl(r)` query and `?file=` parameter encoding — adversarial CMS-supplied `r.item.url` values (path-traversal characters, `?#&\n` in basename) safely encoded                                                                                                                                                                                                                | Verified by probing the `publicPdfUrl` + `viewerUrl` composition with adversarial inputs (`..`, `?`, `#`, `&`, `\n`). The single-`encodeURIComponent(basename)` pattern prevents traversal; `encodeURIComponent(query)` prevents fragment injection; viewer's `validateFileURL` enforces same-origin. |
+| V7  | Informational | `fuse.js@7.4.0-beta.6` — no public CVE; lockfile pins to exact version; package.json `dependencies` use exact strings (no caret) so npm prerelease semver semantics resolve deterministically                                                                                                                                                                                      | Confirmed via web search (no public advisory) and lockfile inspection. Beta pre-release versions don't satisfy non-prerelease ranges (`^7.0.0` excludes betas), so the core package's peerDependencies `"^7.0.0                                                                                       |     | >=7.4.0-beta.0"` is the explicit opt-in. |
+
+**No new Critical or Important findings against the v1.0.2 baseline.** The v1.0.3 deltas added attack surface narrowly (additive `snippetHTMLFor` option, demo-only wrappers, vendored viewer) and the audit verified that:
+
+- The multi-snippet picker preserves the pre-1.0.3 HTML-escape contract under all input shapes (V4).
+- The greedy non-overlapping picker is bounded by `maxSnippets` (default 1) — no path to unbounded output (V3).
+- Malformed Fuse indices don't crash the renderer (V2) — degenerate output is acceptable.
+- The vendored pdf.js viewer enforces same-origin on `?file=` (V6) and only accepts the literal `search=` query in `#search=<query>` after a `replaceAll('"', '')` strip — no script-injection path.
+- The CSS patch idempotency bug (V1) only mis-fires in a manual-invocation path; the normal `prebuild` flow wipes `outDir` first, masking it. Fixed prospectively for cleanliness.
+
+`fuse.js@7.4.0-beta.6` is pinned to an exact version in every workspace package.json + lockfile. No path for npm to silently roll a consumer onto a different beta point.
 
 **Shipped in 1.0.2:**
 

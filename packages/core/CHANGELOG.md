@@ -1,5 +1,12 @@
 # @icjia/pdf-search-index
 
+## Unreleased — 1.0.3 docs + audit-pass updates
+
+Non-versioned, docs-and-tests-only updates on top of the 1.0.3 npm release:
+
+- **Second adversarial red/blue team audit pass** (2026-05-16) scoped to the v1.0.3 deltas: the new `snippetHTMLFor` `maxSnippets`/`separator` options (multi-snippet greedy non-overlapping picker), the netlify-demo's `tokenizeAndSearch` wrapper, the demo's `distributeMatches` spatial-bucket picker, the bundled Mozilla pdf.js viewer in the netlify-demo (`public/pdfjs-viewer/`), the post-extraction `viewer.css` patch in `scripts/copy-pdfjs-viewer.mjs`, and the `fuse.js@7.4.0-beta.6` prerelease pin semantics. **No new Critical or Important findings against the v1.0.2 baseline.** 1 Minor finding (idempotency-marker substring mismatch in `copy-pdfjs-viewer.mjs`) shipped as a fix in the netlify-demo; 5 Informational findings documented in the top-level README's [Security considerations & audit history](../../README.md#security-considerations--audit-history). Full audit details there.
+- **3 new regression tests** in `test/snippet.test.ts` pin the audit findings against `snippetHTMLFor`: HTML-escape correctness under multi-snippet output (V4), bounded output under 50,000 adversarial indices (V3), no-throw contract under malformed Fuse indices (V2 — reversed `[end, start]`, negative, `NaN`, `Infinity`, out-of-bounds). Test count: 100 → 103 in the core package; 111 → 114 across the monorepo.
+
 ## 1.0.3
 
 ### Patch Changes
