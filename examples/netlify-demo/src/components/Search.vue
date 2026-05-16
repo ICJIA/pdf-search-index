@@ -1,296 +1,41 @@
 <template>
-  <section class="search" aria-labelledby="search-heading">
-    <h2 id="search-heading" class="search__heading">Try it</h2>
-    <div class="search__card">
-      <div class="search__bar">
-        <label class="search__label">
-          <span class="search__label-text">Search</span>
-          <input
-            ref="inputEl"
-            v-model="query"
-            type="search"
-            placeholder="Search across all PDFs…"
-            autocomplete="off"
-            spellcheck="false"
-            autocapitalize="off"
-            autocorrect="off"
-            class="search__input"
-          />
-        </label>
-        <p class="search__meta" aria-live="polite">
-          <template v-if="!loaded">Loading search index…</template>
-          <template v-else-if="!keysSelected"
-            >Select at least one key (title or text) to enable search.</template
-          >
-          <template v-else-if="!query.trim()"
-            >Type above to search across {{ rows.length }} PDFs.</template
-          >
-          <template v-else-if="!results.length">No matches for &ldquo;{{ query }}&rdquo;.</template>
-          <template v-else
-            >{{ results.length }} {{ results.length === 1 ? 'match' : 'matches' }}.</template
-          >
-        </p>
-        <p v-if="useExtendedSearch" class="search__hint">
-          Extended search is on. Try
-          <code>=exact</code>, <code>!not</code>, <code>^prefix</code>, or <code>end$</code>.
-          <a
-            href="https://www.fusejs.io/examples.html#extended-search"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Reference &rarr;</a
-          >
-        </p>
-      </div>
-
-      <ul v-if="results.length" class="search__results">
-        <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
-          <a
-            :href="viewerUrl(r)"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="search__result-link"
-          >
-            <h3 class="search__result-title">
-              {{ r.item.title }}
-              <span v-if="matchCount(r) > 1" class="search__result-matches"
-                >{{ matchCount(r) }} matches</span
-              >
-            </h3>
-            <span v-if="includeScore && typeof r.score === 'number'" class="search__result-score"
-              >Score: {{ r.score.toFixed(3) }}</span
-            >
-            <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
-            <span class="search__result-cta">
-              <template v-if="query.trim()">Open &amp; highlight in viewer</template>
-              <template v-else>Open PDF</template>
-            </span>
-          </a>
-        </li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="tune" aria-labelledby="tune-heading">
-    <h2 id="tune-heading" class="tune__heading">
-      Tune Fuse.js, live
-      <a
-        href="https://github.com/krisk/Fuse/releases/tag/v7.4.0-beta.6"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="tune__version-pill"
-        aria-label="View fuse.js v7.4.0-beta.6 release on GitHub"
-        >v7.4.0-beta.6</a
-      >
-    </h2>
-    <div class="tune__card">
-      <!-- Match scoring -->
-      <h3 class="tune__group-heading">Match scoring</h3>
-      <div class="tune__controls">
-        <div class="tune__control">
-          <label for="tune-threshold">Threshold: {{ threshold.toFixed(2) }}</label>
-          <input
-            id="tune-threshold"
-            v-model.number="threshold"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            class="tune__slider"
-            :aria-valuenow="threshold"
-            aria-valuemin="0"
-            aria-valuemax="1"
-          />
-          <p class="tune__help">0.0 = exact match · 1.0 = match almost anything</p>
-        </div>
-
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-ignore-location">
-            <input id="tune-ignore-location" v-model="ignoreLocation" type="checkbox" />
-            <span>ignoreLocation</span>
-          </label>
-          <p class="tune__help">Search the entire field (recommended for long PDF text).</p>
-        </div>
-
-        <div class="tune__control" :class="{ 'tune__control--disabled': ignoreLocation }">
-          <label for="tune-distance">distance: {{ distance }}</label>
-          <input
-            id="tune-distance"
-            v-model.number="distance"
-            type="number"
-            min="0"
-            max="10000"
-            step="100"
-            class="tune__number"
-            :disabled="ignoreLocation"
-          />
-          <p class="tune__help">Search-window radius. Only matters when ignoreLocation is off.</p>
-          <p v-if="ignoreLocation" class="tune__hint-disabled">
-            Active only when ignoreLocation is off
-          </p>
-        </div>
-
-        <div class="tune__control" :class="{ 'tune__control--disabled': ignoreLocation }">
-          <label for="tune-location">location: {{ location }}</label>
-          <input
-            id="tune-location"
-            v-model.number="location"
-            type="number"
-            min="0"
-            max="10000"
-            step="10"
-            class="tune__number"
-            :disabled="ignoreLocation"
-          />
-          <p class="tune__help">
-            Where in the field to anchor the search. Only matters when ignoreLocation is off.
-          </p>
-          <p v-if="ignoreLocation" class="tune__hint-disabled">
-            Active only when ignoreLocation is off
-          </p>
-        </div>
-
-        <div class="tune__control">
-          <label for="tune-min-match">minMatchCharLength: {{ minMatchCharLength }}</label>
-          <input
-            id="tune-min-match"
-            v-model.number="minMatchCharLength"
-            type="number"
-            min="1"
-            max="8"
-            class="tune__number"
-          />
-          <p class="tune__help">Drop matches shorter than this many characters.</p>
-        </div>
-      </div>
-
-      <hr class="tune__divider" />
-
-      <!-- Result behavior -->
-      <h3 class="tune__group-heading">Result behavior</h3>
-      <div class="tune__controls">
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-case-sensitive">
-            <input id="tune-case-sensitive" v-model="isCaseSensitive" type="checkbox" />
-            <span>isCaseSensitive</span>
-          </label>
-          <p class="tune__help">Match the exact case of the query.</p>
-        </div>
-
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-ignore-diacritics">
-            <input id="tune-ignore-diacritics" v-model="ignoreDiacritics" type="checkbox" />
-            <span>ignoreDiacritics <span class="tune__badge-new">new in 7.4</span></span>
-          </label>
-          <p class="tune__help">
-            Strip accents before comparison (&ldquo;na&iuml;ve&rdquo; matches &ldquo;naive&rdquo;,
-            &ldquo;caf&eacute;&rdquo; matches &ldquo;cafe&rdquo;). Useful for multilingual corpora.
-          </p>
-        </div>
-
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-include-score">
-            <input id="tune-include-score" v-model="includeScore" type="checkbox" />
-            <span>includeScore</span>
-          </label>
-          <p class="tune__help">
-            Surface Fuse&rsquo;s 0&ndash;1 match score on each result. (0 is best.)
-          </p>
-        </div>
-
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-should-sort">
-            <input id="tune-should-sort" v-model="shouldSort" type="checkbox" />
-            <span>shouldSort</span>
-          </label>
-          <p class="tune__help">
-            Sort results by relevance. Turn off to see Fuse&rsquo;s input-order output.
-          </p>
-        </div>
-
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-find-all">
-            <input id="tune-find-all" v-model="findAllMatches" type="checkbox" />
-            <span>findAllMatches</span>
-          </label>
-          <p class="tune__help">
-            Don&rsquo;t stop at the first match per field. Slower; broader snippets.
-          </p>
-        </div>
-
-        <div class="tune__control" :class="{ 'tune__control--disabled': useExtendedSearch }">
-          <label class="tune__checkbox" for="tune-token-search">
+  <div class="search-and-tune">
+    <section class="search" aria-labelledby="search-heading">
+      <h2 id="search-heading" class="search__heading">Try it</h2>
+      <div class="search__card">
+        <div class="search__bar">
+          <label class="search__label">
+            <span class="search__label-text">Search</span>
             <input
-              id="tune-token-search"
-              v-model="tokenSearch"
-              type="checkbox"
-              :disabled="useExtendedSearch"
+              ref="inputEl"
+              v-model="query"
+              type="search"
+              placeholder="Search across all PDFs…"
+              autocomplete="off"
+              spellcheck="false"
+              autocapitalize="off"
+              autocorrect="off"
+              class="search__input"
             />
-            <span>tokenSearch</span>
           </label>
-          <p class="tune__help">
-            Split multi-word queries into tokens and merge matches per token. Improves recall for
-            short queries like &ldquo;drug testing&rdquo; where either word alone is a useful hit.
-            <a
-              href="https://www.fusejs.io/token-search.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              >Reference &rarr;</a
+          <p class="search__meta" aria-live="polite">
+            <template v-if="!loaded">Loading search index…</template>
+            <template v-else-if="!keysSelected"
+              >Select at least one key (title or text) to enable search.</template
+            >
+            <template v-else-if="!query.trim()"
+              >Type above to search across {{ rows.length }} PDFs.</template
+            >
+            <template v-else-if="!results.length"
+              >No matches for &ldquo;{{ query }}&rdquo;.</template
+            >
+            <template v-else
+              >{{ results.length }} {{ results.length === 1 ? 'match' : 'matches' }}.</template
             >
           </p>
-          <p v-if="useExtendedSearch" class="tune__hint-disabled">
-            Disabled when useExtendedSearch is on (extended already tokens with its own operators)
-          </p>
-        </div>
-      </div>
-
-      <hr class="tune__divider" />
-
-      <!-- Advanced scoring -->
-      <h3 class="tune__group-heading">Advanced scoring</h3>
-      <div class="tune__controls">
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-ignore-field-norm">
-            <input id="tune-ignore-field-norm" v-model="ignoreFieldNorm" type="checkbox" />
-            <span>ignoreFieldNorm</span>
-          </label>
-          <p class="tune__help">
-            Don&rsquo;t penalize matches in long fields. Useful for body-heavy PDFs.
-          </p>
-        </div>
-
-        <div class="tune__control">
-          <label for="tune-field-norm-weight"
-            >fieldNormWeight: {{ fieldNormWeight.toFixed(1) }}</label
-          >
-          <input
-            id="tune-field-norm-weight"
-            v-model.number="fieldNormWeight"
-            type="range"
-            min="0"
-            max="2"
-            step="0.1"
-            class="tune__slider"
-            :aria-valuenow="fieldNormWeight"
-            aria-valuemin="0"
-            aria-valuemax="2"
-          />
-          <p class="tune__help">How much field length penalizes the score. 0 = no penalty.</p>
-        </div>
-      </div>
-
-      <hr class="tune__divider" />
-
-      <!-- Extended syntax -->
-      <h3 class="tune__group-heading">Extended syntax &amp; keys</h3>
-      <div class="tune__controls">
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-use-extended">
-            <input id="tune-use-extended" v-model="useExtendedSearch" type="checkbox" />
-            <span>useExtendedSearch</span>
-          </label>
-          <p class="tune__help">
-            Enable Fuse extended syntax: <code>='exact</code>, <code>!not</code>,
-            <code>^prefix</code>, <code>end$</code>.
+          <p v-if="useExtendedSearch" class="search__hint">
+            Extended search is on. Try
+            <code>=exact</code>, <code>!not</code>, <code>^prefix</code>, or <code>end$</code>.
             <a
               href="https://www.fusejs.io/examples.html#extended-search"
               target="_blank"
@@ -300,50 +45,312 @@
           </p>
         </div>
 
-        <div class="tune__control">
-          <label class="tune__checkbox" for="tune-use-token-search">
-            <input id="tune-use-token-search" v-model="useTokenSearch" type="checkbox" />
-            <span>useTokenSearch <span class="tune__badge-new">new in 7.4</span></span>
-          </label>
-          <p class="tune__help">
-            Fuse-native token search with TF-IDF scoring. Splits the query into tokens internally
-            and ranks results by term-frequency &times; inverse-document-frequency &mdash; better
-            relevance than our demo-side
-            <code>tokenSearch</code> wrapper above for multi-word queries. Distinct from the
-            wrapper: this is built into the Fuse runtime.
-          </p>
-        </div>
+        <ul v-if="results.length" class="search__results">
+          <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
+            <a
+              :href="viewerUrl(r)"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="search__result-link"
+            >
+              <h3 class="search__result-title">
+                {{ r.item.title }}
+                <span v-if="matchCount(r) > 1" class="search__result-matches"
+                  >{{ matchCount(r) }} matches</span
+                >
+              </h3>
+              <span v-if="includeScore && typeof r.score === 'number'" class="search__result-score"
+                >Score: {{ r.score.toFixed(3) }}</span
+              >
+              <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
+              <span class="search__result-cta">
+                <template v-if="query.trim()">Open &amp; highlight in viewer</template>
+                <template v-else>Open PDF</template>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </section>
 
-        <div class="tune__control">
-          <span class="tune__group-label" id="tune-keys-label">Search in:</span>
-          <div class="tune__checkbox-group" role="group" aria-labelledby="tune-keys-label">
-            <label class="tune__checkbox" for="tune-key-title">
-              <input id="tune-key-title" v-model="searchTitle" type="checkbox" />
-              <span>title</span>
-            </label>
-            <label class="tune__checkbox" for="tune-key-text">
-              <input id="tune-key-text" v-model="searchText" type="checkbox" />
-              <span>text</span>
-            </label>
+    <section class="tune" aria-labelledby="tune-heading">
+      <h2 id="tune-heading" class="tune__heading">
+        Tune Fuse.js, live
+        <a
+          href="https://github.com/krisk/Fuse/releases/tag/v7.4.0-beta.6"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="tune__version-pill"
+          aria-label="View fuse.js v7.4.0-beta.6 release on GitHub"
+          >v7.4.0-beta.6</a
+        >
+      </h2>
+      <div class="tune__card">
+        <!-- Match scoring -->
+        <h3 class="tune__group-heading">Match scoring</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label for="tune-threshold">Threshold: {{ threshold.toFixed(2) }}</label>
+            <input
+              id="tune-threshold"
+              v-model.number="threshold"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              class="tune__slider"
+              :aria-valuenow="threshold"
+              aria-valuemin="0"
+              aria-valuemax="1"
+            />
+            <p class="tune__help">0.0 = exact match · 1.0 = match almost anything</p>
           </div>
-          <p class="tune__help">
-            Disable &ldquo;text&rdquo; to see how much weaker the match is when only titles are
-            indexed — that&rsquo;s the case for any search engine that doesn&rsquo;t extract PDF
-            text.
-          </p>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-ignore-location">
+              <input id="tune-ignore-location" v-model="ignoreLocation" type="checkbox" />
+              <span>ignoreLocation</span>
+            </label>
+            <p class="tune__help">Search the entire field (recommended for long PDF text).</p>
+          </div>
+
+          <div class="tune__control" :class="{ 'tune__control--disabled': ignoreLocation }">
+            <label for="tune-distance">distance: {{ distance }}</label>
+            <input
+              id="tune-distance"
+              v-model.number="distance"
+              type="number"
+              min="0"
+              max="10000"
+              step="100"
+              class="tune__number"
+              :disabled="ignoreLocation"
+            />
+            <p class="tune__help">Search-window radius. Only matters when ignoreLocation is off.</p>
+            <p v-if="ignoreLocation" class="tune__hint-disabled">
+              Active only when ignoreLocation is off
+            </p>
+          </div>
+
+          <div class="tune__control" :class="{ 'tune__control--disabled': ignoreLocation }">
+            <label for="tune-location">location: {{ location }}</label>
+            <input
+              id="tune-location"
+              v-model.number="location"
+              type="number"
+              min="0"
+              max="10000"
+              step="10"
+              class="tune__number"
+              :disabled="ignoreLocation"
+            />
+            <p class="tune__help">
+              Where in the field to anchor the search. Only matters when ignoreLocation is off.
+            </p>
+            <p v-if="ignoreLocation" class="tune__hint-disabled">
+              Active only when ignoreLocation is off
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="tune-min-match">minMatchCharLength: {{ minMatchCharLength }}</label>
+            <input
+              id="tune-min-match"
+              v-model.number="minMatchCharLength"
+              type="number"
+              min="1"
+              max="8"
+              class="tune__number"
+            />
+            <p class="tune__help">Drop matches shorter than this many characters.</p>
+          </div>
+        </div>
+
+        <hr class="tune__divider" />
+
+        <!-- Result behavior -->
+        <h3 class="tune__group-heading">Result behavior</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-case-sensitive">
+              <input id="tune-case-sensitive" v-model="isCaseSensitive" type="checkbox" />
+              <span>isCaseSensitive</span>
+            </label>
+            <p class="tune__help">Match the exact case of the query.</p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-ignore-diacritics">
+              <input id="tune-ignore-diacritics" v-model="ignoreDiacritics" type="checkbox" />
+              <span>ignoreDiacritics <span class="tune__badge-new">new in 7.4</span></span>
+            </label>
+            <p class="tune__help">
+              Strip accents before comparison (&ldquo;na&iuml;ve&rdquo; matches &ldquo;naive&rdquo;,
+              &ldquo;caf&eacute;&rdquo; matches &ldquo;cafe&rdquo;). Useful for multilingual
+              corpora.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-include-score">
+              <input id="tune-include-score" v-model="includeScore" type="checkbox" />
+              <span>includeScore</span>
+            </label>
+            <p class="tune__help">
+              Surface Fuse&rsquo;s 0&ndash;1 match score on each result. (0 is best.)
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-should-sort">
+              <input id="tune-should-sort" v-model="shouldSort" type="checkbox" />
+              <span>shouldSort</span>
+            </label>
+            <p class="tune__help">
+              Sort results by relevance. Turn off to see Fuse&rsquo;s input-order output.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-find-all">
+              <input id="tune-find-all" v-model="findAllMatches" type="checkbox" />
+              <span>findAllMatches</span>
+            </label>
+            <p class="tune__help">
+              Don&rsquo;t stop at the first match per field. Slower; broader snippets.
+            </p>
+          </div>
+
+          <div class="tune__control" :class="{ 'tune__control--disabled': useExtendedSearch }">
+            <label class="tune__checkbox" for="tune-token-search">
+              <input
+                id="tune-token-search"
+                v-model="tokenSearch"
+                type="checkbox"
+                :disabled="useExtendedSearch"
+              />
+              <span>tokenSearch</span>
+            </label>
+            <p class="tune__help">
+              Split multi-word queries into tokens and merge matches per token. Improves recall for
+              short queries like &ldquo;drug testing&rdquo; where either word alone is a useful hit.
+              <a
+                href="https://www.fusejs.io/token-search.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Reference &rarr;</a
+              >
+            </p>
+            <p v-if="useExtendedSearch" class="tune__hint-disabled">
+              Disabled when useExtendedSearch is on (extended already tokens with its own operators)
+            </p>
+          </div>
+        </div>
+
+        <hr class="tune__divider" />
+
+        <!-- Advanced scoring -->
+        <h3 class="tune__group-heading">Advanced scoring</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-ignore-field-norm">
+              <input id="tune-ignore-field-norm" v-model="ignoreFieldNorm" type="checkbox" />
+              <span>ignoreFieldNorm</span>
+            </label>
+            <p class="tune__help">
+              Don&rsquo;t penalize matches in long fields. Useful for body-heavy PDFs.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="tune-field-norm-weight"
+              >fieldNormWeight: {{ fieldNormWeight.toFixed(1) }}</label
+            >
+            <input
+              id="tune-field-norm-weight"
+              v-model.number="fieldNormWeight"
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              class="tune__slider"
+              :aria-valuenow="fieldNormWeight"
+              aria-valuemin="0"
+              aria-valuemax="2"
+            />
+            <p class="tune__help">How much field length penalizes the score. 0 = no penalty.</p>
+          </div>
+        </div>
+
+        <hr class="tune__divider" />
+
+        <!-- Extended syntax -->
+        <h3 class="tune__group-heading">Extended syntax &amp; keys</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-use-extended">
+              <input id="tune-use-extended" v-model="useExtendedSearch" type="checkbox" />
+              <span>useExtendedSearch</span>
+            </label>
+            <p class="tune__help">
+              Enable Fuse extended syntax: <code>='exact</code>, <code>!not</code>,
+              <code>^prefix</code>, <code>end$</code>.
+              <a
+                href="https://www.fusejs.io/examples.html#extended-search"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Reference &rarr;</a
+              >
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="tune-use-token-search">
+              <input id="tune-use-token-search" v-model="useTokenSearch" type="checkbox" />
+              <span>useTokenSearch <span class="tune__badge-new">new in 7.4</span></span>
+            </label>
+            <p class="tune__help">
+              Fuse-native token search with TF-IDF scoring. Splits the query into tokens internally
+              and ranks results by term-frequency &times; inverse-document-frequency &mdash; better
+              relevance than our demo-side
+              <code>tokenSearch</code> wrapper above for multi-word queries. Distinct from the
+              wrapper: this is built into the Fuse runtime.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <span class="tune__group-label" id="tune-keys-label">Search in:</span>
+            <div class="tune__checkbox-group" role="group" aria-labelledby="tune-keys-label">
+              <label class="tune__checkbox" for="tune-key-title">
+                <input id="tune-key-title" v-model="searchTitle" type="checkbox" />
+                <span>title</span>
+              </label>
+              <label class="tune__checkbox" for="tune-key-text">
+                <input id="tune-key-text" v-model="searchText" type="checkbox" />
+                <span>text</span>
+              </label>
+            </div>
+            <p class="tune__help">
+              Disable &ldquo;text&rdquo; to see how much weaker the match is when only titles are
+              indexed — that&rsquo;s the case for any search engine that doesn&rsquo;t extract PDF
+              text.
+            </p>
+          </div>
+        </div>
+
+        <div class="tune__config" aria-label="Current Fuse.js configuration">
+          <p class="tune__config-label">Current config</p>
+          <pre><code>{{ configSnippet }}</code></pre>
+        </div>
+
+        <div class="tune__reset-row">
+          <button type="button" class="tune__reset" @click="resetDefaults">
+            Reset to defaults
+          </button>
         </div>
       </div>
-
-      <div class="tune__config" aria-label="Current Fuse.js configuration">
-        <p class="tune__config-label">Current config</p>
-        <pre><code>{{ configSnippet }}</code></pre>
-      </div>
-
-      <div class="tune__reset-row">
-        <button type="button" class="tune__reset" @click="resetDefaults">Reset to defaults</button>
-      </div>
-    </div>
-  </section>
+    </section>
+  </div>
 
   <section class="why" aria-labelledby="why-fuse-heading">
     <h2 id="why-fuse-heading" class="why__heading">Why Fuse.js?</h2>
@@ -771,8 +778,58 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.search {
+/*
+ * Two-column wrapper for the Try It + Tune Fuse.js sections.
+ *
+ * On wide viewports (≥1024px) the two cards sit side-by-side so users can
+ * adjust tuner controls in the right column and watch the search results
+ * update live in the left column. The Try It card's `position: sticky`
+ * search bar keeps the input pinned to the viewport top while scrolling
+ * through tuner options, so the query input never disappears mid-tune.
+ *
+ * Below 1024px, the wrapper falls back to a single-column stack so the
+ * tuner card doesn't get squeezed below readable width. `align-items: start`
+ * lets each column take its own natural height — the search column is
+ * usually shorter than the tuner.
+ */
+.search-and-tune {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
   margin-top: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .search-and-tune {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+  }
+}
+
+.search {
+  margin-top: 0;
+}
+
+/*
+ * When side-by-side, each tuner column is ~580px wide — not enough room
+ * for the inner 2-column control grid to breathe. Collapse to one column
+ * so labels + help text + inputs each get full width within the card.
+ */
+@media (min-width: 1024px) {
+  .search-and-tune .tune__controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * `.tune` and `.search` would otherwise add a top margin to the section,
+ * which doubles up with the grid `gap`. Zero out the section-level margins
+ * inside the grid wrapper.
+ */
+.search-and-tune > .search,
+.search-and-tune > .tune {
+  margin-top: 0;
 }
 
 .search__heading {
