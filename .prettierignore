@@ -11,6 +11,9 @@ examples/html/public/searchIndex.json
 examples/vue/public/searchIndex.json
 examples/astro/src/content/docs/
 examples/astro/public/searchIndex.pdfs.json
+examples/netlify-demo/src/content/docs/
+examples/netlify-demo/public/searchIndex.pdfs.json
+examples/netlify-demo/public/pdfs/
 examples/nextjs/.next/
 examples/nextjs/public/searchIndex.json
 examples/eleventy/_site/

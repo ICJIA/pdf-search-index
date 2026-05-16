@@ -1,0 +1,433 @@
+---
+import Search from '../components/Search.vue';
+import { getCollection } from 'astro:content';
+
+// Build a corpus list straight from the same content collection the
+// integration walks. That way the "what's in the search index" section
+// stays in sync with whatever PDFs are actually indexed at build time.
+const docs = await getCollection('docs');
+
+type CorpusItem = {
+  title: string;
+  filename: string;
+  publicUrl: string;
+  pdfBytes: number;
+  pages: number | null;
+  textChars: number;
+};
+
+// Pull the JSON index that the Astro PDF integration writes into
+// public/. We import the file via Node's fs at build time so we can read
+// page counts and extracted-text length without bundling the data into
+// JS. This file is regenerated on every build.
+import { readFile } from 'node:fs/promises';
+import { readdirSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+let indexRows: Array<{ id: string; url: string; title: string; text: string; pages?: number }> =
+  [];
+try {
+  const json = await readFile(
+    resolve(import.meta.dirname, '..', '..', 'public', 'searchIndex.pdfs.json'),
+    'utf-8',
+  );
+  indexRows = JSON.parse(json);
+} catch {
+  // First-pass dev render before the integration has written the file
+  // — leave the list empty; HMR will fill it in on next build.
+  indexRows = [];
+}
+
+const pdfsDir = resolve(import.meta.dirname, '..', '..', 'public', 'pdfs');
+const pdfBytesByFilename = new Map<string, number>();
+try {
+  for (const entry of readdirSync(pdfsDir)) {
+    if (!entry.toLowerCase().endsWith('.pdf')) continue;
+    pdfBytesByFilename.set(entry, statSync(resolve(pdfsDir, entry)).size);
+  }
+} catch {
+  /* dir may not exist on first cold run */
+}
+
+function basenameFromFileUrl(fileUrl: string): string {
+  const lastSlash = fileUrl.lastIndexOf('/');
+  return decodeURIComponent(lastSlash >= 0 ? fileUrl.slice(lastSlash + 1) : fileUrl);
+}
+
+function formatBytes(n: number): string {
+  if (!n) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const corpus: CorpusItem[] = indexRows
+  .map((row) => {
+    const filename = basenameFromFileUrl(row.url);
+    return {
+      title: row.title,
+      filename,
+      publicUrl: `/pdfs/${encodeURIComponent(filename)}`,
+      pdfBytes: pdfBytesByFilename.get(filename) ?? 0,
+      pages: row.pages ?? null,
+      textChars: row.text?.length ?? 0,
+    };
+  })
+  .sort((a, b) => a.title.localeCompare(b.title));
+
+const pdfCount = corpus.length || docs.length;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDF Search Index — Live Demo</title>
+    <meta
+      name="description"
+      content="Live demo of @icjia/pdf-search-index — full-text search across PDFs at build time. No server, no native deps."
+    />
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <style is:global>
+      :root {
+        --bg: #0a0a0c;
+        --surface: #15151a;
+        --surface-hover: #1d1d24;
+        --border: #27272f;
+        --border-strong: #3a3a44;
+        --text: #e8e8ed;
+        --text-muted: #a0a0aa;
+        --text-placeholder: #6f6f7a;
+        --accent: #7c9eff;
+        --font-sans:
+          'Inter', 'SF Pro Text', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'Roboto Mono', monospace;
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: var(--font-mono);
+      }
+      code {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+        font-size: 0.88em;
+      }
+    </style>
+    <style>
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 6rem;
+      }
+      @media (min-width: 768px) {
+        .wrap {
+          max-width: 768px;
+          padding: 4rem 2rem 6rem;
+        }
+      }
+
+      header.site {
+        margin-bottom: 2.5rem;
+      }
+
+      .eyebrow {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin: 0 0 0.75rem;
+      }
+
+      h1.site-title {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.75rem;
+        line-height: 1.15;
+      }
+
+      p.site-tagline {
+        font-size: clamp(1rem, 2vw, 1.125rem);
+        color: var(--text-muted);
+        margin: 0;
+        max-width: 60ch;
+      }
+
+      section {
+        margin-top: 3rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0 0 1rem;
+      }
+
+      p {
+        margin: 0 0 1rem;
+        max-width: 65ch;
+        color: var(--text);
+      }
+      p.muted {
+        color: var(--text-muted);
+      }
+
+      ol.steps {
+        list-style: none;
+        counter-reset: step;
+        padding: 0;
+        margin: 1rem 0 0;
+        display: grid;
+        gap: 1rem;
+      }
+      ol.steps > li {
+        counter-increment: step;
+        position: relative;
+        padding: 1rem 1.25rem 1rem 3.25rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      ol.steps > li::before {
+        content: counter(step);
+        position: absolute;
+        left: 1rem;
+        top: 1rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        border-radius: 6px;
+      }
+      ol.steps > li strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      ol.steps > li p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--text-muted);
+      }
+
+      ul.corpus {
+        list-style: none;
+        padding: 0;
+        margin: 1rem 0 0;
+        display: grid;
+        gap: 0.75rem;
+      }
+      ul.corpus > li {
+        padding: 1.25rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        transition: border-color 150ms ease;
+      }
+      ul.corpus > li:hover {
+        border-color: var(--border-strong);
+      }
+      .corpus__title {
+        margin: 0 0 0.4rem;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      .corpus__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        margin: 0 0 0.6rem;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+      .corpus__meta span::before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 4px;
+        margin-right: 0.5em;
+        background: var(--border-strong);
+        border-radius: 50%;
+        vertical-align: middle;
+      }
+      .corpus__note {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+      }
+      .corpus__cta {
+        display: inline-flex;
+        margin-top: 0.5rem;
+        font-size: 0.88rem;
+        font-weight: 500;
+      }
+      .corpus__cta::after {
+        content: '\2192';
+        margin-left: 0.4em;
+      }
+
+      footer.site {
+        margin-top: 5rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        font-size: 0.88rem;
+        color: var(--text-muted);
+      }
+      footer.site a {
+        color: var(--text-muted);
+      }
+      footer.site a:hover {
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site">
+        <p class="eyebrow">@icjia/pdf-search-index</p>
+        <h1 class="site-title">pdf-search-index — live demo</h1>
+        <p class="site-tagline">
+          Full-text search across PDFs at build time. No server, no native deps.
+        </p>
+      </header>
+
+      <section aria-labelledby="what">
+        <h2 id="what">What this is</h2>
+        <p>
+          This is a live deployment of the open-source <code>@icjia/pdf-search-index</code> package.
+          The {pdfCount} PDFs below were fetched and parsed at build time; their full text is
+          searchable client-side via Fuse.js — no database, no API, no runtime indexing.
+        </p>
+      </section>
+
+      <section aria-labelledby="how">
+        <h2 id="how">How it works</h2>
+        <ol class="steps">
+          <li>
+            <strong>Extract</strong>
+            <p>
+              At build time, each PDF is fetched, parsed with <code>pdf.js</code>, and its text is
+              added to a JSON index.
+            </p>
+          </li>
+          <li>
+            <strong>Bundle</strong>
+            <p>
+              The JSON ships with the site as a static asset — no API, no server, no database.
+            </p>
+          </li>
+          <li>
+            <strong>Search</strong>
+            <p>
+              Your query runs client-side against Fuse.js. The matching span is highlighted in the
+              snippet below each result.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="corpus">
+        <h2 id="corpus">The corpus</h2>
+        <p class="muted">
+          The {pdfCount} PDFs indexed by this build, with their on-disk size, page count, and the number
+          of characters of plain text extracted from each one.
+        </p>
+        <ul class="corpus">
+          {
+            corpus.map((p) => (
+              <li>
+                <h3 class="corpus__title">{p.title}</h3>
+                <p class="corpus__meta">
+                  {p.pages !== null && <span>{p.pages} pages</span>}
+                  <span>{formatBytes(p.pdfBytes)}</span>
+                  <span>{p.textChars.toLocaleString()} characters extracted</span>
+                </p>
+                <p class="corpus__note">
+                  Randomly-clicked public sample from{' '}
+                  <a href="https://icjia.illinois.gov/" target="_blank" rel="noopener noreferrer">
+                    icjia.illinois.gov
+                  </a>
+                  ; contains no PII.
+                </p>
+                <a
+                  class="corpus__cta"
+                  href={p.publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View PDF
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <Search client:idle />
+
+      <footer class="site">
+        <a href="https://github.com/ICJIA/pdf-search-index" target="_blank" rel="noopener noreferrer"
+          >GitHub</a
+        >
+        <a
+          href="https://www.npmjs.com/package/@icjia/pdf-search-index"
+          target="_blank"
+          rel="noopener noreferrer">npm</a
+        >
+        <a
+          href="https://github.com/ICJIA/pdf-search-index/blob/main/docs/superpowers/specs/2026-05-15-pdf-search-index-design.md"
+          target="_blank"
+          rel="noopener noreferrer">Design spec</a
+        >
+      </footer>
+    </div>
+  </body>
+</html>

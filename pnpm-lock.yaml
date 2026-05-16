@@ -60,6 +60,27 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
 
+  examples/netlify-demo:
+    dependencies:
+      '@astrojs/vue':
+        specifier: ^5.0.0
+        version: 5.1.4(@types/node@22.19.19)(astro@5.18.1(@types/node@22.19.19)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.0))(jiti@2.7.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.0)(vue@3.5.34(typescript@5.9.3))(yaml@2.9.0)
+      '@icjia/astro-pdf-search-index':
+        specifier: workspace:*
+        version: link:../../packages/astro-pdf-search-index
+      '@icjia/pdf-search-index':
+        specifier: workspace:*
+        version: link:../../packages/core
+      astro:
+        specifier: ^5.0.0
+        version: 5.18.1(@types/node@22.19.19)(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.10.1)(jiti@2.7.0)(rollup@4.60.4)(terser@5.47.1)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.0)
+      fuse.js:
+        specifier: ^7.0.0
+        version: 7.3.0
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.34(typescript@5.9.3)
+
   examples/nextjs:
     dependencies:
       '@icjia/pdf-search-index':

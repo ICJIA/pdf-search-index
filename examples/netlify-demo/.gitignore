@@ -1,0 +1,9 @@
+dist/
+.astro/
+.pdf-cache/
+node_modules/
+src/content/docs/*
+!src/content/docs/.gitkeep
+public/pdfs/*
+!public/pdfs/.gitkeep
+public/searchIndex.pdfs.json

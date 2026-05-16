@@ -1,0 +1,25 @@
+[build]
+  base    = "examples/netlify-demo"
+  command = "pnpm install --frozen-lockfile=false && pnpm build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_VERSION = "10.0.0"
+
+# The build emits a single static JSON index. Cache short — the deploy is
+# atomic and a redeploy will invalidate via filename hash on the rest of
+# the static bundle, but the JSON keeps its filename across builds.
+[[headers]]
+  for = "/searchIndex.pdfs.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# The PDFs are content-addressed by filename (their CMS slug contains a
+# timestamp) so cache them long.
+[[headers]]
+  for = "/pdfs/*"
+  [headers.values]
+    Cache-Control          = "public, max-age=31536000, immutable"
+    Content-Disposition    = "inline"
+    X-Content-Type-Options = "nosniff"
