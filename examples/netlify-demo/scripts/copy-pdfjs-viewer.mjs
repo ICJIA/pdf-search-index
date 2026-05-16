@@ -242,7 +242,9 @@ try {
 }
 `;
     await writeFile(viewerCssPath, existing + overrides);
-    console.log(`  Patched viewer.css with high-contrast lime find highlights (${HIGHLIGHT_COLOR})`);
+    console.log(
+      `  Patched viewer.css with high-contrast lime find highlights (${HIGHLIGHT_COLOR})`,
+    );
   }
 } catch (err) {
   if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
