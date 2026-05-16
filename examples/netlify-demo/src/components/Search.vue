@@ -541,7 +541,29 @@ const configSnippet = computed(() => {
 // See https://www.fusejs.io/token-search.html`;
 });
 
-const indexDump = computed(() => JSON.stringify(rows.value, null, 2));
+/**
+ * Render the search index as pretty-printed JSON for the inspector card.
+ *
+ * The raw `text` field can be 50–150 KB of extracted PDF body per row,
+ * which makes the rendered JSON unreadable — one row visually drowns out
+ * the rest. Truncate to a short preview here AND tag the row with the
+ * real character count so curious devs can see the full size without
+ * scrolling through a wall of body text.
+ *
+ * Everything else (id, url, title, pages, extractedAt) renders as-is.
+ */
+const TEXT_PREVIEW_CHARS = 240;
+const indexDump = computed(() => {
+  const previews = rows.value.map((r) => {
+    const full = r.text ?? '';
+    if (full.length <= TEXT_PREVIEW_CHARS) return r;
+    return {
+      ...r,
+      text: `${full.slice(0, TEXT_PREVIEW_CHARS)}… [truncated for display — full length: ${full.length.toLocaleString()} chars]`,
+    };
+  });
+  return JSON.stringify(previews, null, 2);
+});
 
 type SpanTuple = readonly [number, number];
 
@@ -1464,7 +1486,15 @@ input.tune__number:disabled {
   padding: 0;
   font-size: inherit;
   color: inherit;
-  white-space: pre;
+  /*
+   * pre-wrap preserves the JSON's structural newlines (object/array on
+   * separate lines, indentation, etc.) AND wraps any single long line
+   * to fit the container — important because PDF body text values can
+   * be tens of KB on one logical line. With plain `pre`, the inspector
+   * collapses to a horizontally-scrolling wall of text.
+   */
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 @media (max-width: 640px) {
