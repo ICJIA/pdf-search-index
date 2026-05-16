@@ -1,16 +1,34 @@
 import type { DiscoveredPdf } from './types.js';
 
 // Markdown link with a PDF URL: `[Title](https://...pdf){target='_blank'}` etc.
-// Matches `[text](url)` where url ends in `.pdf` (optionally followed by query/fragment).
+// Matches `[text](url)` where url ends in `.pdf` (optionally followed by query).
 // Supports https?:// and file:// schemes.
-const PDF_LINK_PATTERN = /\[([^\]]+)\]\(((https?|file):\/\/[^\s)]+?\.pdf(?:\?[^\s)]*)?)\)/gi;
+//
+// Security note: the path and query parts use bounded greedy quantifiers
+// (`{1,2048}` / `{0,1024}`) and exclude `<>"' \t\n)\]` to avoid the
+// catastrophic-backtracking ReDoS vulnerability that the unbounded
+// non-greedy `[^\s)]+?` had on payloads like `'[X](https://a'.repeat(N)`.
+const PDF_LINK_PATTERN =
+  /\[([^\]]{1,512})\]\(((?:https?|file):\/\/[^\s)\]<>"']{1,2048}\.pdf(?:\?[^\s)\]<>"']{0,1024})?)\)/gi;
 
 // Bare PDF URL not wrapped in a markdown link.
-// Supports https?:// and file:// schemes.
-const PDF_BARE_URL_PATTERN = /(https?|file):\/\/[^\s)\]]+?\.pdf(?:\?[^\s)\]]*)?/gi;
+// Supports https?:// and file:// schemes. Bounded for the same reason.
+const PDF_BARE_URL_PATTERN =
+  /(?:https?|file):\/\/[^\s)\]<>"']{1,2048}\.pdf(?:\?[^\s)\]<>"']{0,1024})?/gi;
+
+// Belt-and-suspenders: skip extremely large markdown bodies entirely. The
+// bounded quantifiers above already neutralize the ReDoS, but a 100+ MB
+// body still wastes CPU on a regex scan even when it can't backtrack.
+const MAX_SCAN_BODY_LENGTH = 1_000_000;
 
 export function extractPdfUrlsFromMarkdown(body: string): DiscoveredPdf[] {
   if (!body) return [];
+  if (body.length > MAX_SCAN_BODY_LENGTH) {
+    console.warn(
+      `[pdf-search-index] skipping URL scan: body length ${body.length} exceeds ${MAX_SCAN_BODY_LENGTH} char cap`,
+    );
+    return [];
+  }
 
   // Pass 1: linked PDFs win; capture the link text as title.
   const linked = new Map<string, string>();
