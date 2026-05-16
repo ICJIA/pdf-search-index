@@ -1,47 +1,49 @@
 <template>
   <section class="search" aria-labelledby="search-heading">
-    <div class="search__bar">
-      <h2 id="search-heading" class="search__heading">Try it</h2>
-      <label class="search__label">
-        <span class="search__label-text">Search</span>
-        <input
-          ref="inputEl"
-          v-model="query"
-          type="search"
-          placeholder="Search across all PDFs…"
-          autocomplete="off"
-          spellcheck="false"
-          autocapitalize="off"
-          autocorrect="off"
-          class="search__input"
-        />
-      </label>
-      <p class="search__meta" aria-live="polite">
-        <template v-if="!loaded">Loading search index…</template>
-        <template v-else-if="!query.trim()"
-          >Type above to search across {{ rows.length }} PDFs.</template
-        >
-        <template v-else-if="!results.length">No matches for &ldquo;{{ query }}&rdquo;.</template>
-        <template v-else
-          >{{ results.length }} {{ results.length === 1 ? 'match' : 'matches' }}.</template
-        >
-      </p>
-    </div>
+    <h2 id="search-heading" class="search__heading">Try it</h2>
+    <div class="search__card">
+      <div class="search__bar">
+        <label class="search__label">
+          <span class="search__label-text">Search</span>
+          <input
+            ref="inputEl"
+            v-model="query"
+            type="search"
+            placeholder="Search across all PDFs…"
+            autocomplete="off"
+            spellcheck="false"
+            autocapitalize="off"
+            autocorrect="off"
+            class="search__input"
+          />
+        </label>
+        <p class="search__meta" aria-live="polite">
+          <template v-if="!loaded">Loading search index…</template>
+          <template v-else-if="!query.trim()"
+            >Type above to search across {{ rows.length }} PDFs.</template
+          >
+          <template v-else-if="!results.length">No matches for &ldquo;{{ query }}&rdquo;.</template>
+          <template v-else
+            >{{ results.length }} {{ results.length === 1 ? 'match' : 'matches' }}.</template
+          >
+        </p>
+      </div>
 
-    <ul v-if="results.length" class="search__results">
-      <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
-        <a
-          :href="publicPdfUrl(r.item.url)"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="search__result-link"
-        >
-          <h3 class="search__result-title">{{ r.item.title }}</h3>
-          <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
-          <span class="search__result-cta">Open PDF</span>
-        </a>
-      </li>
-    </ul>
+      <ul v-if="results.length" class="search__results">
+        <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
+          <a
+            :href="publicPdfUrl(r.item.url)"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="search__result-link"
+          >
+            <h3 class="search__result-title">{{ r.item.title }}</h3>
+            <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
+            <span class="search__result-cta">Open PDF</span>
+          </a>
+        </li>
+      </ul>
+    </div>
   </section>
 </template>
 
@@ -101,26 +103,54 @@ onMounted(async () => {
   margin-top: 2rem;
 }
 
-.search__bar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  padding: 1rem 0 1.25rem;
-  margin: 0 -1.25rem;
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-
 .search__heading {
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0 0 1rem;
   color: var(--text);
+}
+
+.search__card {
+  position: relative;
+  padding: 2rem 1.5rem;
+  background: #101015;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 8px 32px -16px rgba(0, 0, 0, 0.5);
+}
+
+/* Subtle accent strip along the top edge to signal "interactive panel". */
+.search__card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 50%,
+    transparent 100%
+  );
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  opacity: 0.65;
+}
+
+.search__bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -2rem -1.5rem 0;
+  padding: 1.25rem 1.5rem 1.25rem;
+  background: color-mix(in srgb, #101015 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 
 .search__label {
@@ -262,9 +292,15 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
+  .search__card {
+    padding: 1.5rem 1rem;
+    border-radius: 10px;
+  }
   .search__bar {
-    padding-top: 0.75rem;
-    padding-bottom: 1rem;
+    margin: -1.5rem -1rem 0;
+    padding: 1rem 1rem 1rem;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
   }
   .search__input {
     height: 44px;
