@@ -254,11 +254,11 @@ onMounted(async () => {
 }
 
 :deep(mark) {
-  background: rgba(124, 158, 255, 0.18);
-  color: var(--text);
-  padding: 0 0.2em;
+  background: #a3e635;
+  color: #1a2e05;
+  padding: 0.05em 0.35em;
   border-radius: 3px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 @media (max-width: 640px) {
