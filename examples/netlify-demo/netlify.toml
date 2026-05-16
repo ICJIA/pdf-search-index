@@ -32,3 +32,13 @@
     Cache-Control          = "public, max-age=31536000, immutable"
     Content-Disposition    = "inline"
     X-Content-Type-Options = "nosniff"
+
+# Mozilla pdf.js viewer assets — vendored at build time (see
+# scripts/copy-pdfjs-viewer.mjs). Version is pinned by the installed
+# pdfjs-dist release, so a redeploy with a different version replaces the
+# whole tree under /pdfjs-viewer/ — safe to cache aggressively.
+[[headers]]
+  for = "/pdfjs-viewer/*"
+  [headers.values]
+    Cache-Control          = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"

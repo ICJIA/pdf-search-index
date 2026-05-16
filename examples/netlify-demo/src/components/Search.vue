@@ -45,7 +45,7 @@
       <ul v-if="results.length" class="search__results">
         <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
           <a
-            :href="publicPdfUrl(r.item.url)"
+            :href="viewerUrl(r)"
             target="_blank"
             rel="noopener noreferrer"
             class="search__result-link"
@@ -60,7 +60,10 @@
               >Score: {{ r.score.toFixed(3) }}</span
             >
             <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
-            <span class="search__result-cta">Open PDF</span>
+            <span class="search__result-cta">
+              <template v-if="query.trim()">Open &amp; highlight in viewer</template>
+              <template v-else>Open PDF</template>
+            </span>
           </a>
         </li>
       </ul>
@@ -591,6 +594,42 @@ function publicPdfUrl(fileUrl: string): string {
   // The filename may already be percent-encoded (file:// from URL ctor).
   const decoded = decodeURIComponent(basename);
   return `/pdfs/${encodeURIComponent(decoded)}`;
+}
+
+/**
+ * Resolve the link target for a result card.
+ *
+ * When the user has typed a query, route through the bundled Mozilla pdf.js
+ * viewer at /pdfjs-viewer/web/viewer.html and append `#search=<query>`. The
+ * viewer reads that fragment on load, pre-fills its find bar, jumps to the
+ * first match, and highlights every occurrence — the same behaviour Firefox
+ * gives natively but reliably across Chromium and WebKit too.
+ *
+ * When the query is empty we skip the viewer and link the PDF directly so the
+ * browser's native viewer (PDFium / WebKit) can render it without the extra
+ * ~1.5–2 MB of viewer assets.
+ *
+ * URL encoding: the viewer's `?file=` is read via `URLSearchParams`, which
+ * already URL-decodes the value once before the viewer's JS sees it. So we
+ * must encode exactly *one* level: pass `/pdfs/Foo%20Bar.pdf` as the param
+ * value (single-encoded). Using `encodeURIComponent` on `publicPdfUrl()` ’s
+ * output yields `%2520` and the viewer 404s; concatenating raw also breaks
+ * for basenames containing `&`/`?`/`#`. Build the path from a single
+ * `encodeURIComponent(basename)` instead.
+ *
+ * NOTE on Fuse vs viewer semantics: Fuse's fuzzy matching can yield a result
+ * (e.g. "applicent" → "applicant portal") that the viewer's literal substring
+ * search won't highlight. The PDF still opens; the user can correct the term
+ * in the viewer's find bar. Documented in this demo's README.
+ */
+function viewerUrl(r: FuseResult<IndexedPdf>): string {
+  const pdf = publicPdfUrl(r.item.url);
+  const q = query.value.trim();
+  if (!q) return pdf;
+  // `pdf` is already single-encoded (`/pdfs/Foo%20Bar.pdf`). That's what the
+  // viewer's URLSearchParams will decode back to `/pdfs/Foo Bar.pdf`, which
+  // it then fetches. Embedding it raw is correct here.
+  return `/pdfjs-viewer/web/viewer.html?file=${pdf}#search=${encodeURIComponent(q)}`;
 }
 
 onMounted(async () => {
