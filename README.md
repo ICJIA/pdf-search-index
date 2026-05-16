@@ -99,6 +99,258 @@ The core `indexPdfs` / `extractPdfText` / `extractPdfsFromBody` functions don't 
 
 ---
 
+## Where your PDFs can live
+
+The package consumes URLs. Anything fetchable at build time becomes a searchable row — there's no required hosting model. The four patterns below cover everything we've seen in real deployments.
+
+### Pattern 1 — Alongside the site (static / `public/`)
+
+The simplest case. Drop PDFs into your framework's static-asset directory and let the build pipeline ship them with the rest of the site:
+
+| Framework  | Drop PDFs in                   | Served at       |
+| ---------- | ------------------------------ | --------------- |
+| Astro      | `public/docs/`                 | `/docs/foo.pdf` |
+| Vite / Vue | `public/docs/`                 | `/docs/foo.pdf` |
+| Next.js    | `public/docs/`                 | `/docs/foo.pdf` |
+| Nuxt       | `public/docs/`                 | `/docs/foo.pdf` |
+| 11ty       | `src/docs/` (passthrough copy) | `/docs/foo.pdf` |
+
+Reference them in markdown content or pass the URL list directly:
+
+```ts
+// scripts/build-index.mjs (run as a prebuild step)
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+// The PDFs ship from public/docs/. During build, your dev server is up at
+// the framework's port (Astro 4321, Vite 5173, Next 3000, Nuxt 3000) —
+// fetch them through that.
+const rows = await indexPdfs([
+  'http://localhost:4321/docs/annual-report.pdf',
+  'http://localhost:4321/docs/faq.pdf',
+]);
+```
+
+For frameworks that don't run a dev server during build (or for hermetic CI), use a `file://` URL with a small `localFetch` helper (every example in [`examples/*`](./examples) demonstrates this pattern):
+
+```ts
+import { indexPdfs } from '@icjia/pdf-search-index';
+import { localFetch } from './local-fetch.mjs';
+import { resolve } from 'node:path';
+
+const rows = await indexPdfs([`file://${resolve('public/docs/annual-report.pdf')}`], {
+  fetch: localFetch,
+});
+```
+
+**When to use this pattern:** small fixed corpus, slow-churn content, single team owns both content and code, no CMS in the stack.
+
+### Pattern 2 — External CMS (Strapi, Sanity, Contentful, Drupal, etc.)
+
+PDFs live in the CMS's media library; content authors upload them through the CMS UI; the markdown body references them via standard `[Title](url)` links. Your Nuxt / Astro / Next build fetches the body at build time, the package walks it, and the PDF text becomes searchable alongside the page text.
+
+This is the canonical case for `@icjia/nuxt-pdf-search-index`. The module ships `extractPdfsFromCmsBody` for exactly this flow.
+
+#### Strapi v5 (current as of 2025+)
+
+v5 dropped the `attributes` wrapper — fields sit on the data object directly. Document IDs (string) replaced numeric `id`s as the stable identifier.
+
+```ts
+// server/api/searchIndex.get.ts
+import { extractPdfsFromCmsBody } from '#imports';
+
+interface StrapiV5Page {
+  documentId: string;
+  title: string;
+  body: string;
+}
+
+export default defineEventHandler(async () => {
+  const res = await $fetch<{ data: StrapiV5Page[] }>('https://cms.example.com/api/pages');
+
+  const pdfs = [];
+  for (const page of res.data) {
+    pdfs.push(...(await extractPdfsFromCmsBody(page.body)));
+  }
+  return pdfs;
+});
+```
+
+#### Strapi v4
+
+Wraps fields in `attributes`. Media relations need `populate=*` to be returned.
+
+```ts
+import { extractPdfsFromCmsBody } from '#imports';
+
+interface StrapiV4Page {
+  id: number;
+  attributes: {
+    title: string;
+    body: string;
+  };
+}
+
+const res = await $fetch<{ data: StrapiV4Page[] }>('https://cms.example.com/api/pages?populate=*');
+
+const pdfs = [];
+for (const page of res.data) {
+  pdfs.push(...(await extractPdfsFromCmsBody(page.attributes.body)));
+}
+```
+
+#### Strapi v3
+
+Flat response shape (no `data` envelope, no `attributes`).
+
+```ts
+import { extractPdfsFromCmsBody } from '#imports';
+
+interface StrapiV3Page {
+  id: number;
+  title: string;
+  body: string;
+}
+
+const pages = await $fetch<StrapiV3Page[]>('https://cms.example.com/pages');
+
+const pdfs = [];
+for (const page of pages) {
+  pdfs.push(...(await extractPdfsFromCmsBody(page.body)));
+}
+```
+
+#### Strapi quirk: relative URLs
+
+By default, Strapi 4/5 serves uploaded media at relative paths like `/uploads/annual-report-abc123.pdf`. The URL scanner only matches absolute `https?://` URLs, so you need to absolutize before scanning:
+
+```ts
+const CMS_BASE = process.env.CMS_BASE!; // e.g. 'https://cms.example.com'
+
+const absolutized = page.body.replaceAll(/\]\((\/uploads\/[^)]+\.pdf)/g, `](${CMS_BASE}$1`);
+pdfs.push(...(await extractPdfsFromCmsBody(absolutized)));
+```
+
+Or configure Strapi to serve absolute URLs (Strapi 4/5: set `url` in `config/server.ts` to your public CMS hostname; or use an upload provider like `aws-s3` that returns absolute CDN URLs).
+
+#### Strapi quirk: token-gated uploads
+
+If your Strapi instance requires a JWT or API token to download media (private media or `users-permissions` restrictions), pass a custom `fetch` with the auth header:
+
+```ts
+const authFetch: typeof fetch = (input, init) =>
+  fetch(input, {
+    ...init,
+    headers: {
+      ...(init?.headers ?? {}),
+      Authorization: `Bearer ${process.env.STRAPI_TOKEN}`,
+    },
+  });
+
+pdfs.push(...(await extractPdfsFromCmsBody(body, { fetch: authFetch })));
+```
+
+The `fetch` option threads through to every PDF download. Same pattern works for Bearer / Basic / API-key / custom-header auth on any CMS.
+
+#### Strapi quirk: PDFs as structured media relations (not in body markdown)
+
+If your CMS schema stores PDFs as typed media fields (`attachments: Media[]`) rather than as markdown links inside `body`, the scanner won't find them. Skip `extractPdfsFromCmsBody` and call `indexPdfs` directly with the URL list:
+
+```ts
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const directRows = await indexPdfs(
+  page.attachments.map((a) => ({
+    url: CMS_BASE + a.url,
+    title: a.name ?? a.alternativeText,
+  })),
+);
+```
+
+#### Other CMSes
+
+The pattern generalizes — any CMS that returns markdown bodies with `[Title](https://...pdf)` links works with `extractPdfsFromCmsBody` or core's `extractPdfsFromBody`. Sanity (`portableTextToMarkdown` first), Contentful (rich-text rendered to markdown), Directus, Drupal — all use the same shape.
+
+### Pattern 3 — External CDN (S3, Cloudflare R2, GitHub raw, etc.)
+
+PDFs live on an object store at known HTTPS URLs. Pass the URL list directly to `indexPdfs`:
+
+```ts
+import { indexPdfs } from '@icjia/pdf-search-index';
+
+const rows = await indexPdfs([
+  'https://cdn.example.com/reports/2024-annual.pdf',
+  'https://cdn.example.com/reports/2023-annual.pdf',
+  { url: 'https://cdn.example.com/legal/policy.pdf', title: 'Privacy Policy' },
+]);
+```
+
+Works with signed URLs (S3 presigned, Cloudflare signed URLs) — just refresh them in your build script. For private buckets requiring SDK auth, use a custom `fetch` that pulls from the SDK:
+
+```ts
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+const s3 = new S3Client({ region: 'us-east-1' });
+const signedFetch: typeof fetch = async (input) => {
+  const url = typeof input === 'string' ? input : input.toString();
+  if (url.startsWith('s3://')) {
+    const [, , bucket, ...keyParts] = url.split('/');
+    const signed = await getSignedUrl(
+      s3,
+      new GetObjectCommand({ Bucket: bucket, Key: keyParts.join('/') }),
+      { expiresIn: 60 },
+    );
+    return fetch(signed);
+  }
+  return fetch(input);
+};
+
+const rows = await indexPdfs(['s3://my-bucket/reports/2024.pdf'], { fetch: signedFetch });
+```
+
+### Pattern 4 — Local-only (build-time, tests / examples)
+
+For hermetic builds where the PDFs ship in your repo and never get a public URL, use `file://` URLs + a `localFetch` helper that intercepts the `file://` scheme. Every example in [`examples/`](./examples) uses this pattern — see [`examples/plain-node/local-fetch.mjs`](./examples/plain-node/local-fetch.mjs) for the 15-line helper.
+
+```ts
+import { indexPdfs } from '@icjia/pdf-search-index';
+import { localFetch } from './local-fetch.mjs';
+import { resolve } from 'node:path';
+
+const rows = await indexPdfs(
+  [`file://${resolve('./fixtures/foo.pdf')}`, `file://${resolve('./fixtures/bar.pdf')}`],
+  { fetch: localFetch },
+);
+```
+
+**When to use this pattern:** offline / air-gapped builds, deterministic fixtures for tests, examples in this repo.
+
+### What's configurable
+
+Every pattern above goes through the same options object. The full list:
+
+| Option         | Type                             | Default                      | What it's for                                                                |
+| -------------- | -------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| `cacheDir`     | `string`                         | `'.pdf-cache'`               | Where extracted text is cached on disk between builds                        |
+| `fetch`        | `typeof fetch`                   | global `fetch`               | **The escape hatch** — auth headers, `file://` URLs, signed URLs, redirects  |
+| `fetchTimeout` | `number` (ms)                    | `30000`                      | Abort the fetch after this many ms                                           |
+| `maxBytes`     | `number`                         | `100 * 1024 * 1024` (100 MB) | Reject PDFs larger than this                                                 |
+| `concurrency`  | `number`                         | `4`                          | Parallel downloads via `p-limit`                                             |
+| `cache`        | `'use' \| 'bypass' \| 'refresh'` | `'use'`                      | `bypass` skips read+write; `refresh` overwrites cache; `use` is read-through |
+
+For the Astro and Nuxt adapters, these flow through too — see the [Astro integration](#astro-integration) and [Nuxt 4 module](#nuxt-4-module) sections for the adapter-specific option tables.
+
+### Cache invalidation across hosting patterns
+
+Cache keys are `SHA-256(url)` truncated to 16 hex chars. Implications by hosting model:
+
+- **Static `/public/` PDFs** — URL stable for the life of a deploy. Cache works perfectly.
+- **Strapi (and most CMSes)** — uploads usually get a hash suffix in the filename (`annual-report-abc123.pdf`), so a re-upload gets a new URL and the cache invalidates naturally. If your CMS overwrites at the same URL (rare; check your media provider config), run `pdf-search-index cache rm <url>` or just `pdf-search-index cache clear` in your build script before `indexPdfs`.
+- **External CDN with content-addressed URLs (S3 + Cloudfront with versioning, R2 with hashes)** — same as Strapi-with-hashing. Naturally cache-friendly.
+- **External CDN with stable URLs (no versioning)** — same caveat as Strapi-no-hashing. Use `--refresh` or clear the cache when you know the content changed.
+
+---
+
 ## Core API
 
 ### `extractPdfText(url, options?) → Promise<string>`
