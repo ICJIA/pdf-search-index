@@ -177,13 +177,17 @@ try {
 // added as a defensive fallback. The !important on the legacy selectors is
 // required because pdf.js's own viewer.css applies them with normal
 // specificity and our additions need to win.
+// Marker string used by the idempotency check below. Must appear verbatim
+// inside the appended overrides block — duplicate the literal in both places
+// (or the check silently re-applies the patch on every build).
+const PATCH_MARKER = '@icjia/pdf-search-index demo overrides';
 const viewerCssPath = resolve(outDir, 'web', 'viewer.css');
 try {
   const existing = await readFile(viewerCssPath, 'utf8');
-  if (!existing.includes('icjia-pdf-search-index demo overrides')) {
+  if (!existing.includes(PATCH_MARKER)) {
     const overrides = `
 
-/* === @icjia/pdf-search-index demo overrides — high-contrast find highlights === */
+/* === ${PATCH_MARKER} — high-contrast find highlights === */
 :root,
 .viewer {
   /* Regular matches: lime, ~50% alpha so text underneath stays legible */
