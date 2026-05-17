@@ -23,3 +23,7 @@ examples/eleventy/src/_data/searchIndex.json
 examples/nuxt-mixed/.nuxt/
 examples/nuxt-mixed/.output/
 examples/nuxt-mixed/content/
+examples/netlify-demo/public/searchIndex.fuse-index.json
+# v1.4: vendored upstream source — kept byte-identical to officeparser@5.2.2.
+# See packages/core/src/vendor/README.md for the upstream-tracking contract.
+packages/core/src/vendor/

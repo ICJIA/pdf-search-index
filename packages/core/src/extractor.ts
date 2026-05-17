@@ -1,6 +1,10 @@
+import { createRequire } from 'node:module';
 import { readCache, writeCache } from './cache.js';
+import { scrubControl, scrubUrl } from './scrub.js';
 import type { DocumentFormat, ExtractOptions } from './types.js';
 import { inspectZipUncompressedSize } from './zip-inspector.js';
+
+export { scrubControl, scrubUrl };
 
 const DEFAULT_CACHE_DIR = '.pdf-cache';
 const DEFAULT_FETCH_TIMEOUT = 30_000;
@@ -122,21 +126,10 @@ export function detectFormatFamilyFromBytes(bytes: Uint8Array): 'pdf' | 'office'
  * Control characters in the host are replaced with `?` so an attacker
  * can't smuggle terminal escapes / CRLF into log output.
  */
-export function scrubUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    return scrubControl(`${u.protocol}//${u.host}`);
-  } catch {
-    return '[invalid-url]';
-  }
-}
-
-function scrubControl(s: string): string {
-  // Strip ASCII control chars (incl. CR, LF, tab) and the DEL byte. The
-  // input is expected to be ASCII-clean (URL chars), so this is conservative.
-  // eslint-disable-next-line no-control-regex
-  return s.replace(/[\x00-\x1f\x7f]/g, '?');
-}
+// scrubUrl / scrubControl moved to ./scrub.ts in v1.4 so browser-facing
+// entries (/flexsearch, /pagefind, /worker) can import them without
+// dragging node:module / node:fs into the client bundle. Re-exported
+// at the top of this file for back-compat.
 
 /**
  * Categorize a parse error message into a short tag. The full message is
@@ -375,24 +368,39 @@ async function parseOfficeDoc(
     // null inspection or pass — proceed to parse.
   }
 
-  // Dynamic import keeps the cold-start cost down — officeparser only
-  // loads on the first DOCX/PPTX/XLSX call, so PDF-only consumers
-  // don't pay the resolution cost. As of v1.3 `officeparser` is a
-  // **bundledDependency** (not an optional peer), so the install is
-  // guaranteed; we no longer surface an "install the peer dep"
-  // message. A failure here means something is wrong with the
-  // bundled install — preserve the underlying error for triage.
+  // v1.4: the officeparser source is **vendored** into
+  // `src/vendor/officeparser/officeParser.cjs` (copied byte-identical
+  // from officeparser@5.2.2). The CJS module is loaded synchronously
+  // via `createRequire(import.meta.url)` so it works from any entry's
+  // bundled output position — tsup emits dist/<entry>.js, import.meta.url
+  // resolves to the entry file at runtime, and the relative path
+  // `./vendor/officeparser/officeParser.cjs` lands on dist/vendor/...
+  // which is copied by tsup's onSuccess hook.
+  //
+  // Why createRequire instead of dynamic `import()`: a dynamic import
+  // of a `.cjs` file from inside an ESM module via `new Function` was
+  // failing with "A dynamic import callback was not specified" in
+  // Node 20+ — the Function-constructed callback has no module loader
+  // hook attached. createRequire bypasses ESM entirely and uses Node's
+  // standard CommonJS resolution against import.meta.url's directory.
+  //
+  // The vendored officeParser.cjs still requires four small transitive
+  // deps at module load time (concat-stream, @xmldom/xmldom, file-type,
+  // yauzl) — those remain as direct npm `dependencies` because each is
+  // widely-used with multiple maintainers (lower takedown risk than the
+  // single-maintainer officeparser itself). See src/vendor/README.md.
   let parseOfficeAsync: (buffer: Buffer) => Promise<string>;
   try {
-    const mod = await import('officeparser');
-    // officeparser's type accepts string | ArrayBuffer | Buffer; we always
-    // pass Buffer. Narrow the signature so the call site stays clean.
-    parseOfficeAsync = mod.parseOfficeAsync as unknown as (buffer: Buffer) => Promise<string>;
+    const requireFromHere = createRequire(import.meta.url);
+    const mod = requireFromHere('./vendor/officeparser/officeParser.cjs') as {
+      parseOfficeAsync: (b: Buffer) => Promise<string>;
+    };
+    parseOfficeAsync = mod.parseOfficeAsync;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[pdf-search-index] ${scrubbedUrl}: failed to load the bundled officeparser dependency. ` +
-        `This is unexpected — officeparser is bundled with @icjia/pdf-search-index@1.3.0+. ` +
+      `[pdf-search-index] ${scrubbedUrl}: failed to load the vendored officeparser source. ` +
+        `This is unexpected — officeparser is vendored into @icjia/pdf-search-index@1.4.0+. ` +
         `Underlying error: ${scrubControl(msg)}`,
     );
     return null;

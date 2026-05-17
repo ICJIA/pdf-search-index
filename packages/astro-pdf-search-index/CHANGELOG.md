@@ -1,5 +1,15 @@
 # @icjia/astro-pdf-search-index
 
+## 1.4.0
+
+### Minor Changes
+
+Lockstep release. Adapter source is byte-identical to 1.3.1; the bump exists so the npmjs.com-rendered README matches the supply-chain hardening (vendored officeparser source), `scrubControl` extraction to `./scrub.js`, V13-4/V13-5 informational sweeps, and dynamic per-engine tune UI in the netlify demo.
+
+**Consumers indexing DOCX/PPTX/XLSX no longer need the `officeparser` npm package.** The integration's content-collection walker continues to call `extractDocumentsFromBody` from `@icjia/pdf-search-index@^1.4.0`, which now uses a vendored copy of the officeparser source loaded via `createRequire(import.meta.url)`. The four small transitive deps it needs (`@xmldom/xmldom`, `concat-stream`, `file-type`, `yauzl`) are core-package `dependencies` and resolve automatically.
+
+See the [core CHANGELOG entry for 1.4.0](../core/CHANGELOG.md#140) for the full surface summary, including the audit-pass verification and the `scrub.ts` browser-compat fix that unblocked Vite consumers building against the `/flexsearch`, `/snippet`, and `/worker` entries.
+
 ## 1.3.1
 
 ### Patch Changes

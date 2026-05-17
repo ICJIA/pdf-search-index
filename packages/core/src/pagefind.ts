@@ -63,6 +63,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname, sep as pathSep } from 'node:path';
 import type { IndexedDocument } from './types.js';
+import { scrubControl } from './scrub.js';
 
 export interface EmitPagefindHTMLOptions {
   /**
@@ -109,7 +110,12 @@ const HTML_ESCAPE: Record<string, string> = {
 };
 
 function escapeHTMLText(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => HTML_ESCAPE[c] ?? c);
+  // v1.4 (V13-4): strip ASCII control bytes BEFORE HTML-escape so NUL,
+  // ESC, BEL, DEL, CR etc. extracted from a hostile document can't
+  // smuggle terminal-control sequences into the emitted HTML body. The
+  // five HTML metachars are then escaped as before. Consistent with the
+  // scrubControl helper used in extractor.ts for log lines.
+  return scrubControl(s).replace(/[&<>"']/g, (c) => HTML_ESCAPE[c] ?? c);
 }
 
 /**

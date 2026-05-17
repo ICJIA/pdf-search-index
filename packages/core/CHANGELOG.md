@@ -1,5 +1,27 @@
 # @icjia/pdf-search-index
 
+## 1.4.0
+
+### Minor Changes
+
+**Supply-chain hardening + dynamic tune UI + V13 informational sweep.** Four shipped items in one minor:
+
+1. **Vendored officeparser source.** The `officeparser@5.2.2` source (single 42 KB CJS file) is now copied byte-identical into `packages/core/src/vendor/officeparser/officeParser.cjs` and loaded via `createRequire(import.meta.url)` resolution against `dist/vendor/`. If officeparser is ever removed from npm (single-maintainer takedown risk), DOCX/PPTX/XLSX support keeps working with no consumer action. `officeparser` is **no longer a `dependencies` entry** — replaced with the four small transitive deps it requires at module load (`@xmldom/xmldom`, `concat-stream`, `file-type`, `yauzl`), each of which is widely used with multiple maintainers (lower individual takedown risk). Full upstream-tracking docs at [`src/vendor/README.md`](src/vendor/README.md). The vendored source is shipped via tsup's `onSuccess` hook (`src/vendor` → `dist/vendor`).
+
+2. **`scrubControl` / `scrubUrl` moved to `./scrub.js`.** Both helpers were previously private exports of `extractor.ts`. With v1.4's `createRequire` import, the entire extractor module pulled `node:module` into any client bundle that transitively imported it through `/flexsearch`, `/snippet`, or `/worker` — the demo build started failing in Vite with `Module "module" has been externalized for browser compatibility`. The helpers now live in their own no-Node-deps file; browser entries import directly from there. **No public API change** — `extractor.ts` re-exports both helpers for back-compat, and `index.ts` continues to surface `scrubUrl` exactly as before.
+
+3. **V13 informational sweep.** Closes V13-4 and V13-5 from the 6th adversarial audit (2026-05-16):
+   - **V13-4:** `/pagefind` `escapeHTMLText` now strips ASCII control bytes (NUL through US, plus DEL) **before** HTML-escaping. Defangs ANSI-escape smuggling through emitted Pagefind body text when extracted from a hostile document. Not an XSS, but consistent with the scrubControl-on-extracted-text discipline applied to log lines (M3) and the cache layer.
+   - **V13-5:** `/flexsearch` and `/worker` now route `e.message` through `scrubControl` before concatenating into thrown errors. Consistency with extractor.ts's parse-error and fetch-error log paths.
+
+4. **Dynamic tune UI in the netlify demo.** The flagship demo's "Tune Fuse.js, live" card now switches its **heading, controls, current-config snippet, and reset behavior** based on the selected engine. Fuse keeps its existing 17 tunables; FlexSearch gets 5 (tokenize, encode, resolution, optimize, cache) + per-field title/text toggles; Pagefind gets `excerptLength` + the four BM25 ranking knobs (`termFrequency`, `pageLength`, `termSimilarity`, `termSaturation`). FlexSearch tunables rebuild the index on change; Pagefind tunables push to `pagefindLib.options({...})` and re-run the active query.
+
+**Verification:** 7th adversarial audit (2026-05-17) scoped to the vendored officeparser source, V13 sweeps, and the per-engine tune card. **Zero new exploitable findings.** All 167 existing tests continue to pass; vendored Office-format extraction round-trips byte-identically with the previous `import('officeparser')` path. The vendored `.cjs` file is loaded synchronously via Node's standard CommonJS resolution — no dynamic-import-callback complications, no bundler interaction.
+
+**Migration:** None. PDF-only consumers see no change. DOCX/PPTX/XLSX consumers should observe identical extraction output; the load path is internal. Consumers using `officeparser` directly outside this package should keep installing it from npm — the vendoring is **internal to `@icjia/pdf-search-index`** and not re-exported.
+
+**Engine-toggle button spacing fix.** The "Fuse.js / FlexSearch / Pagefind" segmented control's bottom padding is bumped (`0.7rem → 0.85rem 0.8rem 1rem`) with a `min-height: 4rem` floor and a tighter `line-height: 1.25`. Eliminates the visual clipping on the `< 2.5K docs` / `2.5K – 10K` / `10K+` corpus-range labels.
+
 ## 1.3.1
 
 ### Patch Changes

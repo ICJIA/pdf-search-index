@@ -159,17 +159,17 @@
 
     <section class="tune" aria-labelledby="tune-heading">
       <h2 id="tune-heading" class="tune__heading">
-        Tune Fuse.js, live
+        {{ tuneHeading }}
         <a
-          href="https://github.com/krisk/Fuse/releases/tag/v7.4.0-beta.6"
+          :href="tuneVersionPill.href"
           target="_blank"
           rel="noopener noreferrer"
           class="tune__version-pill"
-          aria-label="View fuse.js v7.4.0-beta.6 release on GitHub"
-          >v7.4.0-beta.6</a
+          :aria-label="tuneVersionPill.ariaLabel"
+          >{{ tuneVersionPill.label }}</a
         >
       </h2>
-      <div class="tune__card">
+      <div v-if="engine === 'fuse'" class="tune__card">
         <!-- Match scoring -->
         <h3 class="tune__group-heading">Match scoring</h3>
         <div class="tune__controls">
@@ -423,6 +423,258 @@
         </div>
 
         <div class="tune__config" aria-label="Current Fuse.js configuration">
+          <p class="tune__config-label">Current config</p>
+          <pre><code>{{ configSnippet }}</code></pre>
+        </div>
+
+        <div class="tune__reset-row">
+          <button type="button" class="tune__reset" @click="resetDefaults">
+            Reset to defaults
+          </button>
+        </div>
+      </div>
+
+      <!--
+        v1.4: FlexSearch tune card. FlexSearch's Document index is
+        configured at construction — any change here forces a full
+        index rebuild via the watcher in <script>. Five tunables:
+        tokenize, encode, resolution, optimize, cache. Two field
+        toggles for the "Search in" group (title / text).
+      -->
+      <div v-else-if="engine === 'flexsearch'" class="tune__card">
+        <h3 class="tune__group-heading">Index encoding</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label for="flex-tokenize">tokenize</label>
+            <select id="flex-tokenize" v-model="flexTokenize" class="tune__select">
+              <option value="strict">strict (whole word)</option>
+              <option value="forward">forward (prefix-friendly)</option>
+              <option value="reverse">reverse (suffix-friendly)</option>
+              <option value="full">full (every substring)</option>
+            </select>
+            <p class="tune__help">
+              How each field is split into searchable tokens. <code>forward</code> is the typeahead
+              sweet spot; <code>full</code> indexes every substring (≈4× index size).
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="flex-encode">encode</label>
+            <select id="flex-encode" v-model="flexEncode" class="tune__select">
+              <option value="icase">icase (ASCII case-fold)</option>
+              <option value="simple">simple (icase + light fold)</option>
+              <option value="advanced">advanced (phonetic-ish)</option>
+              <option value="extra">extra (heavy phonetic)</option>
+            </select>
+            <p class="tune__help">
+              Top-level normalization. <code>advanced</code> handles "fone"→"phone";
+              <code>extra</code> is heaviest and slowest to build.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="flex-resolution">resolution: {{ flexResolution }}</label>
+            <input
+              id="flex-resolution"
+              v-model.number="flexResolution"
+              type="range"
+              min="1"
+              max="9"
+              step="1"
+              class="tune__slider"
+              :aria-valuenow="flexResolution"
+              aria-valuemin="1"
+              aria-valuemax="9"
+            />
+            <p class="tune__help">
+              Per-field scoring resolution. Higher = finer ranking, bigger index. Default 9.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="flex-optimize">
+              <input id="flex-optimize" v-model="flexOptimize" type="checkbox" />
+              <span>optimize</span>
+            </label>
+            <p class="tune__help">
+              Drop less-useful index keys for smaller memory at the cost of recall on rare queries.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label class="tune__checkbox" for="flex-cache">
+              <input id="flex-cache" v-model="flexCache" type="checkbox" />
+              <span>cache</span>
+            </label>
+            <p class="tune__help">
+              Cache recent query results inside FlexSearch — useful for typeahead UIs where the same
+              prefix gets queried character-by-character.
+            </p>
+          </div>
+        </div>
+
+        <hr class="tune__divider" />
+
+        <h3 class="tune__group-heading">Indexed fields</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <span class="tune__group-label" id="flex-keys-label">Search in:</span>
+            <div class="tune__checkbox-group" role="group" aria-labelledby="flex-keys-label">
+              <label class="tune__checkbox" for="flex-key-title">
+                <input id="flex-key-title" v-model="flexSearchTitle" type="checkbox" />
+                <span>title</span>
+              </label>
+              <label class="tune__checkbox" for="flex-key-text">
+                <input id="flex-key-text" v-model="flexSearchText" type="checkbox" />
+                <span>text</span>
+              </label>
+            </div>
+            <p class="tune__help">
+              Toggle which fields go into FlexSearch&rsquo;s document index. Both fields use the
+              same tokenize / resolution / optimize settings above. Disabling both yields an empty
+              index.
+            </p>
+          </div>
+        </div>
+
+        <div class="tune__config" aria-label="Current FlexSearch configuration">
+          <p class="tune__config-label">Current config</p>
+          <pre><code>{{ configSnippet }}</code></pre>
+        </div>
+
+        <div class="tune__reset-row">
+          <button type="button" class="tune__reset" @click="resetDefaults">
+            Reset to defaults
+          </button>
+        </div>
+      </div>
+
+      <!--
+        v1.4: Pagefind tune card. Most Pagefind config is build-time —
+        chunked index emitted via `npx pagefind --site dist`. Runtime
+        surface is small: excerptLength (words around match) and four
+        BM25-style ranking knobs. `.options({...})` applies live.
+      -->
+      <div v-else class="tune__card">
+        <aside class="tune__pagefind-note">
+          <strong>Most Pagefind tuning is build-time.</strong> The chunked index is emitted by
+          <code>npx pagefind --site dist</code> at build, and its scoring is driven by
+          <code>data-pagefind-weight</code>, <code>data-pagefind-filter</code>, and
+          <code>data-pagefind-sort</code> attributes on the source HTML. Below are the few
+          parameters that <em>are</em> tunable at runtime via <code>pagefind.options(...)</code>.
+        </aside>
+
+        <h3 class="tune__group-heading">Excerpt</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label for="pf-excerpt-length">excerptLength: {{ pagefindExcerptLength }} words</label>
+            <input
+              id="pf-excerpt-length"
+              v-model.number="pagefindExcerptLength"
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              class="tune__slider"
+              :aria-valuenow="pagefindExcerptLength"
+              aria-valuemin="10"
+              aria-valuemax="100"
+            />
+            <p class="tune__help">
+              How many words Pagefind returns around the match in <code>data().excerpt</code>.
+            </p>
+          </div>
+        </div>
+
+        <hr class="tune__divider" />
+
+        <h3 class="tune__group-heading">Ranking (BM25-style)</h3>
+        <div class="tune__controls">
+          <div class="tune__control">
+            <label for="pf-term-frequency"
+              >termFrequency: {{ pagefindTermFrequency.toFixed(2) }}</label
+            >
+            <input
+              id="pf-term-frequency"
+              v-model.number="pagefindTermFrequency"
+              type="range"
+              min="0"
+              max="2"
+              step="0.05"
+              class="tune__slider"
+              :aria-valuenow="pagefindTermFrequency"
+              aria-valuemin="0"
+              aria-valuemax="2"
+            />
+            <p class="tune__help">
+              BM25 <code>k1</code>. Lower = repeated terms add less; higher = repetition matters
+              more. Default 1.0.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="pf-page-length">pageLength: {{ pagefindPageLength.toFixed(2) }}</label>
+            <input
+              id="pf-page-length"
+              v-model.number="pagefindPageLength"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              class="tune__slider"
+              :aria-valuenow="pagefindPageLength"
+              aria-valuemin="0"
+              aria-valuemax="1"
+            />
+            <p class="tune__help">
+              BM25 <code>b</code>. How much document length penalizes the score. Default 0.75.
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="pf-term-similarity"
+              >termSimilarity: {{ pagefindTermSimilarity.toFixed(2) }}</label
+            >
+            <input
+              id="pf-term-similarity"
+              v-model.number="pagefindTermSimilarity"
+              type="range"
+              min="0"
+              max="2"
+              step="0.05"
+              class="tune__slider"
+              :aria-valuenow="pagefindTermSimilarity"
+              aria-valuemin="0"
+              aria-valuemax="2"
+            />
+            <p class="tune__help">
+              How aggressively Pagefind matches near-but-not-exact terms (typo / stem tolerance).
+            </p>
+          </div>
+
+          <div class="tune__control">
+            <label for="pf-term-saturation"
+              >termSaturation: {{ pagefindTermSaturation.toFixed(2) }}</label
+            >
+            <input
+              id="pf-term-saturation"
+              v-model.number="pagefindTermSaturation"
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.05"
+              class="tune__slider"
+              :aria-valuenow="pagefindTermSaturation"
+              aria-valuemin="0.5"
+              aria-valuemax="2"
+            />
+            <p class="tune__help">
+              Diminishing returns on repeated terms. Higher = less penalty for repetition.
+            </p>
+          </div>
+        </div>
+
+        <div class="tune__config" aria-label="Current Pagefind configuration">
           <p class="tune__config-label">Current config</p>
           <pre><code>{{ configSnippet }}</code></pre>
         </div>
@@ -976,6 +1228,40 @@ const engineLabel = computed(
 // FlexSearch?" when FlexSearch, etc.
 const whyHeading = computed(() => `Why ${engineLabel.value}?`);
 
+/**
+ * v1.4: per-engine tune heading + version pill. The "Tune Fuse.js, live"
+ * card switches to "Tune FlexSearch, live" / "Tune Pagefind, live" based
+ * on the active engine. The version pill points at the matching release
+ * page so the user can verify the exact API surface against upstream docs.
+ */
+const tuneHeading = computed(() => {
+  if (engine.value === 'fuse') return 'Tune Fuse.js, live';
+  if (engine.value === 'flexsearch') return 'Tune FlexSearch, live';
+  return 'Tune Pagefind, live';
+});
+
+const tuneVersionPill = computed(() => {
+  if (engine.value === 'fuse') {
+    return {
+      label: 'v7.4.0-beta.6',
+      href: 'https://github.com/krisk/Fuse/releases/tag/v7.4.0-beta.6',
+      ariaLabel: 'View fuse.js v7.4.0-beta.6 release on GitHub',
+    };
+  }
+  if (engine.value === 'flexsearch') {
+    return {
+      label: 'v0.7.43',
+      href: 'https://github.com/nextapps-de/flexsearch/releases/tag/0.7.43',
+      ariaLabel: 'View FlexSearch v0.7.43 release on GitHub',
+    };
+  }
+  return {
+    label: 'v1.x',
+    href: 'https://pagefind.app/docs/',
+    ariaLabel: 'View Pagefind v1.x docs',
+  };
+});
+
 // Per-engine stats. Reset whenever the engine switches.
 interface EngineStats {
   indexBuildMs: number | null;
@@ -1036,6 +1322,66 @@ const useTokenSearch = ref<boolean>(DEFAULTS.useTokenSearch);
 const tokenSearch = ref<boolean>(DEFAULTS.tokenSearch);
 const searchTitle = ref<boolean>(DEFAULTS.searchTitle);
 const searchText = ref<boolean>(DEFAULTS.searchText);
+
+/**
+ * v1.4: FlexSearch tunables. FlexSearch's `Document` index is configured
+ * at construction time — changing any of these forces a full index rebuild
+ * via `buildFlexIndex()`. The watcher below handles that.
+ *
+ * - `flexTokenize` — per-field segmentation: 'strict' (full word), 'forward'
+ *   (prefix-search friendly), 'reverse' (suffix), 'full' (every substring).
+ *   Forward is the sweet spot for typeahead UX; full hits a ~4x index size.
+ * - `flexEncode` — top-level normalization: 'icase' (case-fold only),
+ *   'simple' (icase + light ASCII fold), 'advanced' (phonetic-ish — handles
+ *   "fone"→"phone"), 'extra' (heavier phonetic — slower index build).
+ * - `flexResolution` — per-field scoring resolution; higher = finer ranking,
+ *   bigger index. FlexSearch's default is 9.
+ * - `flexOptimize` — drops less-useful index keys for smaller memory at the
+ *   cost of recall on rare queries.
+ * - `flexCache` — caches recent query results inside FlexSearch. Useful for
+ *   typeahead where the same prefix is queried character-by-character.
+ */
+const FLEX_DEFAULTS = {
+  tokenize: 'forward' as 'strict' | 'forward' | 'reverse' | 'full',
+  encode: 'icase' as 'icase' | 'simple' | 'advanced' | 'extra',
+  resolution: 9,
+  optimize: true,
+  cache: true,
+  searchTitle: true,
+  searchText: true,
+} as const;
+
+const flexTokenize = ref<'strict' | 'forward' | 'reverse' | 'full'>(FLEX_DEFAULTS.tokenize);
+const flexEncode = ref<'icase' | 'simple' | 'advanced' | 'extra'>(FLEX_DEFAULTS.encode);
+const flexResolution = ref<number>(FLEX_DEFAULTS.resolution);
+const flexOptimize = ref<boolean>(FLEX_DEFAULTS.optimize);
+const flexCache = ref<boolean>(FLEX_DEFAULTS.cache);
+const flexSearchTitle = ref<boolean>(FLEX_DEFAULTS.searchTitle);
+const flexSearchText = ref<boolean>(FLEX_DEFAULTS.searchText);
+
+/**
+ * v1.4: Pagefind tunables. Pagefind's heavy lifting is build-time
+ * (chunked index emitted from HTML), so only a small surface is runtime-
+ * tunable via `pagefindLib.options({...})`. The four ranking knobs map
+ * to BM25-style parameters that affect score; `excerptLength` controls
+ * the number of words rendered around the match in `data().excerpt`.
+ *
+ * Changing any of these calls `.options()` on the loaded Pagefind lib
+ * and re-runs the current search. No index rebuild needed.
+ */
+const PAGEFIND_DEFAULTS = {
+  excerptLength: 30,
+  termFrequency: 1.0,
+  pageLength: 0.75,
+  termSimilarity: 1.0,
+  termSaturation: 1.4,
+} as const;
+
+const pagefindExcerptLength = ref<number>(PAGEFIND_DEFAULTS.excerptLength);
+const pagefindTermFrequency = ref<number>(PAGEFIND_DEFAULTS.termFrequency);
+const pagefindPageLength = ref<number>(PAGEFIND_DEFAULTS.pageLength);
+const pagefindTermSimilarity = ref<number>(PAGEFIND_DEFAULTS.termSimilarity);
+const pagefindTermSaturation = ref<number>(PAGEFIND_DEFAULTS.termSaturation);
 
 const keysSelected = computed(() => searchTitle.value || searchText.value);
 
@@ -1163,10 +1509,52 @@ const fuseResults = computed<FuseResult<IndexedPdf>[]>(() => {
 const flexIndex = ref<any | null>(null);
 const flexResults = ref<{ row: IndexedPdf; snippetHtml: string }[]>([]);
 
+function buildFlexOptions() {
+  const fields: {
+    field: string;
+    tokenize: typeof flexTokenize.value;
+    resolution: number;
+    optimize: boolean;
+  }[] = [];
+  if (flexSearchTitle.value) {
+    fields.push({
+      field: 'title',
+      tokenize: flexTokenize.value,
+      resolution: flexResolution.value,
+      optimize: flexOptimize.value,
+    });
+  }
+  if (flexSearchText.value) {
+    fields.push({
+      field: 'text',
+      tokenize: flexTokenize.value,
+      resolution: flexResolution.value,
+      optimize: flexOptimize.value,
+    });
+  }
+  return {
+    document: {
+      id: 'id',
+      index: fields,
+      store: ['url', 'title', 'format', 'pages'],
+    },
+    encode: flexEncode.value,
+    cache: flexCache.value,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+}
+
 async function buildFlexIndex(): Promise<void> {
   if (!rows.value.length) return;
+  // Skip rebuild if neither field is selected — would yield an empty index
+  // and FlexSearch throws. The template's tune card prevents this state
+  // through "Search in:" checkbox guards, but defensively handle it.
+  if (!flexSearchTitle.value && !flexSearchText.value) {
+    flexIndex.value = null;
+    return;
+  }
   const t0 = performance.now();
-  flexIndex.value = await createFlexSearchIndex(rows.value);
+  flexIndex.value = await createFlexSearchIndex(rows.value, { flexOptions: buildFlexOptions() });
   const buildMs = performance.now() - t0;
   if (engine.value === 'flexsearch') {
     engineStats.value = {
@@ -1176,6 +1564,59 @@ async function buildFlexIndex(): Promise<void> {
     };
   }
 }
+
+/**
+ * Rebuild FlexSearch index whenever a FlexSearch tunable changes — but
+ * only when the user is actually viewing FlexSearch. Avoids wasted work
+ * if they're tuning Fuse and the watcher accidentally fires on shared state.
+ */
+watch(
+  [
+    flexTokenize,
+    flexEncode,
+    flexResolution,
+    flexOptimize,
+    flexCache,
+    flexSearchTitle,
+    flexSearchText,
+  ],
+  () => {
+    if (engine.value === 'flexsearch') void buildFlexIndex();
+  },
+);
+
+/**
+ * Apply Pagefind runtime options when any of them change. Pagefind's
+ * `.options({...})` is cumulative — re-passing the full ranking block
+ * each time keeps the state in sync. The watcher re-runs the active
+ * query so the UI reflects the new ranking immediately.
+ */
+watch(
+  [
+    pagefindExcerptLength,
+    pagefindTermFrequency,
+    pagefindPageLength,
+    pagefindTermSimilarity,
+    pagefindTermSaturation,
+  ],
+  () => {
+    if (!pagefindLib.value) return;
+    try {
+      pagefindLib.value.options({
+        excerptLength: pagefindExcerptLength.value,
+        ranking: {
+          termFrequency: pagefindTermFrequency.value,
+          pageLength: pagefindPageLength.value,
+          termSimilarity: pagefindTermSimilarity.value,
+          termSaturation: pagefindTermSaturation.value,
+        },
+      });
+    } catch (e) {
+      console.warn('[demo] failed to apply Pagefind options', e);
+    }
+    if (engine.value === 'pagefind') void runPagefindSearch();
+  },
+);
 
 async function runFlexSearch(): Promise<void> {
   if (!flexIndex.value || !query.value.trim()) {
@@ -1229,6 +1670,21 @@ async function loadPagefind(): Promise<void> {
     // emits it as runtime-only code.
     const dynImport = new Function('p', 'return import(p)') as (p: string) => Promise<unknown>;
     pagefindLib.value = await dynImport('/_pagefind/pagefind.js');
+    // v1.4: push the tune-card defaults to Pagefind so the runtime
+    // options reflect the demo's UI from the moment Pagefind loads.
+    try {
+      pagefindLib.value.options({
+        excerptLength: pagefindExcerptLength.value,
+        ranking: {
+          termFrequency: pagefindTermFrequency.value,
+          pageLength: pagefindPageLength.value,
+          termSimilarity: pagefindTermSimilarity.value,
+          termSaturation: pagefindTermSaturation.value,
+        },
+      });
+    } catch (optErr) {
+      console.warn('[demo] failed to apply initial Pagefind options', optErr);
+    }
     if (engine.value === 'pagefind') {
       engineStats.value = {
         indexBuildMs: performance.now() - t0,
@@ -1333,10 +1789,17 @@ watch(engine, async (newEngine) => {
   }
 });
 
+/**
+ * v1.4: per-engine config snippet. Returns the live config object for the
+ * currently-selected engine, formatted as the code the user would paste
+ * into their own app. Each engine's tune section binds to a distinct set
+ * of refs above; this computed re-renders whenever any of them change.
+ */
 const configSnippet = computed(() => {
-  const keysLiteral = activeKeys.value.length ? `['${activeKeys.value.join("', '")}']` : '[]';
-  const tokenSearchActive = tokenSearch.value && !useExtendedSearch.value;
-  return `// fuse.js v7.4.0-beta.6
+  if (engine.value === 'fuse') {
+    const keysLiteral = activeKeys.value.length ? `['${activeKeys.value.join("', '")}']` : '[]';
+    const tokenSearchActive = tokenSearch.value && !useExtendedSearch.value;
+    return `// fuse.js v7.4.0-beta.6
 new Fuse(rows, {
   keys: ${keysLiteral},
   threshold: ${threshold.value.toFixed(2)},
@@ -1360,6 +1823,62 @@ new Fuse(rows, {
 // (Distinct from useTokenSearch above — the wrapper works in any Fuse version;
 //  useTokenSearch is the 7.4-beta native implementation with TF-IDF scoring.)
 // See https://www.fusejs.io/token-search.html`;
+  }
+  if (engine.value === 'flexsearch') {
+    const fields: string[] = [];
+    if (flexSearchTitle.value) {
+      fields.push(
+        `    { field: 'title', tokenize: '${flexTokenize.value}', resolution: ${flexResolution.value}, optimize: ${flexOptimize.value} }`,
+      );
+    }
+    if (flexSearchText.value) {
+      fields.push(
+        `    { field: 'text', tokenize: '${flexTokenize.value}', resolution: ${flexResolution.value}, optimize: ${flexOptimize.value} }`,
+      );
+    }
+    const fieldsBlock = fields.length ? fields.join(',\n') : '    // (no fields selected)';
+    return `// flexsearch v0.7.43
+import FlexSearch from 'flexsearch';
+
+const index = new FlexSearch.Document({
+  document: {
+    id: 'id',
+    index: [
+${fieldsBlock}
+    ],
+    store: ['url', 'title', 'format', 'pages'],
+  },
+  encode: '${flexEncode.value}',
+  cache: ${flexCache.value},
+});
+
+for (const row of rows) index.add(row);
+const raw = await index.search(query, { enrich: true });
+// Use flattenFlexResults() to merge per-field results into a flat list
+// of rows. See @icjia/pdf-search-index/flexsearch for the helper.`;
+  }
+  // pagefind
+  return `// pagefind v1.x (build step: \`npx pagefind --site dist\`)
+const pagefind = await import('/_pagefind/pagefind.js');
+
+// Runtime options — these update live as you tune sliders.
+pagefind.options({
+  excerptLength: ${pagefindExcerptLength.value}, // words around match
+  ranking: {
+    termFrequency: ${pagefindTermFrequency.value.toFixed(2)},  // BM25 k1
+    pageLength: ${pagefindPageLength.value.toFixed(2)},       // BM25 b
+    termSimilarity: ${pagefindTermSimilarity.value.toFixed(2)},   // typo tolerance
+    termSaturation: ${pagefindTermSaturation.value.toFixed(2)},   // diminishing returns
+  },
+});
+
+const r = await pagefind.search(query);
+const results = await Promise.all(
+  r.results.slice(0, 50).map((rr) => rr.data()),
+);
+
+// Most Pagefind tuning is build-time (data-pagefind-weight, -filter,
+// -sort attributes on the source HTML). See https://pagefind.app/docs/.`;
 });
 
 /**
@@ -1495,23 +2014,42 @@ function matchCount(r: FuseResult<IndexedPdf>): number {
 }
 
 function resetDefaults(): void {
-  threshold.value = DEFAULTS.threshold;
-  distance.value = DEFAULTS.distance;
-  location.value = DEFAULTS.location;
-  ignoreLocation.value = DEFAULTS.ignoreLocation;
-  minMatchCharLength.value = DEFAULTS.minMatchCharLength;
-  isCaseSensitive.value = DEFAULTS.isCaseSensitive;
-  ignoreDiacritics.value = DEFAULTS.ignoreDiacritics;
-  includeScore.value = DEFAULTS.includeScore;
-  shouldSort.value = DEFAULTS.shouldSort;
-  findAllMatches.value = DEFAULTS.findAllMatches;
-  ignoreFieldNorm.value = DEFAULTS.ignoreFieldNorm;
-  fieldNormWeight.value = DEFAULTS.fieldNormWeight;
-  useExtendedSearch.value = DEFAULTS.useExtendedSearch;
-  useTokenSearch.value = DEFAULTS.useTokenSearch;
-  tokenSearch.value = DEFAULTS.tokenSearch;
-  searchTitle.value = DEFAULTS.searchTitle;
-  searchText.value = DEFAULTS.searchText;
+  if (engine.value === 'fuse') {
+    threshold.value = DEFAULTS.threshold;
+    distance.value = DEFAULTS.distance;
+    location.value = DEFAULTS.location;
+    ignoreLocation.value = DEFAULTS.ignoreLocation;
+    minMatchCharLength.value = DEFAULTS.minMatchCharLength;
+    isCaseSensitive.value = DEFAULTS.isCaseSensitive;
+    ignoreDiacritics.value = DEFAULTS.ignoreDiacritics;
+    includeScore.value = DEFAULTS.includeScore;
+    shouldSort.value = DEFAULTS.shouldSort;
+    findAllMatches.value = DEFAULTS.findAllMatches;
+    ignoreFieldNorm.value = DEFAULTS.ignoreFieldNorm;
+    fieldNormWeight.value = DEFAULTS.fieldNormWeight;
+    useExtendedSearch.value = DEFAULTS.useExtendedSearch;
+    useTokenSearch.value = DEFAULTS.useTokenSearch;
+    tokenSearch.value = DEFAULTS.tokenSearch;
+    searchTitle.value = DEFAULTS.searchTitle;
+    searchText.value = DEFAULTS.searchText;
+    return;
+  }
+  if (engine.value === 'flexsearch') {
+    flexTokenize.value = FLEX_DEFAULTS.tokenize;
+    flexEncode.value = FLEX_DEFAULTS.encode;
+    flexResolution.value = FLEX_DEFAULTS.resolution;
+    flexOptimize.value = FLEX_DEFAULTS.optimize;
+    flexCache.value = FLEX_DEFAULTS.cache;
+    flexSearchTitle.value = FLEX_DEFAULTS.searchTitle;
+    flexSearchText.value = FLEX_DEFAULTS.searchText;
+    return;
+  }
+  // pagefind
+  pagefindExcerptLength.value = PAGEFIND_DEFAULTS.excerptLength;
+  pagefindTermFrequency.value = PAGEFIND_DEFAULTS.termFrequency;
+  pagefindPageLength.value = PAGEFIND_DEFAULTS.pageLength;
+  pagefindTermSimilarity.value = PAGEFIND_DEFAULTS.termSimilarity;
+  pagefindTermSaturation.value = PAGEFIND_DEFAULTS.termSaturation;
 }
 
 /**
@@ -1811,8 +2349,11 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.7rem 0.8rem;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.85rem 0.8rem 1rem;
+  min-height: 4rem;
+  line-height: 1.25;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -2571,6 +3112,58 @@ input.tune__number:focus-visible {
 input.tune__number:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* v1.4: <select> for FlexSearch's tokenize / encode dropdowns.
+   Matches the visual weight of .tune__number so the two coexist
+   in the same control grid without one looking like an afterthought. */
+select.tune__select {
+  width: 14rem;
+  max-width: 100%;
+  height: 36px;
+  padding: 0 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+select.tune__select:hover {
+  border-color: var(--border-strong);
+}
+select.tune__select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* v1.4: callout at the top of the Pagefind tune card. Explains why
+   the runtime surface is small — most of Pagefind's config is in the
+   build step's data-pagefind-* attrs, not runtime API. */
+.tune__pagefind-note {
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+}
+.tune__pagefind-note strong {
+  color: var(--text);
+}
+.tune__pagefind-note code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.1rem 0.3rem;
+  background: var(--surface);
+  border-radius: 3px;
 }
 
 /* Live config preview */

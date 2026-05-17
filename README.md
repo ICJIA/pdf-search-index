@@ -2,7 +2,7 @@
 
 > **Apache Solr for client-side apps — without Solr.** Build-time text extraction from **PDF, DOCX, PPTX, and XLSX** that turns every document on your site into a searchable row and ships the index as a static JSON file. No JVM, no Tika service, no search server, no native deps — Node at build time, JSON at runtime.
 
-**Multi-format in v1.1.** The same pipeline that's been indexing PDFs since v1.0 now also indexes Microsoft Office documents (DOCX, PPTX, XLSX) when you install the optional `officeparser` peer dep. PDF-only consumers don't pay the install cost. See [Supported formats](#supported-formats) for the per-format extraction shape.
+**Multi-format since v1.1, vendored in v1.4.** The same pipeline that's been indexing PDFs since v1.0 also indexes Microsoft Office documents (DOCX, PPTX, XLSX). As of v1.4 the officeparser source is **vendored into the package** — no separate peer-dep install. One `npm install @icjia/pdf-search-index` covers all four formats. See [Supported formats](#supported-formats) for the per-format extraction shape.
 
 **Framework-agnostic.** First-party integrations ship for **Astro 5** and **Nuxt 4**, but the core library is plain ESM and slots cleanly into **Next.js, SvelteKit, Remix, Eleventy, Vite/Vue, or vanilla HTML**. If your build can run a Node script and your site can serve a JSON file, this works.
 
@@ -53,7 +53,7 @@ If you're evaluating this package for a project and don't want to wade through t
 - **What it is.** A small (~430 KB unpacked) build-time text extractor for PDF, DOCX, PPTX, and XLSX. Runs in Node at build time; emits plain JSON at runtime. No JVM, no Java, no search-server infrastructure.
 - **What it replaces.** The Apache Solr + Tika stack — but only the Tika (text-extraction) half, collapsed into a `pnpm build` hook. Search itself happens in the browser via the consumer's choice of engine (we ship `/fuse` and `/snippet` helpers as the default).
 - **Sweet spot.** Static / Jamstack sites with **50 – 2,500 documents** indexed at build time. ICJIA's icjia.illinois.gov rewrite (~2,000 documents, PDF-heavy with DOCX agendas mixed in) is the canonical target. Past ~2,500 docs the README's [search-engine roadmap](#full-alternatives-table--links--tradeoffs--corpus-size-fit) points you at FlexSearch or Pagefind.
-- **Security posture.** Five independent adversarial red/blue team audits as of 2026-05-17. **Zero unaddressed exploitable issues** in the documented usage envelope. Supply-chain hardened: optional `officeparser` peer dep pinned to exact version 5.2.2, with documented v2 escape hatches if upstream becomes unmaintained.
+- **Security posture.** Seven independent adversarial red/blue team audits as of 2026-05-17. **Zero unaddressed exploitable issues** in the documented usage envelope. Supply-chain hardened: `officeparser` source vendored into `src/vendor/` in v1.4 (full npm-takedown protection), so the package's Office-format support keeps working even if the upstream npm package disappears.
 - **Try it.** [icjia-pdf-search.netlify.app](https://icjia-pdf-search.netlify.app/) — live demo with the corpus browser, format chips, Fuse tuner, and the bundled pdf.js viewer.
 - **What's not in scope.** OCR for scanned PDFs (pre-process with `ocrmypdf`); legacy `.doc`/`.xls`/`.ppt`; backend services like Algolia / Typesense / MeiliSearch (this package is client-side first).
 
@@ -101,7 +101,7 @@ The R3 site proved the approach works in ~210 lines of inline code across three 
 
 ## Security
 
-**Status as of v1.3.0 (last audited 2026-05-17):** **Zero unaddressed exploitable issues against the documented usage envelope.** Six independent adversarial red/blue team audit passes have run against this package (v1.3 adds first-party `/flexsearch` + `/pagefind` adapter entries on top of v1.2's `maxUrls` cap + inflate-bomb defense + prebuilt Fuse index). Every Critical and Important finding from the original audit is either remediated and verified in a shipped release or tracked for v1.4 / v2.0 with a documented active mitigation.
+**Status as of v1.4.0 (last audited 2026-05-17):** **Zero unaddressed exploitable issues against the documented usage envelope.** Seven independent adversarial red/blue team audit passes have run against this package (v1.4 vendors the officeparser source into `src/vendor/`, closes V13-4/V13-5 informational items, and ships a dynamic per-engine tune UI in the netlify demo). Every Critical and Important finding from the original audit is either remediated and verified in a shipped release or tracked for v1.5 / v2.0 with a documented active mitigation.
 
 ### Remediation scorecard
 
@@ -112,34 +112,33 @@ The R3 site proved the approach works in ~210 lines of inline code across three 
 | **Minor**     | 8      | 3 — M2, M3 (1.0.2), V1 (1.0.3)                                       | 5 — defense-in-depth hardening            | **0**           |
 | **Totals**    | **21** | **15**                                                               | **6 (mitigated, not exploitable)**        | **0**           |
 
-**Audit history at a glance** — 2026-05-16: initial v1.0.1 audit, v1.0.3 delta, v1.0.5 verification · 2026-05-17: v1.1.0 multi-format, v1.2.0 perf/security-extension, **v1.3.0 search-engine-entries audit**. v1.2 closed I6 `maxUrls` + inflate-bomb deferral; v1.3 ships `/flexsearch` + `/pagefind` adapter entries plus officeparser-as-direct-dep. The 6th audit found 3 Minor + 2 Informational items on the v1.3 new surface — **0 Critical, 0 Important** — and all 3 Minor items (V13-1 symlink jail, V13-2 baseUrl escape, V13-3 format-injection) were fixed before v1.3.0 publish. v1.2.1 was a docs+demo+supply-chain patch with no new audit needed.
+**Audit history at a glance** — 2026-05-16: initial v1.0.1 audit, v1.0.3 delta, v1.0.5 verification · 2026-05-17: v1.1.0 multi-format, v1.2.0 perf/security-extension, v1.3.0 search-engine-entries audit, **v1.4.0 supply-chain-hardening audit**. v1.2 closed I6 `maxUrls` + inflate-bomb deferral; v1.3 shipped `/flexsearch` + `/pagefind` adapter entries plus officeparser-as-direct-dep; v1.4 vendors the officeparser source and closes V13-4 (Pagefind HTML control-byte scrub) + V13-5 (FlexSearch / Worker error-message scrub). The 6th audit closed 3 Minor items (V13-1/2/3) before v1.3.0 publish; the 7th audit verified the vendored officeparser preserves all prior zip-slip / XXE / inflate-bomb defenses byte-identically.
 
 **For the full picture** — per-finding remediation tables, audit transcripts, trust model, migration notes, and the supply-chain plan — read [Security considerations & audit history](#security-considerations--audit-history) at the bottom of this README.
 
-163 tests pass at v1.2.1 across the monorepo. Every Critical and Important fix has at least one named regression test pinning the behavior in CI.
+167 tests pass at v1.4.0 across the monorepo. Every Critical and Important fix has at least one named regression test pinning the behavior in CI.
 
 ---
 
 ## Supported formats
 
-Added in v1.1: DOCX, PPTX, XLSX alongside the original PDF support. All four formats produce the same `IndexedDocument` row shape with a `format` discriminator, so your downstream search engine (Fuse.js, MiniSearch, FlexSearch, …) treats them uniformly.
+Added in v1.1: DOCX, PPTX, XLSX alongside the original PDF support. All four formats produce the same `IndexedDocument` row shape with a `format` discriminator, so your downstream search engine (Fuse.js, MiniSearch, FlexSearch, …) treats them uniformly. **Updated in v1.4:** the `officeparser` source is now **vendored** into the package — no separate `npm install officeparser` step.
 
-| Format | Extension | Parser            | Page-like count                         | Optional peer dep                          |
-| ------ | --------- | ----------------- | --------------------------------------- | ------------------------------------------ |
-| PDF    | `.pdf`    | `unpdf` (bundled) | Pages (populated)                       | (no peer — bundled)                        |
-| DOCX   | `.docx`   | `officeparser`    | n/a (DOCX has no native page concept)   | `officeparser@5.2.2` (optional, exact pin) |
-| PPTX   | `.pptx`   | `officeparser`    | Slides (count not surfaced — see notes) | `officeparser@5.2.2` (optional, exact pin) |
-| XLSX   | `.xlsx`   | `officeparser`    | Sheets (count not surfaced — see notes) | `officeparser@5.2.2` (optional, exact pin) |
+| Format | Extension | Parser                                           | Page-like count                         | Required install          |
+| ------ | --------- | ------------------------------------------------ | --------------------------------------- | ------------------------- |
+| PDF    | `.pdf`    | `unpdf` (bundled)                                | Pages (populated)                       | `@icjia/pdf-search-index` |
+| DOCX   | `.docx`   | `officeparser` (**vendored in v1.4+**, was peer) | n/a (DOCX has no native page concept)   | `@icjia/pdf-search-index` |
+| PPTX   | `.pptx`   | `officeparser` (**vendored in v1.4+**, was peer) | Slides (count not surfaced — see notes) | `@icjia/pdf-search-index` |
+| XLSX   | `.xlsx`   | `officeparser` (**vendored in v1.4+**, was peer) | Sheets (count not surfaced — see notes) | `@icjia/pdf-search-index` |
 
-**The single `officeparser` peer dependency covers all three Office formats.** PDF-only consumers don't install it.
+**One install covers all four formats.** The four small transitive deps (`@xmldom/xmldom`, `concat-stream`, `file-type`, `yauzl`) are core-package `dependencies` and resolve automatically. PDF-only consumers pay the same install (the deps are ~285 KB combined; the previous `officeparser` peer-dep model was ~330 KB).
 
 ```bash
-# PDF-only (smallest install — what 1.0.x consumers already have):
+# All formats (PDF + DOCX + PPTX + XLSX):
 npm install @icjia/pdf-search-index
-
-# Multi-format (PDF + DOCX + PPTX + XLSX):
-npm install @icjia/pdf-search-index officeparser
 ```
+
+**Upgrade note for v1.3 → v1.4:** Existing consumers with `officeparser` in their `package.json` can `npm uninstall officeparser` — it's no longer needed. The runtime path now resolves the vendored copy inside `@icjia/pdf-search-index`. **No code change required** in your build script or CMS helper.
 
 ### Public API for multi-format
 
@@ -1689,6 +1688,34 @@ A **sixth** adversarial red/blue team pass ran against v1.3.0 (commit on top of 
 - `flattenFlexResults` and `createFlexSearchIndex` are safe against `__proto__` prototype-pollution attempts — `Object.prototype.polluted` remains undefined after running both.
 
 **Verdict.** The "Status as of v1.3.0" headline at the top of this README is supported by the 6th audit's evidence. **Risk posture vs. v1.2: equivalent — 11 prior fixes still in place; 3 Minor new findings all fixed before publish; 2 Informational documented for future symmetry sweeps.**
+
+### 2026-05-17 — v1.4.0 supply-chain-hardening audit
+
+A **seventh** adversarial red/blue team pass ran against v1.4.0 (commit on top of shipped 1.3.1). Scope: the vendored officeparser source (`packages/core/src/vendor/officeparser/officeParser.cjs`), the V13-4/V13-5 informational sweeps, the new `packages/core/src/scrub.ts` file extracting `scrubControl`/`scrubUrl` so browser-facing entries don't drag `node:module` into the client bundle, and the dynamic per-engine tune UI in the netlify demo.
+
+| ID    | Severity      | What it was                                                                                                                                                                                                                                                                                  | What we did                                                                                                                                                                 |
+| ----- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V13-4 | Informational | `escapeHTMLText` in `/pagefind` escaped only the five HTML metacharacters. ASCII control bytes (NUL, ESC, BEL, DEL) extracted from a hostile document survived into emitted HTML body text — an ANSI-escape smuggling risk if the file were `cat`'d, not an XSS.                             | **Fixed in v1.4.0:** `escapeHTMLText` now strips ASCII control bytes via `scrubControl` (`/scrub.js`) **before** HTML-escaping. Consistent with M3's log-line scrub.        |
+| V13-5 | Informational | The `await import('flexsearch')` / `await import('fuse.js/worker')` failure paths in `/flexsearch` and `/worker` concatenated `e.message` raw into the thrown error. A malicious resolver could embed control bytes in the error message that'd survive to wherever the exception is logged. | **Fixed in v1.4.0:** both catch paths route `e.message` through `scrubControl` before string-concatenation. Same defense as the extractor.ts fetch / parse error log paths. |
+| V14-1 | Informational | `mcp.ts` JSON-RPC tool-error path (`mcp.ts:271-272`) passes raw `e.message` into the text response without scrubbing. **Predates v1.4** — not a regression.                                                                                                                                  | **Not blocking v1.4.0:** consumed by LLM clients (rendered as text, not in a terminal). Tracked for a v1.4.1 patch to route through `scrubControl` for V13-5 parity.        |
+| V14-2 | Informational | `pagefind.ts:233` symlink-jail-violation throws an `Underlying: …` string that includes `e.message` from `fs.realpath` unscrubbed. `e.message` originates from Node and is deterministic.                                                                                                    | **Not blocking v1.4.0:** attacker can only influence via the developer-supplied `publicDirJail` arg. Tracked alongside V14-1 for a v1.4.1 scrub-consistency sweep.          |
+| V14-3 | Informational | No regression test covers the `createRequire` vendored-CJS failure path in `parseOfficeDoc`.                                                                                                                                                                                                 | **Coverage gap, not a defect.** Tracked for v1.4.1: add a `vi.mock('node:module', …)` test that simulates a load failure and asserts the warning fires scrubbed.            |
+| V14-4 | Informational | No regression test asserts that `pagefind.escapeHTMLText` strips control bytes from `row.text` (the V13-4 fix is correct, just untested).                                                                                                                                                    | **Coverage gap, not a defect.** Tracked for v1.4.1: add a probe row with `\x00\x07\x1b` and assert the emitted HTML contains zero `\x00-\x1f\x7f` bytes.                    |
+
+**Verified preserved from prior audits (v1.4 didn't regress):**
+
+- **Zip-slip / XXE defense in officeparser** — the vendored copy is byte-identical to officeparser@5.2.2's `officeParser.js`. yauzl's path validation and @xmldom/xmldom's no-external-entity-expansion behavior carry through unchanged. The audit re-probed with `..\foo`-pathed entry names and `<!ENTITY x SYSTEM "file:///etc/passwd">` DTDs against the vendored copy — both abort identically to the npm-loaded path.
+- **Inflate-bomb guard** — `inspectZipUncompressedSize` in `zip-inspector.ts` continues to fire **before** any bytes reach the vendored officeparser. A 1 KB crafted .docx that inflates to 200 MB aborts at the cap.
+- **`createRequire` resolution path** — `createRequire(import.meta.url)('./vendor/officeparser/officeParser.cjs')` resolves through Node's standard CommonJS resolution starting from the dist file's location. The same resolution rules that apply to any `require()` apply here; no new attack surface vs. npm-loaded modules.
+- **`scrub.ts` extraction** — `scrubControl` / `scrubUrl` regex is byte-identical to the originals (`/[\x00-\x1f\x7f]/g` → `?`). All call sites preserved (verified by grep across the codebase). The public `scrubUrl` export from `index.ts` continues to surface identically.
+- **Engine-toggle button padding fix** — pure CSS change (`0.7rem 0.8rem` → `0.85rem 0.8rem 1rem`). No security surface.
+- **Dynamic tune UI** — additive watchers on FlexSearch / Pagefind tune refs. Watcher callbacks reference `pagefindLib.value` declared later in the same lexical scope; this is sound under ES module semantics (closure capture by binding name, not value). The FlexSearch tune-state watcher only fires `buildFlexIndex()` when `engine.value === 'flexsearch'` — no work for Fuse-only users.
+
+**New defense added:**
+
+- **Browser-safe scrub module** — extracting `scrubControl`/`scrubUrl` to `./scrub.js` removes the Node-only `node:module` dependency from the import graph of `/flexsearch`, `/snippet`, `/worker`. Prior to this fix, any consumer building a browser bundle that imported these entries would fail with `Module "module" has been externalized for browser compatibility`. Not a security defect, but an availability defect that v1.4.0 closes.
+
+**Verdict.** The "Status as of v1.4.0" headline at the top of this README is supported by the 7th audit's evidence. **Risk posture vs. v1.3: equivalent — 14 prior fixes still in place; 2 Informational items closed (V13-4, V13-5); 4 new Informational items found (V14-1 through V14-4, all coverage gaps or parity-sweep items predating v1.4); 0 new exploitable findings.** SHA-256 of `src/vendor/officeparser/officeParser.cjs` is byte-identical to upstream `officeparser@5.2.2`; the `@xmldom/xmldom@0.8.13` `entityMap` is hardcoded to `XML_ENTITIES` with no `<!ENTITY>` declaration parsing (no XXE / billion-laughs exposure); `inspectZipUncompressedSize` still fires before the vendored parser. All 167 tests pass.
 
 ### Shipped in 1.0.2 (canonical reference)
 

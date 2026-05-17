@@ -1,5 +1,17 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.4.0
+
+### Minor Changes
+
+Lockstep release. Module source is byte-identical to 1.3.1; the bump exists so Nuxt consumers automatically pick up the v1.4.0 core-package supply-chain hardening when they upgrade `@icjia/pdf-search-index`.
+
+**Nitro-route consumers benefit automatically.** The `extractDocumentsFromCmsBody` / `extractDocumentsFromContentDoc` helpers — both backed by the core library — now route DOCX/PPTX/XLSX through a vendored officeparser source rather than the npm package. **No code change required** in your `server/api/*.ts` routes. PDF-only sites see no change at all.
+
+**Dropped peer-dep guidance.** Earlier versions documented installing `officeparser` alongside the core package to unlock DOCX/PPTX/XLSX support. As of v1.4.0 this is no longer needed — `officeparser` is vendored inside `@icjia/pdf-search-index`, and the four small transitive deps it requires (`@xmldom/xmldom`, `concat-stream`, `file-type`, `yauzl`) are now core-package `dependencies`. The README's install snippet drops the `officeparser` line accordingly.
+
+See the [core CHANGELOG entry for 1.4.0](../core/CHANGELOG.md#140) for the full surface summary including the V13-4/V13-5 informational sweeps and the 7th adversarial audit pass verifying zero new exploitable findings.
+
 ## 1.3.1
 
 ### Patch Changes

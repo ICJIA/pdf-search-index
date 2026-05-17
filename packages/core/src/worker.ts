@@ -51,6 +51,7 @@
 
 import type { IFuseOptions, FuseResult, FuseSearchOptions } from 'fuse.js';
 import type { IndexedDocument } from './types.js';
+import { scrubControl } from './scrub.js';
 
 /**
  * Worker-options bag supported by Fuse's built-in FuseWorker (7.4.0-beta.6+).
@@ -130,11 +131,13 @@ async function getFuseWorkerCtor(): Promise<FuseWorkerCtor> {
     cachedCtor = mod.FuseWorker;
     return cachedCtor;
   } catch (e) {
+    // v1.4 (V13-5): scrub control bytes from underlying error message
+    // for consistency with the M3 fix in extractor.ts.
     throw new Error(
       '@icjia/pdf-search-index/worker requires fuse.js >= 7.4.0-beta.6 ' +
         '(the /worker subpath is not in earlier 7.x releases). Upgrade with: ' +
         '`npm install fuse.js@7.4.0-beta.6` (or later). Underlying error: ' +
-        (e instanceof Error ? e.message : String(e)),
+        scrubControl(e instanceof Error ? e.message : String(e)),
     );
   }
 }

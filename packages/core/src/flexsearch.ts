@@ -37,6 +37,7 @@ import type {
 } from 'flexsearch';
 import type { IndexedDocument } from './types.js';
 import { escapeHTML } from './snippet.js';
+import { scrubControl } from './scrub.js';
 
 /**
  * Default FlexSearch Document options tuned for the `IndexedDocument`
@@ -110,11 +111,15 @@ export async function createFlexSearchIndex(
     }
     DocumentCtor = candidate;
   } catch (e) {
+    // v1.4 (V13-5): scrub control bytes from the underlying error
+    // message before including it in our thrown Error. If a malicious
+    // module-resolution error somehow contained ANSI escapes or NULs,
+    // they'd otherwise smuggle through to whatever logs the exception.
     throw new Error(
       '@icjia/pdf-search-index/flexsearch requires the `flexsearch` peer dependency. ' +
         'Install with: `npm install flexsearch` (or pnpm/yarn equivalent). ' +
         'Underlying error: ' +
-        (e instanceof Error ? e.message : String(e)),
+        scrubControl(e instanceof Error ? e.message : String(e)),
     );
   }
 
