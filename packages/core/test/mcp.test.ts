@@ -62,14 +62,21 @@ describe('MCP server', () => {
     const { client } = await connectClient();
     const tools = await client.listTools();
     const names = tools.tools.map((t) => t.name).sort();
-    expect(names).toEqual([
-      'clear_cache',
-      'extract_pdf',
-      'get_pdf_index',
-      'get_status',
-      'index_pdfs',
-      'search_pdfs',
-    ]);
+    expect(names).toEqual(
+      [
+        // 1.0.x tools (back-compat)
+        'clear_cache',
+        'extract_pdf',
+        'get_pdf_index',
+        'get_status',
+        'index_pdfs',
+        'search_pdfs',
+        // 1.1 multi-format tools (PDF / DOCX / PPTX / XLSX)
+        'extract_document',
+        'index_documents',
+        'search_documents',
+      ].sort(),
+    );
   });
 
   it('extract_pdf returns text for a fixture PDF', async () => {

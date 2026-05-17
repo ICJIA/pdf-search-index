@@ -1,8 +1,10 @@
 # @icjia/pdf-search-index
 
-> **Apache Solr for client-side apps — without Solr.** Build-time PDF text extraction that turns every PDF on your site into a searchable row and ships the index as a static JSON file. No JVM, no Tika service, no search server, no native deps — Node at build time, JSON at runtime.
+> **Apache Solr for client-side apps — without Solr.** Build-time text extraction from **PDF, DOCX, PPTX, XLSX** that turns every document on your site into a searchable row and ships the index as a static JSON file. No JVM, no Tika service, no search server, no native deps — Node at build time, JSON at runtime.
 
-`@icjia/pdf-search-index` is the core library: it fetches PDFs, extracts text via `unpdf` / `pdfjs-dist`, and returns plain `IndexedPdf[]` rows. The output is fully **framework-agnostic** — first-party integrations ship for Astro 5 and Nuxt 4 (see [Adapter packages](#adapter-packages) below), and the same core works just as well from a `prebuild` script in **Next.js, SvelteKit, Remix, Eleventy, Vite/Vue, or vanilla HTML**.
+**Multi-format added in 1.1.** PDF support is bundled (`unpdf`); DOCX/PPTX/XLSX are unlocked by installing the optional `officeparser` peer dep. The package emits a uniform `IndexedDocument` row with a `format` discriminator, so downstream search engines (Fuse.js, MiniSearch, FlexSearch, …) handle all four formats identically.
+
+`@icjia/pdf-search-index` is the core library: it fetches documents, dispatches to the appropriate extractor (`unpdf` for PDF, `officeparser` for Office formats), and returns plain `IndexedDocument[]` rows. The output is fully **framework-agnostic** — first-party integrations ship for Astro 5 and Nuxt 4 (see [Adapter packages](#adapter-packages) below), and the same core works just as well from a `prebuild` script in **Next.js, SvelteKit, Remix, Eleventy, Vite/Vue, or vanilla HTML**.
 
 **Fuse.js is recommended but optional.** The plain-JSON output drops into [Fuse.js](https://www.fusejs.io/), [MiniSearch](https://lucaong.github.io/minisearch/), Orama, Lunr, [FlexSearch](https://github.com/nextapps-de/flexsearch), [Pagefind](https://pagefind.app/), Typesense, MeiliSearch, or Algolia — your call. The `/fuse` and `/snippet` entry points are conveniences for Fuse callers, not gatekeepers; the core `indexPdfs` / `extractPdfText` / `extractPdfsFromBody` functions don't require `fuse.js` at all.
 

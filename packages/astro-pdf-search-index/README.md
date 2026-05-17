@@ -1,8 +1,10 @@
 # @icjia/astro-pdf-search-index
 
-> **Apache Solr for Astro — without Solr.** Astro 5 integration for [`@icjia/pdf-search-index`](../core) that walks your content collections, extracts every linked PDF's text at build time, and emits a JSON index your search UI fetches at runtime. No JVM, no Tika service, no search server — `astro build` does the extraction; the browser does the search.
+> **Apache Solr for Astro — without Solr.** Astro 5 integration for [`@icjia/pdf-search-index`](../core) that walks your content collections, extracts every linked **PDF / DOCX / PPTX / XLSX** at build time, and emits a JSON index your search UI fetches at runtime. No JVM, no Tika service, no search server — `astro build` does the extraction; the browser does the search.
 
-Adds PDFs as first-class search rows in an Astro site, then lets whatever client-side search engine you already use query them. **Fuse.js is recommended but optional** — the emitted JSON is plain `IndexedPdf[]` rows that work equally well with [MiniSearch](https://lucaong.github.io/minisearch/), [FlexSearch](https://github.com/nextapps-de/flexsearch), Lunr, [Pagefind](https://pagefind.app/), or your own index. The integration hooks into `astro:build:start` so the emitted JSON ships in your `dist/` output alongside other static assets.
+**Multi-format added in 1.1.** PDF support is bundled; DOCX/PPTX/XLSX unlock when you install the optional `officeparser` peer dep. The emitted JSON includes a `format` discriminator (`'pdf'` / `'docx'` / `'pptx'` / `'xlsx'`) on every row so your UI can show per-format badges, route to different viewers, or filter results.
+
+Adds documents as first-class search rows in an Astro site, then lets whatever client-side search engine you already use query them. **Fuse.js is recommended but optional** — the emitted JSON is plain `IndexedDocument[]` rows that work equally well with [MiniSearch](https://lucaong.github.io/minisearch/), [FlexSearch](https://github.com/nextapps-de/flexsearch), Lunr, [Pagefind](https://pagefind.app/), or your own index. The integration hooks into `astro:build:start` so the emitted JSON ships in your `dist/` output alongside other static assets.
 
 ## Install
 

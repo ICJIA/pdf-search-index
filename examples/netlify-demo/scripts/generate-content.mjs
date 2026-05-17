@@ -1,7 +1,8 @@
-// Walks examples/_fixtures/ for every `.pdf` and writes one markdown
-// page per PDF into src/content/docs/. The Astro integration then walks
-// that collection, sees the file:// link inside each body, and extracts
-// the PDF's text via the localFetch wired into astro.config.ts.
+// Walks examples/_fixtures/ for every supported document format (PDF,
+// DOCX, PPTX, XLSX) and writes one markdown page per document into
+// src/content/docs/. The Astro integration then walks that collection,
+// sees the file:// link inside each body, and extracts the document's
+// text via the localFetch wired into astro.config.ts.
 //
 // Note: these markdown files are content-collection inputs only — they
 // never render as pages. The integration reads them at build time, and
@@ -16,7 +17,8 @@ const outDir = resolve(here, '..', 'src', 'content', 'docs');
 
 await mkdir(outDir, { recursive: true });
 
-const entries = (await readdir(fixturesAbs)).filter((e) => e.toLowerCase().endsWith('.pdf'));
+const SUPPORTED = /\.(pdf|docx|pptx|xlsx)$/i;
+const entries = (await readdir(fixturesAbs)).filter((e) => SUPPORTED.test(e));
 
 function slugify(name) {
   return name
@@ -45,7 +47,7 @@ for (const filename of entries) {
 title: "${title.replace(/"/g, '\\"')}"
 ---
 
-A random ICJIA-public sample document. The body below links the PDF; the integration walks this body, finds the link, and extracts the PDF's text into the search index.
+A random ICJIA-public sample document. The body below links the file; the integration walks this body, finds the link, and extracts the document's text into the search index.
 
 [${title}](${url})
 `;

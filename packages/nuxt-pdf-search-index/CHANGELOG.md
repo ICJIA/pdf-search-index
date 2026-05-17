@@ -1,5 +1,32 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.1.0
+
+### Minor Changes
+
+**Multi-format helpers for CMS bodies and `@nuxt/content` docs.** Two new Nitro-auto-imported helpers — `extractDocumentsFromCmsBody` and `extractDocumentsFromContentDoc` — pick up DOCX, PPTX, and XLSX links in addition to PDFs. The existing PDF-only helpers (`extractPdfsFromCmsBody`, `extractPdfsFromContentDoc`) are preserved unchanged for back-compat.
+
+- New type re-exports: `IndexedDocument`, `IndexDocumentsOptions`, `DocumentFormat`. Existing `IndexedPdf` / `IndexPdfsOptions` exports preserved as type aliases.
+- All four helpers honor `pdfSearchIndex.cacheDir` / `pdfSearchIndex.concurrency` runtime-config defaults identically.
+- Each returned row carries a `format` discriminator (`'pdf'` / `'docx'` / `'pptx'` / `'xlsx'`).
+
+**Recommended migration:**
+
+```ts
+// server/api/searchIndex.get.ts
+import { extractDocumentsFromCmsBody, extractDocumentsFromContentDoc } from '#imports';
+
+export default defineEventHandler(async () => {
+  const cmsRows = await extractDocumentsFromCmsBody(cmsBody);
+  const contentRows = await extractDocumentsFromContentDoc(contentDoc);
+  return [...cmsRows, ...contentRows]; // each has .format set
+});
+```
+
+**Install the optional `officeparser` peer dep** (alongside `@icjia/pdf-search-index@^1.1.0`) to unlock DOCX/PPTX/XLSX. PDF-only sites don't need it.
+
+See the [core CHANGELOG entry for 1.1.0](../core/CHANGELOG.md#110) for the full surface summary.
+
 ## 1.0.5
 
 ### Patch Changes

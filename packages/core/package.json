@@ -1,7 +1,7 @@
 {
   "name": "@icjia/pdf-search-index",
-  "version": "1.0.5",
-  "description": "Full-text PDF search for static sites that already use Fuse.js.",
+  "version": "1.1.0",
+  "description": "Full-text PDF, DOCX, PPTX, XLSX search for static sites — Apache Solr for client-side apps, without Solr.",
   "type": "module",
   "license": "MIT",
   "author": "ICJIA",
@@ -12,6 +12,11 @@
   },
   "keywords": [
     "pdf",
+    "docx",
+    "pptx",
+    "xlsx",
+    "office",
+    "document",
     "search",
     "fuse",
     "static-site",
@@ -44,7 +49,9 @@
   "types": "./dist/index.d.ts",
   "bin": {
     "pdf-search-index": "./dist/cli.js",
-    "pdf-search-index-mcp": "./dist/mcp.js"
+    "pdf-search-index-mcp": "./dist/mcp.js",
+    "document-search-index": "./dist/cli.js",
+    "document-search-index-mcp": "./dist/mcp.js"
   },
   "files": [
     "dist",
@@ -65,16 +72,21 @@
     "unpdf": "^1.0.0"
   },
   "peerDependencies": {
-    "fuse.js": "^7.0.0 || >=7.4.0-beta.0"
+    "fuse.js": "^7.0.0 || >=7.4.0-beta.0",
+    "officeparser": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "fuse.js": {
+      "optional": true
+    },
+    "officeparser": {
       "optional": true
     }
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "fuse.js": "7.4.0-beta.6",
+    "officeparser": "^5.1.1",
     "pdf-lib": "^1.17.1",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",

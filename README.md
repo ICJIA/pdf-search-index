@@ -1,14 +1,16 @@
 # @icjia/pdf-search-index
 
-> **Apache Solr for client-side apps — without Solr.** Build-time PDF text extraction that turns every PDF on your site into a searchable row and ships the index as a static JSON file. No JVM, no Tika service, no search server, no native deps — Node at build time, JSON at runtime.
+> **Apache Solr for client-side apps — without Solr.** Build-time text extraction from **PDF, DOCX, PPTX, and XLSX** that turns every document on your site into a searchable row and ships the index as a static JSON file. No JVM, no Tika service, no search server, no native deps — Node at build time, JSON at runtime.
+
+**Multi-format in v1.1.** The same pipeline that's been indexing PDFs since v1.0 now also indexes Microsoft Office documents (DOCX, PPTX, XLSX) when you install the optional `officeparser` peer dep. PDF-only consumers don't pay the install cost. See [Supported formats](#supported-formats) for the per-format extraction shape.
 
 **Framework-agnostic.** First-party integrations ship for **Astro 5** and **Nuxt 4**, but the core library is plain ESM and slots cleanly into **Next.js, SvelteKit, Remix, Eleventy, Vite/Vue, or vanilla HTML**. If your build can run a Node script and your site can serve a JSON file, this works.
 
-**Fuse.js is recommended but optional.** The package emits plain `IndexedPdf[]` rows you can feed to [Fuse.js](https://www.fusejs.io/), [MiniSearch](https://lucaong.github.io/minisearch/), [FlexSearch](https://github.com/nextapps-de/flexsearch), [Lunr](https://lunrjs.com/), [Pagefind](https://pagefind.app/), or your own index. The `/fuse` and `/snippet` entry points are conveniences, not gatekeepers — the core extraction (`indexPdfs`, `extractPdfText`, `extractPdfsFromBody`) has no `fuse.js` dependency at all. See [Using a search engine other than Fuse.js](#using-a-search-engine-other-than-fusejs) for concrete recipes.
+**Fuse.js is recommended but optional.** The package emits plain `IndexedDocument[]` rows you can feed to [Fuse.js](https://www.fusejs.io/), [MiniSearch](https://lucaong.github.io/minisearch/), [FlexSearch](https://github.com/nextapps-de/flexsearch), [Lunr](https://lunrjs.com/), [Pagefind](https://pagefind.app/), or your own index. The `/fuse` and `/snippet` entry points are conveniences, not gatekeepers — the core extraction (`indexDocuments`, `extractDocumentText`, `extractDocumentsFromBody`) has no `fuse.js` dependency at all. See [Using a search engine other than Fuse.js](#using-a-search-engine-other-than-fusejs) for concrete recipes.
 
-PDFs become first-class search rows alongside your pages and posts. A query like `"stigma"` matches the body of the **linked PDF** — not just the prose that links to it — and returns the PDF as a result with a `<mark>`-highlighted snippet from the surrounding text.
+Documents become first-class search rows alongside your pages and posts. A query like `"stigma"` matches the body of the **linked document** — not just the prose that links to it — and returns the document as a result with a `<mark>`-highlighted snippet from the surrounding text. The emitted `IndexedDocument` carries a `format` discriminator (`'pdf'` / `'docx'` / `'pptx'` / `'xlsx'`) so your UI can render different badges, route to different viewers, or filter by type.
 
-**Why this replaces Solr for static / Jamstack apps:** the typical Solr+Tika deployment is a JVM service, a schema, a managed index, and a network round-trip per query — enormous overhead when your corpus is the 50–500 PDFs your CMS or `public/` folder already publishes. This package collapses Solr's build-time extraction stage (the Tika part) into a single `pnpm build` hook and lets the framework you already use serve the JSON result. The result on the wire is a static asset the CDN caches; the result in the browser is whatever client-side search engine you already had — Fuse.js, MiniSearch, anything. Zero ops, zero servers, zero JVM tuning, zero query latency past your edge.
+**Why this replaces Solr for static / Jamstack apps:** the typical Solr+Tika deployment is a JVM service, a schema, a managed index, and a network round-trip per query — enormous overhead when your corpus is the 50–500 documents your CMS or `public/` folder already publishes. This package collapses Solr's build-time extraction stage (the Tika part) into a single `pnpm build` hook and lets the framework you already use serve the JSON result. The result on the wire is a static asset the CDN caches; the result in the browser is whatever client-side search engine you already had — Fuse.js, MiniSearch, anything. Zero ops, zero servers, zero JVM tuning, zero query latency past your edge.
 
 ```
                     ┌─────────────────────────────────────────┐
@@ -46,7 +48,8 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
 ## Table of contents
 
-- [Security](#security) — audit findings, fixes shipped in 1.0.2
+- [Security](#security) — audit findings, fixes shipped in 1.0.2; v1.1 verification pass
+- [Supported formats](#supported-formats) — PDF / DOCX / PPTX / XLSX
 - [Why this exists](#why-this-exists)
 - [The 30-second integration](#the-30-second-integration)
 - [Install](#install)
@@ -73,7 +76,7 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
 ## Security
 
-**Status as of v1.0.5 (last audited 2026-05-16):** Every Critical and Important finding from the original adversarial red/blue audit is either **remediated and verified in a shipped release**, or has a **documented active mitigation** while the structural fix lands in v1.1 / v2.0. **Zero unaddressed exploitable issues against the documented usage envelope.** Three independent audit passes (initial v1.0.1 audit, v1.0.3 delta pass, v1.0.5 verification pass — all on 2026-05-16) confirm the fixes shipped in 1.0.2 are still in place and working.
+**Status as of v1.1.0 (last audited 2026-05-17):** Every Critical and Important finding from the original adversarial red/blue audit is either **remediated and verified in a shipped release**, or has a **documented active mitigation** while the structural fix lands in a future release. **Zero unaddressed exploitable issues against the documented usage envelope.** Four independent audit passes confirm this (initial v1.0.1 audit + v1.0.3 delta + v1.0.5 verification on 2026-05-16; v1.1.0 multi-format audit on 2026-05-17). The v1.1 audit verified all 11 prior fixes still in place after the multi-format refactor and surfaced **0 new Critical/Important/Minor findings** against the new DOCX/PPTX/XLSX surface — only one Informational note about dynamic-import resolution (same risk class as the existing `unpdf`/`fuse.js` dynamic imports).
 
 ### Remediation scorecard
 
@@ -84,7 +87,7 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 | **Minor**     | 8      | 3 — M2, M3 (1.0.2), V1 (1.0.3)         | 5 — defense-in-depth hardening            | **0**           |
 | **Totals**    | **21** | **12**                                 | **9 (mitigated, not exploitable)**        | **0**           |
 
-"Verified" means: (a) a named regression test exercises the fix against the original attack input, and (b) the fix is confirmed still in place at v1.0.5 HEAD by the 2026-05-16 verification pass.
+"Verified" means: (a) a named regression test exercises the fix against the original attack input, and (b) the fix is confirmed still in place at v1.1.0 HEAD by the 2026-05-17 verification pass (which re-traced every prior fix through the multi-format refactor's renamed/relocated code paths).
 
 ### Critical findings — what was found, what was specifically remediated, did it fix it
 
@@ -145,6 +148,70 @@ The ⚠️ rows do **not** indicate an exploitable issue at the current release.
 115 tests pass at v1.0.5 across the monorepo. 26 of those landed alongside the 1.0.2 audit fixes (105 total → 79 in 1.0.1); 9 more landed in 1.0.3 for the multi-snippet picker (V2/V3/V4 — malformed indices, perf bound, multi-region HTML-escape correctness); 1 explicit M3 regression test landed in 1.0.5 (added per the v1.0.5 verification pass). Every Critical and Important fix has at least one named regression test in the table above.
 
 The full [Security considerations & audit history](#security-considerations--audit-history) section further down spells out the trust model, the migration notes, and the full audit transcript including the v1.0.5 verification pass.
+
+---
+
+## Supported formats
+
+Added in v1.1: DOCX, PPTX, XLSX alongside the original PDF support. All four formats produce the same `IndexedDocument` row shape with a `format` discriminator, so your downstream search engine (Fuse.js, MiniSearch, FlexSearch, …) treats them uniformly.
+
+| Format | Extension | Parser            | Page-like count                       | Optional peer dep                |
+| ------ | --------- | ----------------- | ------------------------------------- | -------------------------------- |
+| PDF    | `.pdf`    | `unpdf` (bundled) | Pages                                 | (no peer — bundled)              |
+| DOCX   | `.docx`   | `officeparser`    | n/a (DOCX has no native page concept) | `officeparser@^5.0.0` (optional) |
+| PPTX   | `.pptx`   | `officeparser`    | Slides                                | `officeparser@^5.0.0` (optional) |
+| XLSX   | `.xlsx`   | `officeparser`    | Sheets                                | `officeparser@^5.0.0` (optional) |
+
+**The single `officeparser` peer dependency covers all three Office formats.** PDF-only consumers don't install it.
+
+```bash
+# PDF-only (smallest install — what 1.0.x consumers already have):
+npm install @icjia/pdf-search-index
+
+# Multi-format (PDF + DOCX + PPTX + XLSX):
+npm install @icjia/pdf-search-index officeparser
+```
+
+### Public API for multi-format
+
+```ts
+import {
+  indexDocuments,
+  extractDocumentText,
+  extractDocumentsFromBody,
+  type IndexedDocument,
+  type DocumentFormat, // 'pdf' | 'docx' | 'pptx' | 'xlsx'
+} from '@icjia/pdf-search-index';
+
+// Mix any combination of the four formats in a single call:
+const rows: IndexedDocument[] = await indexDocuments([
+  'https://example.com/annual-report-2024.pdf',
+  'https://example.com/board-minutes-march.docx',
+  'https://example.com/quarterly-deck.pptx',
+  'https://example.com/budget-2024.xlsx',
+]);
+
+// Each row carries a `format` discriminator:
+for (const r of rows) {
+  console.log(`[${r.format}] ${r.title} — ${r.text.length} chars`);
+}
+```
+
+The PDF-only legacy API (`indexPdfs`, `extractPdfText`, `extractPdfsFromBody`) is **preserved exactly** for 1.0.x consumers. It dispatches to the PDF extractor regardless of URL extension — passing a `.docx` URL to `indexPdfs` will fail with a categorized parse error, just as it did before. **Migrate to `indexDocuments` to opt into multi-format dispatch.**
+
+### Per-format notes
+
+- **PDF.** Unchanged from 1.0.x. `unpdf` is bundled (no peer dep). Page count populates `pages`. Info-dict title (the PDF's metadata "Title" field) is used as the row title when no explicit title is provided.
+- **DOCX.** Plain text is extracted in paragraph order. There is no native page concept in DOCX (pages only exist once rendered by Word/LibreOffice), so `pages` is left undefined. The row title falls back to a humanized filename.
+- **PPTX.** Per-slide text concatenated. Speaker notes included when present. Slide count populates `pages`. The row title falls back to a humanized filename — the actual deck title is buried in slide-1 placeholder text and we don't try to guess.
+- **XLSX.** Per-sheet text extracted. Sheet count populates `pages`. Each sheet's cells are concatenated; large spreadsheets can produce huge text blobs, which the existing `maxExtractedTextChars` cap (default 5 MB) bounds. For per-row or per-cell search semantics, you'd want a different design — tracked for a future major.
+
+### What's NOT in scope
+
+- **Legacy Office binary formats (`.doc`, `.ppt`, `.xls`).** Pre-2007 Office uses a different on-disk format (OLE compound documents). Not supported.
+- **OpenDocument formats (`.odt`, `.odp`, `.ods`).** `officeparser` does support these underneath, but the package's URL scanner and dispatcher are scoped to the four Microsoft Office Open XML formats. ODT support is plausible for v1.2 if there's demand.
+- **OCR for scanned PDFs / image-only DOCX.** Pre-flight with `ocrmypdf` (or equivalent) before passing the file to this package. See [Limits and non-goals](#limits-and-non-goals).
+- **In-document highlighting for Office formats.** The bundled Mozilla pdf.js viewer in the netlify-demo provides in-document highlight for PDFs. There's no equivalent for Office docs — clicking a DOCX/PPTX/XLSX result in the demo opens the file in the OS-level handler (Word, PowerPoint, Excel, Pages, etc.) without query-anchored highlight.
 
 ---
 
@@ -468,6 +535,34 @@ Cache keys are `SHA-256(url)` truncated to 16 hex chars. Implications by hosting
 ## Using a search engine other than Fuse.js
 
 **Short answer: Fuse.js is optional.** The core extraction API produces plain JSON. You can feed it to any client- or server-side search engine — MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, Algolia. Fuse.js is only required if you specifically import the `/fuse` or `/snippet` helper subpaths.
+
+### Engine comparison — Fuse.js vs FlexSearch vs Pagefind
+
+The three engines most often paired with this package work very differently. Pick by corpus size and the tradeoff you care about most.
+
+| Dimension                  | **Fuse.js**                                                                         | **FlexSearch**                                                                 | **Pagefind**                                                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Operating model**        | In-memory fuzzy search over a flat array                                            | In-memory full-text search over a structured index                             | **Static-site search**: chunked index loaded on-demand from the CDN per query                                                |
+| **Sweet spot (corpus)**    | < 1,000 documents                                                                   | 1,000 – 50,000 documents                                                       | 1,000 – 100,000+ documents                                                                                                   |
+| **Initial bundle**         | ~12 KB gz + entire JSON index loaded up-front                                       | ~7 KB gz + entire encoded index loaded up-front (smaller than JSON)            | ~50 KB gz client + tiny manifest; **per-query chunks fetched only when needed** (~5-20 KB each)                              |
+| **First-paint cost**       | High at scale — must download + parse the full index                                | Medium at scale — encoded format is denser but still all-or-nothing            | Low always — page paints immediately; first search triggers chunk fetch                                                      |
+| **Typo tolerance**         | **Excellent (Bitap algorithm).** `"applicent"` → `"applicant"` works out of the box | Good (n-gram + phonetic encoders) but needs tuning                             | Limited — substring + word-boundary matching; no fuzzy match by default                                                      |
+| **Match positions**        | **Yes (`includeMatches: true`)** — drives our `<mark>` highlight rendering directly | No native match-position output; you do your own substring search to highlight | Yes — Pagefind returns excerpt fragments pre-highlighted                                                                     |
+| **Web Worker support**     | DIY (recipes online)                                                                | **Built-in `WorkerIndex`**                                                     | Built-in; recommended pattern                                                                                                |
+| **Pre-built index?**       | Yes (Fuse 7's `createIndex` + `parseIndex`) — skip in-browser build                 | Yes (`index.export`/`import`)                                                  | **Required.** The build step IS the index — there's nothing to build at runtime                                              |
+| **Build-time integration** | Just JSON; runs entirely in the browser                                             | Just JSON; runs entirely in the browser                                        | Crawls **HTML pages**, not JSON. Pair with this package by emitting one HTML page per document containing the extracted text |
+| **License**                | Apache 2.0                                                                          | Apache 2.0                                                                     | MIT                                                                                                                          |
+
+**Our recommendation for `@icjia/pdf-search-index` consumers:**
+
+- **<1,000 documents** → **Fuse.js**. Smallest API, best typo tolerance, native match-position output. The default in our README and demos.
+- **1,000–2,500 documents** → **Fuse.js + prebuilt index + Web Worker.** Keeps the typo tolerance. The prebuilt index skips the ~5–10 s in-browser build. Put Fuse in a Worker so the main thread stays responsive.
+- **2,500–10,000 documents** → **FlexSearch.** Faster queries; denser on-disk index. Lose Fuse's typo tolerance — acceptable for most factual / proper-name searches.
+- **10,000+ documents** → **Pagefind.** Only engine in this list that scales gracefully to six-figure corpora without paying the full-index-download cost on first load.
+
+**Pagefind integration pattern.** Pagefind crawls _HTML pages_, not JSON. Our package outputs JSON document rows. To pair them: build a step that emits one HTML page per document, with the extracted text in the page body. Pagefind crawls those pages and produces its chunked indexes. The HTML pages don't need to be linked from your site's navigation — they exist purely for Pagefind to read. This is more setup than Fuse/FlexSearch, but at the corpus sizes where Pagefind shines, it's the only viable option.
+
+We use Fuse.js in the live demo because the corpus is small (14 documents). For your own site, pick by the dimensions above.
 
 ### What's Fuse-coupled vs framework-agnostic
 
@@ -1441,6 +1536,79 @@ A **third** adversarial red/blue team pass ran against v1.0.5 (commit `fae222f`)
 **Deferred items — status unchanged.** The third audit reconfirmed that C2 (SSRF allowlist), I2 (cache-key normalization), I5 (CLI sitemap hardening), I6 (`maxUrls` cap), and the six Minor defense-in-depth items (M1, M4–M8) remain appropriate deferrals. **Notable side-effect:** the I7 contentSha verification fix (shipped 1.0.2) **partially defuses I2's security impact** in 1.0.x — a hypothetical cache-key collision would now be caught at read time as a hash mismatch and treated as a miss, so the practical exposure of I2 is limited to cache-efficiency cost (duplicate fetches) rather than an information-leak path.
 
 **Verdict.** The "Status as of v1.0.5" headline at the top of this README — "Zero unaddressed exploitable issues against the documented usage envelope" — is supported by this audit's evidence. The user-facing impact of the v1.0.5 release is documentation clarity, not new code; the V8 JSDoc note and the new M3 regression test are belt-and-suspenders hardening, not vulnerability fixes.
+
+### 2026-05-17 — v1.1.0 multi-format audit
+
+A **fourth** adversarial red/blue team pass ran against the v1.1.0 multi-format refactor (the changes that ship `@icjia/pdf-search-index` with DOCX/PPTX/XLSX support via the optional `officeparser` peer dep). Goals: re-verify every prior fix survives the refactor, and surface any new findings on the new surface.
+
+**Methodology.** Independent opus-class LLM agent. Full source review through the renamed/relocated code paths (`fetchPdfBytes → fetchDocumentBytes`, `parsePdf → parseDocument → parsePdf | parseOfficeDoc`, widened URL-scan alternation, three new MCP tools, two new Nuxt helpers, Astro adapter rewire). Static trace of every probe scenario from the audit plan (plan-mode environment prevented `/tmp/` execution, but every probe has deterministic dispatch through the source).
+
+**Scope:**
+
+- `officeparser` integration (`parseOfficeDoc` in extractor.ts) including dynamic-import resolution, prototype-pollution paths, and CVE check of the dep tree.
+- New format-mismatch defense (`detectFormatFamilyFromBytes` + `parseDocument` dispatcher) — every bypass class traced.
+- Format dispatch by extension (`detectFormatFromUrl` + `extractCore` format resolution).
+- ZIP-slip / XXE attack surface introduced by Office format parsing.
+- V8 mitigation (1.0.5 JSDoc note on `SnippetOptions.separator`) — still in place.
+- CLI / MCP surface changes (new `index_documents` / `extract_document` / `search_documents` tools, widened sitemap filter regex).
+- Inflate-bomb deferral acceptability.
+
+**Result: 11 of 11 prior fixes verified, 0 new Critical/Important/Minor findings.**
+
+| Fix    | Verified at v1.1 source path                             | Evidence                                                                                                                   |
+| ------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **C1** | `url-scan.ts:16-22, 34`                                  | Bounded `{1,2048}` / `{0,1024}` quantifiers preserved; alternation `(?:pdf\|docx\|pptx\|xlsx)` is O(1) in regex complexity |
+| **C3** | `extractor.ts:156-237` (renamed to `fetchDocumentBytes`) | Content-Length pre-check + stream-cancel on overflow; single fetch serves all 4 formats                                    |
+| **C4** | `mcp.ts:28-37`                                           | `safeCacheDir` wired into all 9 tools incl. 3 new 1.1 tools                                                                |
+| **C5** | `astro/.../index.ts:114-121`                             | Path-traversal guard intact                                                                                                |
+| **I1** | `extractor.ts:114-128`                                   | `scrubUrl` + `scrubControl` applied in every log site incl. `parseOfficeDoc` (lines 355-360, 386-394)                      |
+| **I3** | `extractor.ts:282-287, 374-379`                          | **Extended** — Office formats hit the same 5 MB cap                                                                        |
+| **I4** | `json-safe.ts:20-29`                                     | Wired into CLI `--out` (cli.ts:215) + Astro adapter (astro/.../index.ts:128)                                               |
+| **I7** | `cache.ts:81-125`                                        | Tmp-file + rename + hash check                                                                                             |
+| **I8** | `extractor.ts:139-154`                                   | **Extended** — new `format` parameter, defaults to `'pdf'` for back-compat; Office tags mirror PDF set                     |
+| **M2** | `cache.ts:28-29, 87, 107-109`                            | `0o600`/`0o700` intact; `KEY_PATTERN` allowlist preserved                                                                  |
+| **M3** | `extractor.ts:123, 231, 311, 358, 388, 504`              | Propagated to all new log sites incl. Office parser error paths                                                            |
+
+**New finding (1 only, Informational):**
+
+| ID  | Severity      | What it is                                                                                                                                                                                                                                                                                                                                        | What we did                                                                                                                                                                                                   |
+| --- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V9  | Informational | The `officeparser` dynamic-import (`await import('officeparser')`) resolves whichever copy lives in `node_modules`. Same risk class as the pre-existing `unpdf` and `fuse.js` dynamic imports. Mitigated by the `^5.0.0` peer-dep range pin and standard npm-registry signature trust (the typosquat threat class is not unique to this package). | Documented as Informational. No code change. v1.1 ships as-is. The peer-dep range gives consumers control over which `officeparser` major they accept; an `npm overrides` block can lock to an exact version. |
+
+**Dependency CVE check (officeparser 5.2.2 transitive tree):**
+
+- `yauzl@3.3.0` — patched for CVE-2026-31988 (NTFS-extra-field off-by-one DoS). SAFE.
+- `@xmldom/xmldom@0.8.13` — patched for CVE-2026-41672 / 41673 / 41675 / 34601. SAFE. **And** structurally: we only call `parseFromString` + read-only DOM traversal; never invoke `XMLSerializer`, so serialization-injection CVEs aren't reachable through our path even at older xmldom versions.
+- `pdfjs-dist@5.7.284` (transitive via officeparser) — patched for CVE-2024-4367 (`isEvalSupported`). SAFE.
+
+**ZIP-slip and XXE — structurally infeasible against officeparser 5.2.2:**
+
+- **ZIP-slip:** read `officeparser/officeParser.js:617-647`. yauzl entries are piped through `concat-stream` into in-memory buffers, then `.toString()`'d. **No `fs.writeFile` of extracted contents.** No filesystem write → no zip-slip class to exploit. (Note: my v1.1 plan assumed officeparser used `jszip`; it actually uses `yauzl`. The audit was conducted against the actual tree.)
+- **XXE:** `@xmldom/xmldom@0.8.13` parses `<!DOCTYPE>` but does NOT resolve `SYSTEM`/`PUBLIC` identifiers — no external fetch, no file read. Our wrapper does not invoke `XMLSerializer`. No external-entity expansion is reachable.
+- **No consumer-facing option** in our API can relax these defenses. `parseOfficeAsync(buf)` is called with no config object — officeparser defaults apply, none of which affect parser security.
+
+**Format-mismatch defense (new in 1.1) — every bypass class probed:**
+
+| Probe | Input                                                                    | Traced outcome                                                                                                                                                                                                         | Test coverage                           |
+| ----- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1     | `%PDF...` bytes at `.docx` URL                                           | `actual='pdf', declared='office'` → mismatch → `console.warn(DOCX format mismatch (URL declares docx but bytes are PDF))` → `{ text: '', source: 'failed', format: 'docx' }`                                           | `multi-format.test.ts:272-290` verifies |
+| 2     | `PK\x03\x04...` at `.pdf` URL                                            | `actual='office', declared='pdf'` → mismatch → `console.warn(PDF format mismatch...bytes are Office/ZIP)` → fail                                                                                                       | `multi-format.test.ts:292-306` verifies |
+| 3     | Empty `Uint8Array(0)` at `.docx` URL                                     | `detectFormatFamily` returns `null` → falls through → yauzl rejects non-ZIP → `categorizeParseError(..., 'docx')` matches `/zip\|invalid\|.../` → tag `corrupt DOCX structure`                                         | Static trace                            |
+| 4     | `<html>...` bytes at `.pdf` URL                                          | `actual=null` → passes mismatch check → `parsePdf` → unpdf rejects → tag `PDF parse error` (or `corrupt PDF structure` if message keywords match). Graceful.                                                           | Static trace                            |
+| 5     | Adversarial markdown with `[X](https://a'.repeat(10000)` + 4-format URLs | Body cap (1 MB chars) fires first if oversized; bounded `[^\s)\]<>"']{1,2048}` + bounded alternation + no nested unbounded quantifiers ⇒ no catastrophic backtracking. **C1 bound holds for the widened alternation.** | Static trace                            |
+
+Polyglot bypass impossible: first byte is either `0x25` (`%`, PDF) or `0x50` (`P`, ZIP), not both. Concatenated content: leading bytes win, consistent with the URL declaration.
+
+**Inflate-bomb deferral — acceptable for v1.1 ship.** The audit confirmed this deferral's reasoning explicitly:
+
+1. The threat class (DEFLATE-bomb → OOM) is already present in 1.0.5's PDF path via flate-compressed embedded streams — v1.1 does NOT introduce a novel severity class.
+2. `maxBytes` (32 MB default) caps attacker-controlled compressed-byte volume.
+3. `maxExtractedTextChars` (5 MB) bounds cache-write and indexed-text impact even if it doesn't bound peak memory.
+4. Impact: availability (process OOM), not confidentiality or integrity.
+5. Operators have mitigations: lower `maxBytes`, pass `--max-old-space-size=512` to Node.
+6. The v1.2 structural fix (per-entry inflated-size cap) requires wrapping/forking officeparser — appropriate as its own release scope.
+
+**Verdict.** The "Status as of v1.1.0" headline at the top of this README — "Zero unaddressed exploitable issues against the documented usage envelope" — is supported by this audit's evidence. **Risk posture vs. v1.0.5: the v1.1 release is at least as secure as v1.0.5 across the new surface, and adds two new defenses (format-mismatch detection, Office error categorization) that don't exist in any prior release.**
 
 ### Shipped in 1.0.2 (canonical reference)
 

@@ -1,33 +1,43 @@
 import type { AstroIntegration } from 'astro';
-import { extractPdfsFromBody, safeJSONForHTML } from '@icjia/pdf-search-index';
-import type { IndexedPdf, IndexPdfsOptions } from '@icjia/pdf-search-index';
+import { extractDocumentsFromBody, safeJSONForHTML } from '@icjia/pdf-search-index';
+import type { IndexDocumentsOptions, IndexedDocument } from '@icjia/pdf-search-index';
 import { writeFile, mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, sep as pathSep } from 'node:path';
 
 // Re-export so consumers of @icjia/astro-pdf-search-index don't need to
 // install @icjia/pdf-search-index just to type-annotate the rows.
-export type { IndexedPdf, IndexPdfsOptions } from '@icjia/pdf-search-index';
+export type {
+  IndexedDocument,
+  IndexDocumentsOptions,
+  IndexedPdf,
+  IndexPdfsOptions,
+  DocumentFormat,
+} from '@icjia/pdf-search-index';
 
 export interface PdfSearchIntegrationOptions {
   /**
-   * Names of Astro content collections to scan for PDF links in entry bodies.
-   * Each `.md` / `.mdx` file under `src/<contentSourceDir>/<collection>/` is
-   * read, frontmatter is stripped, and the body is passed to
-   * `extractPdfsFromBody`.
+   * Names of Astro content collections to scan for document links in entry
+   * bodies. Each `.md` / `.mdx` file under
+   * `src/<contentSourceDir>/<collection>/` is read, frontmatter is stripped,
+   * and the body is passed to `extractDocumentsFromBody`.
+   *
+   * In v1.1 the scanner picks up PDF, DOCX, PPTX, and XLSX links — not just
+   * PDFs.
    */
   collections: string[];
 
   /**
    * Output path relative to the project's public/ directory.
-   * Default: `searchIndex.pdfs.json`.
+   * Default: `searchIndex.pdfs.json` (name kept for back-compat; contents
+   * now include all detected document formats, not just PDFs).
    */
   endpoint?: string;
 
-  /** Cache directory passed to extractPdfsFromBody. Default `.astro/.pdf-cache`. */
+  /** Cache directory passed to the document extractor. Default `.astro/.pdf-cache`. */
   cacheDir?: string;
 
-  /** Concurrency passed to extractPdfsFromBody. Default 4. */
+  /** Concurrency passed to the document extractor. Default 4. */
   concurrency?: number;
 
   /**
@@ -37,7 +47,7 @@ export interface PdfSearchIntegrationOptions {
   contentSourceDir?: string;
 
   /**
-   * Custom `fetch` implementation passed through to `extractPdfsFromBody`.
+   * Custom `fetch` implementation passed through to the document extractor.
    * Useful for testing or for examples that need to resolve `file://` URLs
    * to local fixtures. Defaults to the global `fetch`.
    */
@@ -74,20 +84,20 @@ export default function pdfSearchIntegration(
         const srcDir = fileURLToPath(resolvedSrcDir);
         const publicDir = fileURLToPath(resolvedPublicDir);
 
-        const allRows: IndexedPdf[] = [];
+        const allRows: IndexedDocument[] = [];
         const seen = new Set<string>();
 
         for (const collection of options.collections) {
           const collectionDir = resolve(srcDir, contentSourceDir, collection);
           const entries = await readMarkdownEntries(collectionDir);
-          const baseOpts: IndexPdfsOptions = {
+          const baseOpts: IndexDocumentsOptions = {
             cacheDir,
             concurrency,
             ...(fetchImpl !== undefined ? { fetch: fetchImpl } : {}),
           };
 
           for (const { body } of entries) {
-            const rows = await extractPdfsFromBody(body, baseOpts);
+            const rows = await extractDocumentsFromBody(body, baseOpts);
             for (const row of rows) {
               if (!seen.has(row.id)) {
                 seen.add(row.id);

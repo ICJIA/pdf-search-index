@@ -1,5 +1,20 @@
 # @icjia/astro-pdf-search-index
 
+## 1.1.0
+
+### Minor Changes
+
+**Multi-format content-collection scanning.** The Astro integration's content-collection walker now picks up DOCX, PPTX, and XLSX links alongside PDFs. Each emitted row carries a `format` discriminator (`'pdf'` / `'docx'` / `'pptx'` / `'xlsx'`) so consumer UIs can render per-format badges or route to different viewers.
+
+- Internal: switched from `extractPdfsFromBody` to `extractDocumentsFromBody` (the multi-format function added in `@icjia/pdf-search-index@1.1.0`).
+- New type re-exports: `IndexedDocument`, `IndexDocumentsOptions`, `DocumentFormat`. The existing `IndexedPdf` / `IndexPdfsOptions` exports are preserved as type aliases.
+- Path-jail (C5) and HTML-safe emit (I4) defenses from 1.0.2 continue to apply automatically to all four formats.
+- The default `endpoint` filename stays `searchIndex.pdfs.json` for back-compat with existing consumers; the contents now include all detected document formats, not just PDFs.
+
+**Install the optional `officeparser` peer dep** (alongside `@icjia/pdf-search-index@^1.1.0`) to unlock DOCX/PPTX/XLSX. PDF-only sites don't need it.
+
+See the [core CHANGELOG entry for 1.1.0](../core/CHANGELOG.md#110) for the full surface summary.
+
 ## 1.0.5
 
 ### Patch Changes

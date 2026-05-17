@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
-import { indexPdfs, extractPdfText, extractPdfsFromBody, safeJSONForHTML } from './index.js';
+import {
+  indexDocuments,
+  extractDocumentText,
+  extractDocumentsFromBody,
+  safeJSONForHTML,
+} from './index.js';
 import { clearCache, listCache, removeCache } from './cache.js';
-import type { IndexedPdf } from './types.js';
+import type { IndexedDocument } from './types.js';
 import { snippetHTMLFor } from './snippet.js';
 
 interface RootOptions {
@@ -36,9 +41,14 @@ const program = new Command();
 
 program
   .name('pdf-search-index')
-  .description('Build-time PDF text indexer for Fuse-backed static sites')
+  .description(
+    'Build-time document (PDF / DOCX / PPTX / XLSX) text indexer for Fuse-backed static sites',
+  )
   .option('--from <file>', 'read URLs from a newline-delimited file')
-  .option('--from-sitemap <url>', 'scan a sitemap, index every linked PDF')
+  .option(
+    '--from-sitemap <url>',
+    'scan a sitemap, index every linked document (PDF / DOCX / PPTX / XLSX)',
+  )
   .option('--cache-dir <dir>', 'cache directory', '.pdf-cache')
   .option('--concurrency <n>', 'fetch concurrency', (v) => parseInt(v, 10), 4)
   .option('--strict', 'exit 1 on any extraction failure', false)
@@ -47,7 +57,7 @@ program
   .option('--ndjson', 'emit newline-delimited JSON', false)
   .option('--text', 'emit plain text only', false)
   .option('--out <file>', 'write JSON output to <file> instead of stdout')
-  .argument('[urls...]', 'PDF URLs')
+  .argument('[urls...]', 'document URLs (PDF / DOCX / PPTX / XLSX)')
   .action(async (urls: string[], opts: RootOptions) => {
     const collected = await collectUrls(urls, opts);
     if (!collected.length) {
@@ -55,13 +65,13 @@ program
       process.exit(1);
     }
     const cacheMode = opts.refreshAll ? 'refresh' : opts.refresh ? 'bypass' : 'use';
-    const rows = await indexPdfs(collected, {
+    const rows = await indexDocuments(collected, {
       cacheDir: opts.cacheDir,
       concurrency: opts.concurrency,
       cache: cacheMode,
     });
     if (opts.strict && rows.some((r) => r.text === '')) {
-      console.error('Strict mode: one or more PDFs failed to extract.');
+      console.error('Strict mode: one or more documents failed to extract.');
       process.exit(1);
     }
     await emit(rows, opts);
@@ -69,10 +79,12 @@ program
 
 program
   .command('verify <url>')
-  .description('Parse a single PDF and report pages + chars; exit 1 on failure')
+  .description(
+    'Parse a single document (PDF / DOCX / PPTX / XLSX) and report chars; exit 1 on failure',
+  )
   .option('--cache-dir <dir>', 'cache directory', '.pdf-cache')
   .action(async (url: string, _opts: CacheSubOpts, cmd: Command) => {
-    const text = await extractPdfText(url, { cacheDir: resolveCacheDir(cmd) });
+    const text = await extractDocumentText(url, { cacheDir: resolveCacheDir(cmd) });
     if (!text) {
       console.error(`Failed to extract ${url}`);
       process.exit(1);
@@ -85,7 +97,7 @@ program
   .description('Search a previously built index JSON for a query and print snippets')
   .action(async (indexFile: string, query: string) => {
     const raw = await readFile(indexFile, 'utf-8');
-    const rows = JSON.parse(raw) as IndexedPdf[];
+    const rows = JSON.parse(raw) as IndexedDocument[];
     const { default: Fuse } = await import('fuse.js');
     const { DEFAULT_FUSE_OPTIONS } = await import('./fuse.js');
     const fuse = new Fuse(rows, DEFAULT_FUSE_OPTIONS);
@@ -158,8 +170,12 @@ async function urlsFromSitemap(
   const xml = await res.text();
 
   const pageUrls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
-  const pdfDirect = pageUrls.filter((u) => u.endsWith('.pdf'));
-  const pageOnly = pageUrls.filter((u) => !u.endsWith('.pdf'));
+  // Direct document URLs in the sitemap (any of the supported formats):
+  // skip the page-fetch step for these.
+  const isDocUrl = (u: string) =>
+    /\.(pdf|docx|pptx|xlsx)(?:\?[^\s]*)?$/i.test(u.split('#')[0] ?? u);
+  const pdfDirect = pageUrls.filter(isDocUrl);
+  const pageOnly = pageUrls.filter((u) => !isDocUrl(u));
 
   // Use the same p-limit primitive the core extractor uses, so --concurrency
   // controls both the sitemap page fan-out AND the PDF fetch fan-out.
@@ -173,7 +189,7 @@ async function urlsFromSitemap(
           const pageRes = await fetch(page);
           if (!pageRes.ok) return [];
           const html = await pageRes.text();
-          const rows = await extractPdfsFromBody(html);
+          const rows = await extractDocumentsFromBody(html);
           return rows.map((r) => r.url);
         } catch {
           return [];
@@ -185,7 +201,7 @@ async function urlsFromSitemap(
   return [...new Set([...pdfDirect, ...fromPages.flat()])];
 }
 
-async function emit(rows: IndexedPdf[], opts: RootOptions): Promise<void> {
+async function emit(rows: IndexedDocument[], opts: RootOptions): Promise<void> {
   let output: string;
   if (opts.text) {
     output = rows.map((r) => r.text).join('\n');

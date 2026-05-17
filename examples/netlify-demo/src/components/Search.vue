@@ -48,12 +48,18 @@
         <ul v-if="results.length" class="search__results">
           <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
             <a
-              :href="viewerUrl(r)"
+              :href="resultLink(r)"
               target="_blank"
               rel="noopener noreferrer"
               class="search__result-link"
             >
               <h3 class="search__result-title">
+                <span
+                  class="search__result-format"
+                  :class="`search__result-format--${(r.item.format ?? 'pdf').toLowerCase()}`"
+                  :aria-label="`Format: ${(r.item.format ?? 'pdf').toUpperCase()}`"
+                  >{{ (r.item.format ?? 'pdf').toUpperCase() }}</span
+                >
                 {{ r.item.title }}
                 <span v-if="matchCount(r) > 1" class="search__result-matches"
                   >{{ matchCount(r) }} matches</span
@@ -64,8 +70,11 @@
               >
               <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
               <span class="search__result-cta">
-                <template v-if="query.trim()">Open &amp; highlight in viewer</template>
-                <template v-else>Open PDF</template>
+                <template v-if="r.item.format === 'pdf' && query.trim()"
+                  >Open &amp; highlight in viewer</template
+                >
+                <template v-else-if="r.item.format === 'pdf'">Open PDF</template>
+                <template v-else>Open {{ (r.item.format ?? 'document').toUpperCase() }}</template>
               </span>
             </a>
           </li>
@@ -770,6 +779,20 @@ function viewerUrl(r: FuseResult<IndexedPdf>): string {
   return `/pdfjs-viewer/web/viewer.html?file=${pdf}#search=${encodeURIComponent(q)}`;
 }
 
+/**
+ * Pick the open-link target for a result row. Routes PDFs through the
+ * bundled Mozilla pdf.js viewer (for in-document highlight when the user
+ * has typed a query); routes everything else (DOCX, PPTX, XLSX) at the
+ * direct public file URL. The browser handles those formats via OS-level
+ * file association (download + open in Word / PowerPoint / Excel /
+ * Pages / etc).
+ *
+ * The pdf.js viewer is PDF-only — handing it a .docx would 404.
+ */
+function resultLink(r: FuseResult<IndexedPdf>): string {
+  return (r.item.format ?? 'pdf') === 'pdf' ? viewerUrl(r) : publicPdfUrl(r.item.url);
+}
+
 onMounted(async () => {
   const res = await fetch('/searchIndex.pdfs.json');
   rows.value = (await res.json()) as IndexedPdf[];
@@ -1098,6 +1121,53 @@ onMounted(async () => {
   background: rgba(163, 230, 53, 0.1);
   border: 1px solid rgba(163, 230, 53, 0.3);
   border-radius: 4px;
+}
+
+/*
+ * Format badge — visually distinguishes each document type in the result
+ * list. WCAG AA contrast verified for each variant against the dark
+ * surface background. Color choices loosely follow industry convention:
+ *   PDF  → red (Adobe Acrobat)
+ *   DOCX → blue (Microsoft Word)
+ *   PPTX → orange (Microsoft PowerPoint)
+ *   XLSX → green (Microsoft Excel)
+ */
+.search__result-format {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.search__result-format--pdf {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.search__result-format--docx {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.search__result-format--pptx {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.1);
+  border-color: rgba(251, 146, 60, 0.35);
+}
+
+.search__result-format--xlsx {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.35);
 }
 
 .search__result-score {

@@ -1,5 +1,78 @@
 # @icjia/pdf-search-index
 
+## 1.1.0
+
+### Minor Changes
+
+**Multi-format support: PDF + DOCX + PPTX + XLSX.** The headline 1.1 feature. The same pipeline that's been indexing PDFs since 1.0 now also indexes Microsoft Office Open XML documents via a single optional peer dependency (`officeparser@^5.0.0`). PDF-only consumers continue to work byte-identically — the `unpdf` parser stays bundled; the Office parser is opt-in.
+
+**Headline numbers:**
+
+- 1 new optional peer dep (`officeparser`) unlocks 3 new formats (DOCX, PPTX, XLSX).
+- 6 new public exports: `indexDocuments`, `extractDocumentText`, `extractDocumentTextWithSource`, `extractDocumentMetadata`, `extractDocumentsFromBody`, `extractDocumentUrlsFromMarkdown`.
+- 1 new public type: `IndexedDocument` (extends the old `IndexedPdf` shape with an optional `format: DocumentFormat` discriminator).
+- 4 new format-detection helpers: `detectFormatFromUrl`, `detectFormatFamilyFromBytes` (magic-byte sniff), `categorizeParseError(msg, format)` (Office-aware error tags), `DocumentFormat` type union.
+- 3 new MCP tools: `extract_document`, `index_documents`, `search_documents` (PDF-only `extract_pdf` / `index_pdfs` / `search_pdfs` preserved as back-compat aliases).
+- 1 new optional CLI bin alias: `document-search-index` (the existing `pdf-search-index` bin stays — both point at the same script).
+- 23 new regression tests in `test/multi-format.test.ts` covering URL-extension detection, magic-byte family detection, multi-format extraction against real ICJIA fixtures, format-mismatch defense, and Office-aware error categorization. **Test count: 115 → 138 monorepo-wide.**
+
+**API additions (all back-compat — no existing API removed or changed):**
+
+```ts
+// New format-agnostic API (preferred for 1.1+ code):
+import { indexDocuments, type IndexedDocument } from '@icjia/pdf-search-index';
+const rows = await indexDocuments([
+  'https://site.com/report.pdf',
+  'https://site.com/policy.docx',
+  'https://site.com/deck.pptx',
+  'https://site.com/budget.xlsx',
+]);
+// Each row has `format: 'pdf' | 'docx' | 'pptx' | 'xlsx'`
+
+// PDF-only API (1.0.x — still works identically):
+import { indexPdfs, type IndexedPdf } from '@icjia/pdf-search-index';
+const pdfRows = await indexPdfs(['https://site.com/report.pdf']);
+// IndexedPdf is now a type alias for IndexedDocument; the shape is identical
+```
+
+**Architecture seam:**
+
+- `parsePdf` (1.0.x) was wrapped in a new `parseDocument(bytes, format, opts, scrubbedUrl)` dispatcher. The dispatcher does format-mismatch detection (magic-byte sniff vs. URL extension) before invoking the right extractor. PDF parsing is byte-identical to 1.0.5.
+- `fetchPdfBytes` (1.0.x) renamed to `fetchDocumentBytes` internally — no public-API change.
+- URL-scan regex widened from `\.pdf` to `\.(pdf|docx|pptx|xlsx)` with the same bounded quantifier shape that defuses ReDoS (C1 from 1.0.2).
+- Cache, security defenses, Fuse helpers, snippet rendering, CLI, MCP — all already format-agnostic and inherited the multi-format support transparently.
+
+**Two new v1.1 security defenses:**
+
+1. **Format-mismatch detection.** `parseDocument` calls `detectFormatFamilyFromBytes` on the fetched bytes and aborts with a categorized warning if the magic bytes don't match the URL extension (PDF magic `%PDF` vs. ZIP magic `PK\x03\x04`). Defends against the attack where a malicious CMS serves DOCX bytes at a `.pdf` URL (or inverse) to confuse the parser.
+2. **Office-aware error categorization.** `categorizeParseError(msg, format)` gained the `format` parameter (defaults to `'pdf'` for back-compat). New tags surface in CI logs without leaking parser internals: `'encrypted DOCX document'`, `'corrupt PPTX structure'`, `'XLSX format mismatch'`, `'DOCX parse error'`.
+
+**Per-format extraction notes:**
+
+| Format | Parser            | `pages` field meaning | Native page concept? |
+| ------ | ----------------- | --------------------- | -------------------- |
+| `pdf`  | `unpdf` (bundled) | page count            | yes                  |
+| `docx` | `officeparser`    | undefined             | no                   |
+| `pptx` | `officeparser`    | slide count           | yes (slides)         |
+| `xlsx` | `officeparser`    | sheet count           | yes (sheets)         |
+
+**Out of scope for 1.1 (tracked for later):**
+
+- **Pre-2007 Office binary formats** (`.doc`, `.ppt`, `.xls`) — different on-disk format, not supported.
+- **OpenDocument formats** (`.odt`, `.odp`, `.ods`) — `officeparser` supports them internally but the URL scanner is scoped to the four Microsoft Office Open XML formats. Plausible v1.2 if there's demand.
+- **Per-row / per-sheet XLSX search semantics** — current behavior treats each spreadsheet as one searchable document. Per-row would change the `IndexedDocument` shape (multiple rows per file), tracked for a future major.
+- **`maxInflatedArchiveBytes` cap (inflate-bomb defense).** The existing `maxBytes` (32 MB input) + `maxExtractedTextChars` (5 MB output) caps bound the realistic exposure window. A proper ZIP-central-directory size check is tracked for v1.2.
+- **In-document highlighting for Office formats.** The bundled Mozilla pdf.js viewer in the netlify-demo provides this for PDFs. No equivalent for Office documents — clicking a non-PDF result opens the file in the OS-level handler.
+
+**Adapter packages updated to 1.1.0 in lockstep:**
+
+- `@icjia/astro-pdf-search-index@1.1.0` — content-collection scanner picks up all four formats; emitted JSON includes `format` on every row.
+- `@icjia/nuxt-pdf-search-index@1.1.0` — two new Nitro helpers (`extractDocumentsFromCmsBody`, `extractDocumentsFromContentDoc`); existing PDF-only helpers preserved.
+
+**Netlify demo updated** to index 3 DOCX + 1 XLSX fixtures alongside the 10 PDFs (14 documents total). Each result row displays a per-format badge (color-coded: PDF red, DOCX blue, PPTX orange, XLSX green) and routes non-PDF results to the browser's native handler instead of the bundled pdf.js viewer.
+
+Consumers running `^1.0.x` continue to work identically. The minor version bump (1.0.5 → 1.1.0) reflects the new public API surface (multi-format) without breaking the existing one.
+
 ## 1.0.5
 
 ### Patch Changes

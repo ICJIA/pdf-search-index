@@ -1,20 +1,32 @@
 import { readCache, writeCache } from './cache.js';
-import type { ExtractOptions } from './types.js';
+import type { DocumentFormat, ExtractOptions } from './types.js';
 
 const DEFAULT_CACHE_DIR = '.pdf-cache';
 const DEFAULT_FETCH_TIMEOUT = 30_000;
 // Lowered from 100 MB to 32 MB in v1.0.2 as a defense-in-depth measure
 // against memory-exhaustion attacks. Consumers can opt up via
-// `{ maxBytes: ... }` if they legitimately host larger PDFs.
+// `{ maxBytes: ... }` if they legitimately host larger documents.
 const DEFAULT_MAX_BYTES = 32 * 1024 * 1024; // 32 MB
-// Cap on the extracted text length per PDF. Defends against
-// "compression-bomb"-style PDFs (1 MB of flate-compressed repetitive
+// Cap on the extracted text length per document. Defends against
+// "compression-bomb"-style files (1 MB of flate-compressed repetitive
 // streams that decompress to hundreds of MB of text). Consumers can opt
 // up via `{ maxExtractedTextChars: ... }`.
 const DEFAULT_MAX_EXTRACTED_TEXT_CHARS = 5_000_000; // 5 MB
 
+// Magic-byte signatures used for format-mismatch detection. The URL
+// extension declares an intended format; the byte stream's leading bytes
+// confirm it. Mismatch → abort, defends against the "PDF URL serving
+// DOCX bytes" attack class (and inverse).
+const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // "%PDF"
+const ZIP_MAGIC = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // "PK\x03\x04" (used by all Office formats)
+const ZIP_MAGIC_EMPTY = new Uint8Array([0x50, 0x4b, 0x05, 0x06]); // empty archive
+const ZIP_MAGIC_SPANNED = new Uint8Array([0x50, 0x4b, 0x07, 0x08]); // spanned archive
+
+const OFFICE_FORMATS: ReadonlySet<DocumentFormat> = new Set(['docx', 'pptx', 'xlsx']);
+
 export interface ExtractedMetadata {
   pages: number;
+  format?: DocumentFormat;
   infoTitle?: string;
 }
 
@@ -27,6 +39,7 @@ interface ResolvedOptions {
   cache: 'use' | 'bypass' | 'refresh';
   mergePages: boolean;
   debug: boolean;
+  format: DocumentFormat | undefined;
 }
 
 function resolveOptions(opts: ExtractOptions | undefined): ResolvedOptions {
@@ -39,7 +52,55 @@ function resolveOptions(opts: ExtractOptions | undefined): ResolvedOptions {
     cache: opts?.cache ?? 'use',
     mergePages: opts?.mergePages ?? true,
     debug: opts?.debug ?? false,
+    format: opts?.format,
   };
+}
+
+/**
+ * Infer the document format from a URL by extension. Returns `null` if
+ * the URL doesn't end in a recognized document extension. Case-insensitive.
+ * Added in 1.1.
+ */
+export function detectFormatFromUrl(url: string): DocumentFormat | null {
+  // Trim query string + fragment so `?v=2#page=3` doesn't break the suffix match.
+  let path = url;
+  const q = path.indexOf('?');
+  if (q !== -1) path = path.slice(0, q);
+  const h = path.indexOf('#');
+  if (h !== -1) path = path.slice(0, h);
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'pdf';
+  if (lower.endsWith('.docx')) return 'docx';
+  if (lower.endsWith('.pptx')) return 'pptx';
+  if (lower.endsWith('.xlsx')) return 'xlsx';
+  return null;
+}
+
+function startsWith(bytes: Uint8Array, magic: Uint8Array): boolean {
+  if (bytes.length < magic.length) return false;
+  for (let i = 0; i < magic.length; i++) {
+    if (bytes[i] !== magic[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * Detect the document family (PDF vs ZIP-based Office) from the leading
+ * bytes. Returns `'pdf'`, `'office'`, or `null` if the bytes match neither
+ * signature. Added in 1.1 as a defense against format-mismatch attacks
+ * (e.g., a `.pdf` URL serving DOCX bytes).
+ *
+ * Note: this distinguishes PDF from Office but NOT between docx/pptx/xlsx
+ * (all three share the ZIP magic). The URL extension is used to
+ * discriminate within the Office family; `officeparser` itself will fail
+ * if the ZIP contents don't match the declared sub-format.
+ */
+export function detectFormatFamilyFromBytes(bytes: Uint8Array): 'pdf' | 'office' | null {
+  if (startsWith(bytes, PDF_MAGIC)) return 'pdf';
+  if (startsWith(bytes, ZIP_MAGIC)) return 'office';
+  if (startsWith(bytes, ZIP_MAGIC_EMPTY)) return 'office';
+  if (startsWith(bytes, ZIP_MAGIC_SPANNED)) return 'office';
+  return null;
 }
 
 /**
@@ -67,18 +128,32 @@ function scrubControl(s: string): string {
 }
 
 /**
- * Categorize a pdf.js parse error message into a short tag. The full
- * message is suppressed in CI logs because it can disclose details about
- * the PDF (e.g. PasswordException tells the attacker the URL is encrypted).
+ * Categorize a parse error message into a short tag. The full message is
+ * suppressed in CI logs because it can disclose details about the
+ * document (e.g. PasswordException tells the attacker the URL is
+ * encrypted).
+ *
+ * The `format` parameter (added in 1.1) selects format-appropriate
+ * categories. Defaults to `'pdf'` for back-compat with 1.0.x callers.
  */
-export function categorizeParseError(msg: string): string {
-  if (/password/i.test(msg)) return 'encrypted PDF';
-  if (/xref|stream|trailer/i.test(msg)) return 'corrupt PDF structure';
-  if (/font/i.test(msg)) return 'PDF font error';
-  return 'PDF parse error';
+export function categorizeParseError(msg: string, format: DocumentFormat = 'pdf'): string {
+  if (format === 'pdf') {
+    if (/password/i.test(msg)) return 'encrypted PDF';
+    if (/xref|stream|trailer/i.test(msg)) return 'corrupt PDF structure';
+    if (/font/i.test(msg)) return 'PDF font error';
+    return 'PDF parse error';
+  }
+  // Office formats (docx / pptx / xlsx) — categorize errors surfaced by
+  // officeparser. Tags mirror the PDF set so consumers handling the
+  // category strings can match across formats.
+  const upper = format.toUpperCase();
+  if (/password|encrypted/i.test(msg)) return `encrypted ${upper} document`;
+  if (/zip|invalid|malformed|corrupt|truncated/i.test(msg)) return `corrupt ${upper} structure`;
+  if (/unsupported|unknown format/i.test(msg)) return `${upper} format mismatch`;
+  return `${upper} parse error`;
 }
 
-async function fetchPdfBytes(url: string, o: ResolvedOptions): Promise<Uint8Array | null> {
+async function fetchDocumentBytes(url: string, o: ResolvedOptions): Promise<Uint8Array | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), o.fetchTimeout);
   const scrubbed = scrubUrl(url);
@@ -178,9 +253,12 @@ function concatChunks(chunks: Uint8Array[], total: number): Uint8Array {
   return out;
 }
 
-interface ParsedPdf {
+interface ParsedDocument {
   text: string;
-  pages: number;
+  format: DocumentFormat;
+  /** Page count (PDF), slide count (PPTX), sheet count (XLSX). Undefined for DOCX. */
+  pages?: number;
+  /** PDF info-dict Title, if present. Not extracted from Office formats. */
   infoTitle?: string;
 }
 
@@ -188,7 +266,7 @@ async function parsePdf(
   bytes: Uint8Array,
   o: ResolvedOptions,
   scrubbedUrl: string,
-): Promise<ParsedPdf | null> {
+): Promise<ParsedDocument | null> {
   try {
     const { getDocumentProxy, extractText } = await import('unpdf');
     const pdf = await getDocumentProxy(bytes);
@@ -222,6 +300,7 @@ async function parsePdf(
     // Conditional spread to satisfy exactOptionalPropertyTypes (no assigning undefined to optional)
     return {
       text: textStr,
+      format: 'pdf',
       pages: totalPages,
       ...(infoTitle !== undefined ? { infoTitle } : {}),
     };
@@ -233,47 +312,190 @@ async function parsePdf(
     } else {
       // Default: log only the category to avoid leaking whether a PDF is
       // encrypted, corrupt, etc.
-      console.warn(`[pdf-search-index] parse error ${scrubbedUrl}: ${categorizeParseError(msg)}`);
+      console.warn(
+        `[pdf-search-index] parse error ${scrubbedUrl}: ${categorizeParseError(msg, 'pdf')}`,
+      );
     }
     return null;
   }
 }
 
+/**
+ * Parse a DOCX, PPTX, or XLSX byte stream via the optional `officeparser`
+ * peer dependency. Returns null on failure (logs a categorized error tag
+ * to console.warn, or the full message if `debug` is set).
+ *
+ * `officeparser` covers all three Office Open XML formats with a single
+ * `parseOfficeAsync(buffer)` call — `format` is informational, used to
+ * pick error-categorization tags and to populate the returned `format`
+ * field. The underlying parser auto-detects the format from the ZIP
+ * contents.
+ *
+ * Pages/slides/sheets count is not surfaced by officeparser's text API.
+ * The `pages` field is left undefined for Office formats; consumers can
+ * read the file structure directly if they need it.
+ *
+ * Added in 1.1.
+ */
+async function parseOfficeDoc(
+  bytes: Uint8Array,
+  format: DocumentFormat,
+  o: ResolvedOptions,
+  scrubbedUrl: string,
+): Promise<ParsedDocument | null> {
+  let parseOfficeAsync: (buffer: Buffer) => Promise<string>;
+  try {
+    const mod = await import('officeparser');
+    // officeparser's type accepts string | ArrayBuffer | Buffer; we always
+    // pass Buffer. Narrow the signature so the call site stays clean.
+    parseOfficeAsync = mod.parseOfficeAsync as unknown as (buffer: Buffer) => Promise<string>;
+  } catch (e) {
+    // The optional peer dep isn't installed. Surface a clear, actionable
+    // message instead of a confusing module-resolution error.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[pdf-search-index] ${scrubbedUrl}: install the optional peer dependency \`officeparser\` ` +
+        `to index ${format.toUpperCase()} files (\`npm install officeparser\`). Underlying error: ${scrubControl(msg)}`,
+    );
+    return null;
+  }
+
+  try {
+    // officeparser requires a Node Buffer, not a generic Uint8Array. The
+    // wrapping is O(1) — Buffer.from with a Uint8Array shares the backing
+    // ArrayBuffer rather than copying.
+    const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    let textStr = await parseOfficeAsync(buf);
+
+    // Compression-bomb defense: same cap as PDFs (I3, 5 MB default).
+    // Office formats are ZIP archives of XML, so they can inflate
+    // similarly to flate-compressed PDFs.
+    if (textStr.length > o.maxExtractedTextChars) {
+      console.warn(
+        `[pdf-search-index] ${scrubbedUrl} extracted text ${textStr.length} chars exceeds cap ${o.maxExtractedTextChars}; truncating`,
+      );
+      textStr = textStr.slice(0, o.maxExtractedTextChars);
+    }
+
+    return {
+      text: textStr,
+      format,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (o.debug) {
+      console.warn(`[pdf-search-index] parse error ${scrubbedUrl}: ${scrubControl(msg)}`);
+    } else {
+      console.warn(
+        `[pdf-search-index] parse error ${scrubbedUrl}: ${categorizeParseError(msg, format)}`,
+      );
+    }
+    return null;
+  }
+}
+
+/**
+ * Dispatcher — picks the right extractor for the declared format and
+ * runs it. Format-mismatch defense: confirms the byte stream's magic
+ * bytes match the declared format (PDF magic for `'pdf'`; ZIP magic for
+ * any of the Office formats). Mismatch returns null with a categorized
+ * error tag.
+ *
+ * Added in 1.1.
+ */
+async function parseDocument(
+  bytes: Uint8Array,
+  format: DocumentFormat,
+  o: ResolvedOptions,
+  scrubbedUrl: string,
+): Promise<ParsedDocument | null> {
+  // Format-mismatch detection: an attacker (or a misconfigured CMS) might
+  // serve DOCX bytes at a `.pdf` URL or vice versa. The URL extension is
+  // the declared format; the magic bytes are the truth. Mismatch → abort.
+  const declared = format === 'pdf' ? 'pdf' : 'office';
+  const actual = detectFormatFamilyFromBytes(bytes);
+  if (actual !== null && actual !== declared) {
+    console.warn(
+      `[pdf-search-index] parse error ${scrubbedUrl}: ${format.toUpperCase()} format mismatch ` +
+        `(URL declares ${format} but bytes are ${actual === 'pdf' ? 'PDF' : 'Office/ZIP'})`,
+    );
+    return null;
+  }
+
+  if (format === 'pdf') {
+    return parsePdf(bytes, o, scrubbedUrl);
+  }
+  if (OFFICE_FORMATS.has(format)) {
+    return parseOfficeDoc(bytes, format, o, scrubbedUrl);
+  }
+  // Unreachable under TS, but defensive at runtime in case of stale JS callers.
+  console.warn(`[pdf-search-index] parse error ${scrubbedUrl}: unsupported format "${format}"`);
+  return null;
+}
+
 export interface ExtractResult {
   text: string;
   source: 'cache' | 'fresh' | 'failed';
+  /** Document format. Added in 1.1; undefined for cache hits written by 1.0.x. */
+  format?: DocumentFormat;
   pages?: number;
   infoTitle?: string;
 }
 
-export async function extractPdfTextWithSource(
+/**
+ * Internal core. Both `extractPdfTextWithSource` and
+ * `extractDocumentTextWithSource` call this. The `format` parameter
+ * controls dispatch:
+ *   - `'pdf'` — hardcoded PDF parsing (back-compat path for the legacy
+ *     PDF-only API; even non-PDF URLs are parsed as PDFs and fail).
+ *   - `'auto'` — detect from URL extension, fall back to magic-byte sniff
+ *     against the fetched bytes, fall back to PDF as last-resort
+ *     (preserves 1.0.x behavior for unrecognized URLs).
+ */
+async function extractCore(
   url: string,
-  options?: ExtractOptions,
+  options: ExtractOptions | undefined,
+  formatMode: DocumentFormat | 'auto',
 ): Promise<ExtractResult> {
   const o = resolveOptions(options);
   const scrubbed = scrubUrl(url);
 
+  // Resolve the format we'll dispatch to.
+  let format: DocumentFormat;
+  if (formatMode !== 'auto') {
+    format = formatMode;
+  } else if (o.format) {
+    format = o.format;
+  } else {
+    format = detectFormatFromUrl(url) ?? 'pdf'; // last-resort fallback
+  }
+
   if (o.cache === 'use') {
     const hit = await readCache(o.cacheDir, url);
     if (hit) {
-      // Conditional spread for `pages` to satisfy exactOptionalPropertyTypes
       return {
         text: hit.text,
         source: 'cache',
+        format,
         ...(hit.meta.pages !== undefined ? { pages: hit.meta.pages } : {}),
       };
     }
   }
 
-  const bytes = await fetchPdfBytes(url, o);
-  if (!bytes) return { text: '', source: 'failed' };
+  const bytes = await fetchDocumentBytes(url, o);
+  if (!bytes) return { text: '', source: 'failed', format };
 
-  const parsed = await parsePdf(bytes, o, scrubbed);
-  if (!parsed) return { text: '', source: 'failed' };
+  const parsed = await parseDocument(bytes, format, o, scrubbed);
+  if (!parsed) return { text: '', source: 'failed', format };
 
   if (o.cache !== 'bypass') {
     try {
-      await writeCache(o.cacheDir, url, parsed.text, { pages: parsed.pages });
+      // Conditional spread so we don't pass `pages: undefined` when the
+      // format doesn't have a native page concept (DOCX).
+      await writeCache(o.cacheDir, url, parsed.text, {
+        ...(parsed.pages !== undefined ? { pages: parsed.pages } : {}),
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(
@@ -284,13 +506,26 @@ export async function extractPdfTextWithSource(
     }
   }
 
-  // Conditional spreads for both optional fields
   return {
     text: parsed.text,
     source: 'fresh',
-    pages: parsed.pages,
+    format: parsed.format,
+    ...(parsed.pages !== undefined ? { pages: parsed.pages } : {}),
     ...(parsed.infoTitle !== undefined ? { infoTitle: parsed.infoTitle } : {}),
   };
+}
+
+/**
+ * Extract text from a PDF URL with cache-source attribution. Hardcoded
+ * to the PDF extractor regardless of URL extension — preserves 1.0.x
+ * behavior. Callers that want format-agnostic dispatch should use
+ * `extractDocumentTextWithSource` (added in 1.1) instead.
+ */
+export async function extractPdfTextWithSource(
+  url: string,
+  options?: ExtractOptions,
+): Promise<ExtractResult> {
+  return extractCore(url, options, 'pdf');
 }
 
 export async function extractPdfText(url: string, options?: ExtractOptions): Promise<string> {
@@ -302,24 +537,75 @@ export async function extractPdfMetadata(
   url: string,
   options?: ExtractOptions,
 ): Promise<ExtractedMetadata> {
+  return extractDocumentMetadataCore(url, options, 'pdf');
+}
+
+/**
+ * Extract text from a document URL with cache-source attribution.
+ * Auto-detects the format from the URL extension (`.pdf`/`.docx`/
+ * `.pptx`/`.xlsx`), with `options.format` as an override and a final
+ * fallback to PDF for unrecognized URLs. Added in 1.1.
+ */
+export async function extractDocumentTextWithSource(
+  url: string,
+  options?: ExtractOptions,
+): Promise<ExtractResult> {
+  return extractCore(url, options, 'auto');
+}
+
+/**
+ * Extract text from a document URL (PDF / DOCX / PPTX / XLSX).
+ * Auto-detects format. Added in 1.1.
+ */
+export async function extractDocumentText(url: string, options?: ExtractOptions): Promise<string> {
+  const r = await extractDocumentTextWithSource(url, options);
+  return r.text;
+}
+
+/**
+ * Extract structural metadata (pages / slides / sheets, info-dict title
+ * if PDF) without committing to a text payload. Auto-detects format.
+ * Added in 1.1.
+ */
+export async function extractDocumentMetadata(
+  url: string,
+  options?: ExtractOptions,
+): Promise<ExtractedMetadata> {
+  return extractDocumentMetadataCore(url, options, 'auto');
+}
+
+async function extractDocumentMetadataCore(
+  url: string,
+  options: ExtractOptions | undefined,
+  formatMode: DocumentFormat | 'auto',
+): Promise<ExtractedMetadata> {
   const o = resolveOptions(options);
   const scrubbed = scrubUrl(url);
-  // Cache hit: derive what we can from the sidecar without re-fetching.
-  // (info-dict title isn't in the sidecar, so it returns undefined here.
-  // Callers that need info-dict title should use extractPdfTextWithSource
-  // which always parses fresh on a miss.)
+
+  let format: DocumentFormat;
+  if (formatMode !== 'auto') {
+    format = formatMode;
+  } else if (o.format) {
+    format = o.format;
+  } else {
+    format = detectFormatFromUrl(url) ?? 'pdf';
+  }
+
   if (o.cache === 'use') {
     const hit = await readCache(o.cacheDir, url);
     if (hit) {
-      return hit.meta.pages !== undefined ? { pages: hit.meta.pages } : { pages: 0 };
+      return hit.meta.pages !== undefined
+        ? { pages: hit.meta.pages, format }
+        : { pages: 0, format };
     }
   }
-  const bytes = await fetchPdfBytes(url, o);
-  if (!bytes) return { pages: 0 };
-  const parsed = await parsePdf(bytes, o, scrubbed);
-  if (!parsed) return { pages: 0 };
+  const bytes = await fetchDocumentBytes(url, o);
+  if (!bytes) return { pages: 0, format };
+  const parsed = await parseDocument(bytes, format, o, scrubbed);
+  if (!parsed) return { pages: 0, format };
   return {
-    pages: parsed.pages,
+    pages: parsed.pages ?? 0,
+    format: parsed.format,
     ...(parsed.infoTitle !== undefined ? { infoTitle: parsed.infoTitle } : {}),
   };
 }
