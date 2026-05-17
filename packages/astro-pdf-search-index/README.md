@@ -32,7 +32,7 @@ Peer dependency: `astro@^5.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
 ## Security
 
-**Status as of v1.2.0 (last audited 2026-05-17):** Every Critical and Important finding against the Astro adapter surface is **remediated and verified in 1.0.2**. The one adapter-specific Critical (**C5**) plus the core flow-through fixes (C1, C3, I1, I3, I4, I7, I8) all have named regression tests and were re-verified at v1.1.0 and v1.2.0. **Zero unaddressed exploitable issues** in the documented usage envelope. The 1.2 release adds an optional **prebuilt-Fuse-index** emission (`prebuildIndex` option) — the same path-jail guard that protects `endpoint` (C5 fix) also applies to the prebuilt-index path, verified by the v1.2 audit.
+**Status as of v1.2.1 (last audited 2026-05-17):** Every Critical and Important finding against the Astro adapter surface is **remediated and verified in 1.0.2**. The one adapter-specific Critical (**C5**) plus the core flow-through fixes (C1, C3, I1, I3, I4, I7, I8) all have named regression tests and were re-verified at v1.1.0 and v1.2.0. **Zero unaddressed exploitable issues** in the documented usage envelope. The 1.2 release adds an optional **prebuilt-Fuse-index** emission (`prebuildIndex` option) — the same path-jail guard that protects `endpoint` (C5 fix) also applies to the prebuilt-index path, verified by the v1.2 audit. v1.2.1 is a docs-and-demo patch (runtime byte-identical to 1.2.0).
 
 ### Adapter-specific remediation detail
 
@@ -254,7 +254,7 @@ In addition to the Astro-specific path-jail and HTML-safe emit covered in the [S
 Two flavors, same integration:
 
 - [`examples/astro/`](../../examples/astro/) — the **minimal smoke test**. Astro 5 + Vue island + `local-fetch.mjs` for offline fixtures. Read this first if you want to see the integration in isolation.
-- [`examples/netlify-demo/`](../../examples/netlify-demo/) — the **polished, deployable variant**. Same integration, dressed up: hand-designed dark-mode UI, corpus listing on the page, live Fuse.js options tuner, token-search wrapper for short queries, multi-region snippet picker (`maxSnippets: 8` with custom distribution across document buckets), match-count badge per result, image-only "Needs OCR — title only" badge, bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight, and a `netlify.toml` so deploying to Netlify is one click. Use this as the starting point for a real consumer site.
+- [`examples/netlify-demo/`](../../examples/netlify-demo/) — the **polished, deployable variant**. Same integration, dressed up: hand-designed dark-mode UI, **corpus browser with per-format chips (PDF / DOCX / PPTX / XLSX) visible when no query is active**, live Fuse.js options tuner, **prebuilt-Fuse-index inspector dropdown (v1.2)**, **full search-engine alternatives table with links + tradeoffs + recommended corpus-size ranges**, token-search wrapper for short queries, multi-region snippet picker (`maxSnippets: 8` with custom distribution across document buckets), match-count badge per result, image-only "Needs OCR — title only" badge, bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight, and a `netlify.toml` so deploying to Netlify is one click. Use this as the starting point for a real consumer site.
 
 Run either with:
 

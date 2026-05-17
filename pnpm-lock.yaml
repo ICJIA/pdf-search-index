@@ -214,7 +214,7 @@ importers:
         specifier: 7.4.0-beta.6
         version: 7.4.0-beta.6
       officeparser:
-        specifier: ^5.1.1
+        specifier: 5.2.2
         version: 5.2.2
       pdf-lib:
         specifier: ^1.17.1

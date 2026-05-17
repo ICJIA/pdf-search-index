@@ -45,6 +45,42 @@
           </p>
         </div>
 
+        <!--
+          Corpus list — visible when the user hasn't started searching yet.
+          Shows the full document set with per-format chips so users can see
+          at a glance that the index covers mixed formats. Each entry links
+          directly to the file (or to the bundled pdf.js viewer for PDFs)
+          using the same `resultLink` helper as the search results below.
+        -->
+        <section
+          v-if="loaded && !query.trim() && rows.length"
+          class="corpus"
+          aria-labelledby="corpus-heading"
+        >
+          <h3 id="corpus-heading" class="corpus__heading">
+            Files in this corpus
+            <span class="corpus__count">{{ rows.length }} documents</span>
+          </h3>
+          <ul class="corpus__list">
+            <li v-for="row in sortedCorpus" :key="row.id" class="corpus__item">
+              <a
+                :href="corpusLink(row)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="corpus__link"
+              >
+                <span
+                  class="search__result-format"
+                  :class="`search__result-format--${(row.format ?? 'pdf').toLowerCase()}`"
+                  :aria-label="`Format: ${(row.format ?? 'pdf').toUpperCase()}`"
+                  >{{ (row.format ?? 'pdf').toUpperCase() }}</span
+                >
+                <span class="corpus__title">{{ row.title }}</span>
+              </a>
+            </li>
+          </ul>
+        </section>
+
         <ul v-if="results.length" class="search__results">
           <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
             <a
@@ -399,13 +435,147 @@
 
       <h3>Not the only option</h3>
       <p>
-        The output of this package is plain JSON — every search engine consumes it. The top-level
-        README has working recipes for MiniSearch (lighter index format, slightly better relevance),
-        Orama (zero-config, multi-language, fast on large corpora), Lunr (no-fuzzy classic),
-        FlexSearch (best raw perf, fiddlier config), Pagefind (build-time crawler — different
-        model), and three managed services (Typesense, MeiliSearch, Algolia). Pick by team
-        familiarity and corpus size; for the 10-PDF demo you&rsquo;re looking at, Fuse and any of
-        those are interchangeable.
+        The output of this package is plain JSON — every client-side search engine consumes it.
+        Below is the honest landscape; pick by team familiarity and corpus size. For the 14-doc demo
+        you&rsquo;re looking at, all of these are interchangeable.
+      </p>
+      <div class="alternates-table-wrap">
+        <table class="alternates-table">
+          <thead>
+            <tr>
+              <th scope="col">Engine</th>
+              <th scope="col">Strengths</th>
+              <th scope="col">Tradeoffs</th>
+              <th scope="col">Best corpus size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">
+                <a href="https://www.fusejs.io/" target="_blank" rel="noopener noreferrer"
+                  >Fuse.js</a
+                >
+                <span class="alternates-table__badge">demo default</span>
+              </th>
+              <td>
+                Best typo tolerance (Bitap). Native match-position output for snippet highlighting.
+                Built-in <code>FuseWorker</code> in 7.4.0-beta.6+. Smallest API.
+              </td>
+              <td>In-memory; full index loaded up-front. Build cost grows with corpus.</td>
+              <td>&lt; 2,500 documents</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a
+                  href="https://lucaong.github.io/minisearch/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >MiniSearch</a
+                >
+              </th>
+              <td>
+                Lighter index format than Fuse. Slightly better relevance ranking via TF-IDF. Easy
+                API. Good for prefix / autocomplete.
+              </td>
+              <td>No native fuzzy matching (substring + token-prefix). No built-in worker.</td>
+              <td>&lt; 5,000 documents</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="https://askorama.ai/" target="_blank" rel="noopener noreferrer">Orama</a>
+              </th>
+              <td>
+                Zero-config; multi-language tokenizers. Fast on medium corpora. Vector / hybrid
+                search support if you need it later.
+              </td>
+              <td>
+                Newer library (younger ecosystem than Fuse / Lunr / MiniSearch). Heavier bundle.
+              </td>
+              <td>&lt; 5,000 documents</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a
+                  href="https://github.com/nextapps-de/flexsearch"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >FlexSearch</a
+                >
+              </th>
+              <td>
+                Sub-millisecond queries on 10K+ docs. Encoded index format (denser than JSON).
+                Built-in <code>WorkerIndex</code>. Phonetic / stemming encoders.
+              </td>
+              <td>
+                Loses Fuse&rsquo;s typo tolerance (n-gram mode exists but needs tuning). No native
+                match positions — you do your own substring search for highlight.
+              </td>
+              <td>2,500 – 10,000 documents</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="https://pagefind.app/" target="_blank" rel="noopener noreferrer"
+                  >Pagefind</a
+                >
+              </th>
+              <td>
+                Chunked on-demand index — only engine that scales past five-figure corpora without
+                paying full-index download on first load. Returns pre-highlighted excerpts.
+              </td>
+              <td>
+                Crawls HTML pages, not JSON — needs a build step that emits one HTML per document.
+                More setup than Fuse / FlexSearch / MiniSearch.
+              </td>
+              <td>10,000+ documents</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="https://lunrjs.com/" target="_blank" rel="noopener noreferrer">Lunr</a>
+              </th>
+              <td>
+                Battle-tested classic; Solr-like inverted index in pure JS. Predictable behavior.
+              </td>
+              <td>
+                No fuzzy matching. No web-worker mode out of the box. Less actively developed
+                lately.
+              </td>
+              <td>&lt; 3,000 documents</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="https://typesense.org/" target="_blank" rel="noopener noreferrer"
+                  >Typesense</a
+                >
+                /
+                <a href="https://www.meilisearch.com/" target="_blank" rel="noopener noreferrer"
+                  >MeiliSearch</a
+                >
+                /
+                <a href="https://www.algolia.com/" target="_blank" rel="noopener noreferrer"
+                  >Algolia</a
+                >
+              </th>
+              <td>
+                Managed services; backend indexing; production-grade scaling; rich UI components.
+              </td>
+              <td>
+                Not client-side; requires a running service (or Algolia&rsquo;s SaaS). Defeats the
+                "no servers" tradeoff this package is built around.
+              </td>
+              <td>Any size — server handles it</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="alternates-table__footer">
+        For more architectural background and migration recipes, see the
+        <a
+          href="https://github.com/ICJIA/pdf-search-index#using-a-search-engine-other-than-fusejs"
+          target="_blank"
+          rel="noopener noreferrer"
+          >&ldquo;Using a search engine other than Fuse.js&rdquo; section</a
+        >
+        in the top-level README.
       </p>
     </div>
   </section>
@@ -415,18 +585,50 @@
     <div class="index-card">
       <p class="index-card__intro">
         Curious how the package&rsquo;s output looks before it hits Fuse? This is the raw
-        <code>IndexedPdf[]</code> array that ships as <code>/searchIndex.pdfs.json</code>. Each row
-        carries the URL, title, full extracted text, page count, and a stable hash-derived id. Your
-        search engine of choice consumes this same shape — Fuse here, MiniSearch / Orama / Lunr /
-        Algolia / Typesense elsewhere.
+        <code>IndexedDocument[]</code> array that ships as <code>/searchIndex.pdfs.json</code>. Each
+        row carries the URL, title, full extracted text, page count (when surfaced by the parser),
+        format discriminator (<code>'pdf' | 'docx' | 'pptx' | 'xlsx'</code>), and a stable
+        hash-derived id. Your search engine of choice consumes this same shape — Fuse here,
+        MiniSearch / Orama / Lunr / Algolia / Typesense elsewhere.
       </p>
       <details class="index-details">
         <summary class="index-details__summary">
           <span class="index-details__chevron" aria-hidden="true"></span>
-          Show the parsed search index
+          Show the document rows (<code>IndexedDocument[]</code>)
         </summary>
         <pre class="index-details__pre"><code>{{ indexDump }}</code></pre>
       </details>
+
+      <!--
+        v1.2 prebuilt Fuse index. The build emits a second JSON file
+        (`/searchIndex.fuse-index.json`) containing the serialized Fuse
+        index records. Consumers fetch both at runtime and pass the
+        prebuilt index to `Fuse.parseIndex` to skip the in-browser
+        build step. At our 14-doc corpus the perf delta is invisible;
+        the dropdown here is purely a "show me what's actually in the
+        prebuilt file" diagnostic.
+      -->
+      <p class="index-card__intro index-card__intro--secondary">
+        <strong>New in 1.2:</strong> the build also emits a prebuilt Fuse index at
+        <code>/searchIndex.fuse-index.json</code>. Consumers load both files and pass the index to
+        <code>Fuse.parseIndex(...)</code> at runtime, skipping the in-browser build (cuts
+        first-paint setup from ~10&nbsp;s to ~200&nbsp;ms at the 2,000-row scale). At this demo's 14
+        rows the delta is invisible — the dropdown below is a diagnostic so you can see what the
+        prebuilt-index file actually looks like.
+      </p>
+      <details v-if="fuseIndexDump" class="index-details">
+        <summary class="index-details__summary">
+          <span class="index-details__chevron" aria-hidden="true"></span>
+          Show the prebuilt Fuse index (<code>searchIndex.fuse-index.json</code>)
+        </summary>
+        <pre class="index-details__pre"><code>{{ fuseIndexDump }}</code></pre>
+      </details>
+      <p v-else class="index-card__intro index-card__intro--muted">
+        <em
+          >(Prebuilt Fuse index file not loaded — older build, or a fetch failure. Rebuild the demo
+          to emit <code>searchIndex.fuse-index.json</code>.)</em
+        >
+      </p>
     </div>
   </section>
 </template>
@@ -636,6 +838,34 @@ const indexDump = computed(() => {
   return JSON.stringify(previews, null, 2);
 });
 
+/**
+ * Holds the raw prebuilt-index JSON text fetched from
+ * `/searchIndex.fuse-index.json`. Stored as a string so we can render
+ * the file verbatim in the inspector without an extra serialize step.
+ *
+ * Falls back to `null` when the file isn't present (older build or
+ * `prebuildIndex` option disabled). The dropdown hides itself in that
+ * case rather than show an empty pre block.
+ */
+const fuseIndexRaw = ref<string | null>(null);
+
+/**
+ * Pretty-printed prebuilt Fuse index for the inspector. The serialized
+ * Fuse index has its own structure (`keys` + `records[]` with per-key
+ * `v` and `n` slots) — distinct from the row JSON. We don't truncate
+ * `v` values here; they're already the field contents the rows JSON
+ * shows in full, so this just exposes Fuse's internal index shape for
+ * curious devs.
+ */
+const fuseIndexDump = computed(() => {
+  if (!fuseIndexRaw.value) return '';
+  try {
+    return JSON.stringify(JSON.parse(fuseIndexRaw.value), null, 2);
+  } catch {
+    return fuseIndexRaw.value;
+  }
+});
+
 type SpanTuple = readonly [number, number];
 
 /**
@@ -802,6 +1032,31 @@ function resultLink(r: FuseResult<IndexedPdf>): string {
   return (r.item.format ?? 'pdf') === 'pdf' ? viewerUrl(r) : publicPdfUrl(r.item.url);
 }
 
+/**
+ * Like `resultLink` but for the corpus list (no query active). Always
+ * routes to the plain file URL — there's nothing to highlight without
+ * a query, so we skip the viewer wrapping. PDFs open in the browser's
+ * native renderer; Office files download or open in the OS handler.
+ */
+function corpusLink(row: IndexedPdf): string {
+  return publicPdfUrl(row.url);
+}
+
+/**
+ * Corpus list sorted (a) by format (PDF, DOCX, PPTX, XLSX — UI grouping
+ * order), then (b) alphabetically by title. Keeps the list scannable
+ * and stable across rebuilds.
+ */
+const FORMAT_ORDER = { pdf: 0, docx: 1, pptx: 2, xlsx: 3 } as const;
+const sortedCorpus = computed(() =>
+  [...rows.value].sort((a, b) => {
+    const fa = FORMAT_ORDER[(a.format ?? 'pdf') as keyof typeof FORMAT_ORDER] ?? 99;
+    const fb = FORMAT_ORDER[(b.format ?? 'pdf') as keyof typeof FORMAT_ORDER] ?? 99;
+    if (fa !== fb) return fa - fb;
+    return a.title.localeCompare(b.title);
+  }),
+);
+
 // 1.2 demo: fetch BOTH the rows and the prebuilt Fuse index in
 // parallel. The runtime Fuse instance reuses the prebuilt index via
 // `Fuse.parseIndex`, skipping the in-browser build step. At 14 rows
@@ -821,8 +1076,16 @@ onMounted(async () => {
   ]);
   rows.value = (await rowsRes.json()) as IndexedPdf[];
   if (indexRes && indexRes.ok) {
-    const indexJson = await indexRes.json();
-    prebuiltIndex.value = Fuse.parseIndex(indexJson);
+    // Capture the raw JSON text first so the inspector dropdown can
+    // pretty-print it verbatim, then parseIndex for the runtime Fuse.
+    fuseIndexRaw.value = await indexRes.text();
+    try {
+      prebuiltIndex.value = Fuse.parseIndex(JSON.parse(fuseIndexRaw.value));
+    } catch {
+      // If parse fails (malformed file), drop back to building from
+      // scratch — the inspector dropdown still shows the raw text.
+      prebuiltIndex.value = null;
+    }
   }
   loaded.value = true;
 });
@@ -1092,6 +1355,86 @@ onMounted(async () => {
   margin: 1.5rem 0 0;
   display: grid;
   gap: 0.75rem;
+}
+
+/*
+ * Corpus list — shown when the user hasn't started searching. Visually
+ * lighter than search-result cards so it reads as "here's what's
+ * indexed" rather than "here are matches." Reuses .search__result-format
+ * for the format chips so styling stays in lockstep.
+ */
+.corpus {
+  margin: 1.5rem 0 0;
+}
+
+.corpus__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.85rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+
+.corpus__count {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-subtle);
+}
+
+.corpus__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.corpus__item {
+  margin: 0;
+}
+
+.corpus__link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.75rem;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 80ms ease;
+  min-width: 0;
+}
+
+.corpus__link:hover,
+.corpus__link:focus-visible {
+  background: var(--surface-elevated);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.corpus__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.corpus__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .search__result {
@@ -1698,6 +2041,118 @@ input.tune__number:disabled {
   color: var(--text-muted);
   line-height: 1.6;
   max-width: 75ch;
+}
+
+/* Separator between the two index inspectors (rows vs prebuilt Fuse). */
+.index-card__intro--secondary {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Used for the "prebuilt index file not loaded" fallback message. */
+.index-card__intro--muted {
+  color: var(--text-subtle);
+  font-size: 0.88rem;
+}
+
+/*
+ * Search-engine alternatives table. Lives in the "Why Fuse" card, just
+ * below the "Not the only option" heading. Up-front transparency about
+ * the alternatives matters more than promoting Fuse — the package emits
+ * plain JSON that any of these consume, and "right tool for the job"
+ * varies by corpus size.
+ */
+.alternates-table-wrap {
+  margin: 0.5rem 0 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.alternates-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.alternates-table thead {
+  background: var(--surface);
+}
+
+.alternates-table th,
+.alternates-table td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.alternates-table tbody tr:last-child th,
+.alternates-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.alternates-table thead th {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.alternates-table tbody th {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.alternates-table tbody th a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.alternates-table tbody th a:hover,
+.alternates-table tbody th a:focus-visible {
+  text-decoration: underline;
+}
+
+.alternates-table tbody td {
+  color: var(--text-muted);
+}
+
+.alternates-table tbody td:last-child {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.alternates-table__badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a3e635;
+  background: rgba(163, 230, 53, 0.1);
+  border: 1px solid rgba(163, 230, 53, 0.3);
+  border-radius: 4px;
+}
+
+.alternates-table__footer {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-subtle);
+}
+
+.alternates-table__footer a {
+  color: var(--accent);
 }
 
 .index-card__intro code {

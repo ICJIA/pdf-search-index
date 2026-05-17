@@ -1,5 +1,11 @@
 # @icjia/astro-pdf-search-index
 
+## 1.2.1
+
+### Patch Changes
+
+Lockstep docs-and-demo-only patch. Package source is byte-identical to 1.2.0. README updated to mention the netlify-demo's new corpus browser (with per-format chips) and prebuilt-Fuse-index inspector dropdown. See the [core CHANGELOG entry for 1.2.1](../core/CHANGELOG.md#121) for the full summary.
+
 ## 1.2.0
 
 ### Minor Changes

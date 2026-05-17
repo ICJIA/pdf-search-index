@@ -1,6 +1,6 @@
 {
   "name": "@icjia/astro-pdf-search-index",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Astro integration for @icjia/pdf-search-index — adds linked PDFs as first-class search rows.",
   "type": "module",
   "license": "MIT",

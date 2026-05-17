@@ -1,6 +1,6 @@
 {
   "name": "@icjia/pdf-search-index",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Full-text PDF, DOCX, PPTX, XLSX search for static sites — Apache Solr for client-side apps, without Solr.",
   "type": "module",
   "license": "MIT",
@@ -77,7 +77,7 @@
   },
   "peerDependencies": {
     "fuse.js": "^7.0.0 || >=7.4.0-beta.0",
-    "officeparser": "^5.0.0"
+    "officeparser": "5.2.2"
   },
   "peerDependenciesMeta": {
     "fuse.js": {
@@ -90,7 +90,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "fuse.js": "7.4.0-beta.6",
-    "officeparser": "^5.1.1",
+    "officeparser": "5.2.2",
     "pdf-lib": "^1.17.1",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",

@@ -1,5 +1,19 @@
 # @icjia/pdf-search-index
 
+## 1.2.1
+
+### Patch Changes
+
+Docs-and-demo-only patch. **Package runtime source is byte-identical to 1.2.0** — no API, security, or behavior change. Three things land on the npmjs.com-rendered README and the live demo at <https://icjia-pdf-search.netlify.app/>:
+
+1. **Top-level README: full search-engine alternatives table.** New table with direct links + strengths + tradeoffs + recommended corpus-size for Fuse, MiniSearch, Orama, FlexSearch, Pagefind, Lunr, plus the three managed services (Typesense, MeiliSearch, Algolia). Sits above the existing three-way Fuse/FlexSearch/Pagefind deep comparison so consumers see the broader landscape first.
+
+2. **Netlify demo: corpus browser + Fuse-index inspector.** The demo now (a) renders a corpus list with per-format chips (PDF / DOCX / PPTX / XLSX) when no query is active, sorted by format then title — visually demonstrates that the index covers mixed formats; (b) adds a second dropdown in the "Inspect the search index" card that shows the prebuilt Fuse index JSON (`/searchIndex.fuse-index.json`, new in 1.2) alongside the existing rows-JSON inspector — useful for verifying what the v1.2 prebuild path actually emits; (c) adds the same alternatives table from the README inside the "Why Fuse" card's "Not the only option" section, so demo visitors see the broader landscape without leaving the page.
+
+3. **Accuracy pass on README + AGENTS.md.** Corrected the "10 ICJIA-public PDFs" stale claims to "14 ICJIA-public documents (10 PDFs + 3 DOCX + 1 XLSX as of v1.1)". Per-package READMEs updated to mention the new corpus-chips and prebuilt-index inspector features.
+
+Consumers running `^1.2.0` continue to work identically.
+
 ## 1.2.0
 
 ### Minor Changes

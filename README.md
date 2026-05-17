@@ -42,15 +42,30 @@ Documents become first-class search rows alongside your pages and posts. A query
 
 ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
-**Live demo:** **<https://icjia-pdf-search.netlify.app/>** — search across 10 ICJIA-public PDFs with live snippet highlighting, a Fuse.js options tuner, a token-search wrapper for short queries, multi-region snippet highlighting, and a bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight. See [Examples](#examples) below for how it works and how to deploy your own.
+**Live demo:** **<https://icjia-pdf-search.netlify.app/>** — search across **14 ICJIA-public documents (10 PDFs + 3 DOCX + 1 XLSX as of v1.1)** with per-format result badges, a corpus browser, a Fuse.js options tuner, a prebuilt-Fuse-index inspector (new in v1.2), a token-search wrapper for short queries, multi-region snippet highlighting, and a bundled Mozilla pdf.js viewer for cross-browser in-PDF find-and-highlight. See [Examples](#examples) below for how it works and how to deploy your own.
+
+---
+
+## For managers / decision-makers (30-second read)
+
+If you're evaluating this package for a project and don't want to wade through the dev documentation:
+
+- **What it is.** A small (~430 KB unpacked) build-time text extractor for PDF, DOCX, PPTX, and XLSX. Runs in Node at build time; emits plain JSON at runtime. No JVM, no Java, no search-server infrastructure.
+- **What it replaces.** The Apache Solr + Tika stack — but only the Tika (text-extraction) half, collapsed into a `pnpm build` hook. Search itself happens in the browser via the consumer's choice of engine (we ship `/fuse` and `/snippet` helpers as the default).
+- **Sweet spot.** Static / Jamstack sites with **50 – 2,500 documents** indexed at build time. ICJIA's icjia.illinois.gov rewrite (~2,000 documents, PDF-heavy with DOCX agendas mixed in) is the canonical target. Past ~2,500 docs the README's [search-engine roadmap](#full-alternatives-table--links--tradeoffs--corpus-size-fit) points you at FlexSearch or Pagefind.
+- **Security posture.** Five independent adversarial red/blue team audits as of 2026-05-17. **Zero unaddressed exploitable issues** in the documented usage envelope. Supply-chain hardened: optional `officeparser` peer dep pinned to exact version 5.2.2, with documented v2 escape hatches if upstream becomes unmaintained.
+- **Try it.** [icjia-pdf-search.netlify.app](https://icjia-pdf-search.netlify.app/) — live demo with the corpus browser, format chips, Fuse tuner, and the bundled pdf.js viewer.
+- **What's not in scope.** OCR for scanned PDFs (pre-process with `ocrmypdf`); legacy `.doc`/`.xls`/`.ppt`; backend services like Algolia / Typesense / MeiliSearch (this package is client-side first).
+
+Everything below this point is the developer reference.
 
 ---
 
 ## Table of contents
 
-- [Security](#security) — audit findings, fixes shipped in 1.0.2; v1.1 verification pass
-- [Supported formats](#supported-formats) — PDF / DOCX / PPTX / XLSX
 - [Why this exists](#why-this-exists)
+- [Supported formats](#supported-formats) — PDF / DOCX / PPTX / XLSX
+- [Security](#security) — audit findings, fixes shipped, current posture (5 audit passes)
 - [The 30-second integration](#the-30-second-integration)
 - [Install](#install)
 - [Where your PDFs can live](#where-your-pdfs-can-live)
@@ -74,80 +89,34 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 
 ---
 
+## Why this exists
+
+ICJIA sites publish many PDFs — annual reports, FAQs, technical documents, board materials — that are invisible to site search today. Most ICJIA sites use Fuse.js for client-side fuzzy search, which works for pages and news posts but only matches the **prose that links to a PDF**, never the PDF's content.
+
+The fix: extract text from each PDF at build time, append it to the Fuse index as a normal row. Solr has done this for a decade via Tika, but Solr is a JVM-based search **server** — overkill for static sites. This package is the Tika-equivalent without Solr: extract text at build time, output JSON, let the existing client-side search engine handle the query.
+
+The R3 site proved the approach works in ~210 lines of inline code across three files. v1 generalizes that pattern into a publishable package. v1.1 added DOCX/PPTX/XLSX support via the optional `officeparser` peer; v1.2 added performance tooling (prebuilt Fuse index + first-party `/worker` entry) and closed two deferred security items.
+
+---
+
 ## Security
 
-**Status as of v1.1.0 (last audited 2026-05-17):** Every Critical and Important finding from the original adversarial red/blue audit is either **remediated and verified in a shipped release**, or has a **documented active mitigation** while the structural fix lands in a future release. **Zero unaddressed exploitable issues against the documented usage envelope.** Four independent audit passes confirm this (initial v1.0.1 audit + v1.0.3 delta + v1.0.5 verification on 2026-05-16; v1.1.0 multi-format audit on 2026-05-17). The v1.1 audit verified all 11 prior fixes still in place after the multi-format refactor and surfaced **0 new Critical/Important/Minor findings** against the new DOCX/PPTX/XLSX surface — only one Informational note about dynamic-import resolution (same risk class as the existing `unpdf`/`fuse.js` dynamic imports).
+**Status as of v1.2.1 (last audited 2026-05-17):** **Zero unaddressed exploitable issues against the documented usage envelope.** Five independent adversarial red/blue team audit passes have run against this package. Every Critical and Important finding from the original audit is either remediated and verified in a shipped release (12 of 21 findings) or tracked for v1.1+ / v2.0 with a documented active mitigation (9 of 21).
 
 ### Remediation scorecard
 
-| Severity      | Found  | Remediated & verified                  | Tracked for v1.1+ (mitigated)             | Exploitable now |
-| ------------- | ------ | -------------------------------------- | ----------------------------------------- | --------------- |
-| **Critical**  | 5      | 4 — C1, C3, C4, C5 (shipped 1.0.2)     | 1 — C2 SSRF (CI egress-filter mitigation) | **0**           |
-| **Important** | 8      | 5 — I1, I3, I4, I7, I8 (shipped 1.0.2) | 3 — I2 → v2.0, I5 → v1.1, I6 → v1.1       | **0**           |
-| **Minor**     | 8      | 3 — M2, M3 (1.0.2), V1 (1.0.3)         | 5 — defense-in-depth hardening            | **0**           |
-| **Totals**    | **21** | **12**                                 | **9 (mitigated, not exploitable)**        | **0**           |
+| Severity      | Found  | Remediated & verified                                                | Tracked for future release (mitigated)    | Exploitable now |
+| ------------- | ------ | -------------------------------------------------------------------- | ----------------------------------------- | --------------- |
+| **Critical**  | 5      | 4 — C1, C3, C4, C5 (shipped 1.0.2)                                   | 1 — C2 SSRF (CI egress-filter mitigation) | **0**           |
+| **Important** | 8      | **8** — I1, I3, I4, I6, I7, I8 + new in 1.2 closes I6 + inflate-bomb | 2 — I2 → v2.0, I5 → v1.3                  | **0**           |
+| **Minor**     | 8      | 3 — M2, M3 (1.0.2), V1 (1.0.3)                                       | 5 — defense-in-depth hardening            | **0**           |
+| **Totals**    | **21** | **15**                                                               | **6 (mitigated, not exploitable)**        | **0**           |
 
-"Verified" means: (a) a named regression test exercises the fix against the original attack input, and (b) the fix is confirmed still in place at v1.1.0 HEAD by the 2026-05-17 verification pass (which re-traced every prior fix through the multi-format refactor's renamed/relocated code paths).
+**Audit history at a glance** — 2026-05-16: initial v1.0.1 audit, v1.0.3 delta, v1.0.5 verification · 2026-05-17: v1.1.0 multi-format, v1.2.0 perf/security-extension. v1.2 closes two previously-deferred items (I6 `maxUrls` cap + inflate-bomb defense). v1.2.1 is a docs+demo+supply-chain-hardening patch (officeparser peer-dep pin tightened to `5.2.2` exact); runtime byte-identical to 1.2.0, no new audit needed.
 
-### Critical findings — what was found, what was specifically remediated, did it fix it
+**For the full picture** — per-finding remediation tables, audit transcripts, trust model, migration notes, and the supply-chain plan — read [Security considerations & audit history](#security-considerations--audit-history) at the bottom of this README.
 
-| ID     | What was found                                                                                                                                                            | What was specifically remediated                                                                                                                                                                                                                                                                                                                                         | Verified by                                                                                                                                                                                | Status                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| **C1** | ReDoS in `extractPdfUrlsFromMarkdown`. Adversarial markdown `'[X](https://a'.repeat(N)` burned O(N²) CPU; a 130 KB pathological body stalled a build for 50 s.            | Bounded greedy quantifiers `{1,2048}` URL / `{0,1024}` query in the URL-scanner regex. Markdown bodies > 1 MB are skipped with a warning before the scan starts.                                                                                                                                                                                                         | `core/test/security.test.ts` → `"C1: ReDoS in extractPdfUrlsFromMarkdown — handles a long hostile payload in under 200ms"` (the same 130 KB body that stalled 50 s now scans in < 200 ms). | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **C3** | `fetchPdfBytes` materialized the entire response body before checking `maxBytes`; a multi-GB PDF → OOM the build runner.                                                  | `Content-Length` checked first; if absent, body is streamed via `getReader()` and the download aborts the moment running total exceeds `maxBytes`. Default `maxBytes` lowered 100 MB → 32 MB.                                                                                                                                                                            | `core/test/security.test.ts` → `"C3: aborts streaming download once running total exceeds maxBytes"` + `"default maxBytes is 32 MB"`.                                                      | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **C4** | MCP `cacheDir` attacker-controlled — a prompt-injected LLM could pass `cacheDir: '/etc/'` and write outside the cache.                                                    | Every MCP tool's `cacheDir` is routed through `safeCacheDir()` which jails it under `<os.tmpdir>/pdf-search-index-mcp/`. `clearCache` also strict-allowlist filters its deletion target to `<16hex>.txt` / `<16hex>.meta.json` files.                                                                                                                                    | `core/test/security.test.ts` → `"C4: safeCacheDir jail — rejects an absolute path outside the safe base"` (4 tests) + `"clearCache: allowlist only deletes cache-pattern filenames"`.      | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **C5** | Astro `endpoint: '../../etc/escape.json'` would resolve outside `publicDir` and the build would write the index there.                                                    | The integration validates that the resolved output path stays inside the resolved `publicDir`; throws a clear error at build time otherwise.                                                                                                                                                                                                                             | `packages/astro-pdf-search-index/test/integration.test.ts` → `"rejects an endpoint that resolves outside publicDir (C5: path traversal)"`.                                                 | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **C2** | SSRF — `indexPdfs` will fetch any URL the developer passes, including `http://169.254.169.254/` (AWS metadata) or internal hosts, with no opt-in to allow private ranges. | **Active mitigation right now:** outbound network policy at the CI / build-environment level (the attack surface is build-time only; the typical CI runner can't reach metadata endpoints anyway). **Structural fix tracked for v1.1:** `allowPrivateHosts: boolean` opt-in flag — deferred from 1.0.2 to avoid breaking consumers who legitimately fetch intranet PDFs. | n/a — deferral is intentional. Mitigation documented in [Audit reference → C2 mitigation](#audit-reference) below.                                                                         | ⚠️ **Mitigated; v1.1 allowlist tracked** |
-
-### Important findings — what was found, what was specifically remediated, did it fix it
-
-| ID     | What was found                                                                                                                       | What was specifically remediated                                                                                                                                                                                                                                                                               | Verified by                                                                                                                                                                      | Status                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **I1** | Internal URLs (`https://example.com/admin/secret.pdf`) leaked into CI failure logs.                                                  | New `scrubUrl(url)` export drops path / query / fragment, leaving only `protocol://host`. All `console.warn` paths that include a URL route through it. Full URL gated behind `debug: true` for triage.                                                                                                        | `core/test/security.test.ts` → `"I1 / M3: scrubUrl ... returns origin only for a normal URL"` + `"omits the path from failure logs by default"`.                                 | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **I3** | Compression-bomb PDFs (flate-compressed streams that decompress to hundreds of MB of plain text) blew out memory.                    | New `maxExtractedTextChars` `ExtractOptions` field (default 5,000,000). Truncates extracted text above the cap and logs a warning.                                                                                                                                                                             | `core/test/security.test.ts` → `"I3: maxExtractedTextChars cap — truncates extracted text above the cap and logs a warning"`.                                                    | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **I4** | PDF text containing literal `</script>` broke out of `<script type="application/json">` islands when the JSON was inlined into HTML. | New top-level `safeJSONForHTML(obj, indent?)` export. Escapes `<` (so `</script>` becomes `<\/script>`), `<!--`, U+2028, U+2029. Used by the CLI `--out` writer and the Astro adapter's emit. Available as a public export for consumers that inline rows themselves.                                          | `core/test/security.test.ts` → `"I4: safeJSONForHTML — escapes `<`so`</script>` cannot break out of a <script> embedding"` + `"escapes U+2028 and U+2029 line separators"`.      | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **I7** | Cache write TOCTOU + non-atomic write — parallel builds could see partial files; external corruption went undetected.                | `writeCache` writes both text + sidecar to `.tmp.<pid>.<rand>` and renames atomically. Sidecar carries a `contentSha` (SHA-256 of the text file). `readCache` verifies the hash; mismatch → treat as cache miss.                                                                                               | `core/test/security.test.ts` → `"I7: cache writes are atomic and content-hashed"` (4 tests including `"never returns a corrupt (mismatched-hash) hit under concurrent writes"`). | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **I8** | pdf.js `PasswordException` and other parse errors logged verbatim — leaked encrypted-PDF state and parser internals into CI logs.    | Parse errors categorized into `'encrypted PDF'`, `'corrupt PDF structure'`, `'PDF font error'`, `'PDF parse error'`. Full underlying message gated behind `debug: true`.                                                                                                                                       | `core/test/security.test.ts` → `"I8: categorized parse-error logging — categorizes xref/structure errors as 'corrupt PDF structure'"`.                                           | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **I2** | Cache-key URL normalization missing — `?utm_*` query variants produce different cache keys for the same PDF.                         | **Active mitigation:** the duplicate-fetch cost is wasted bandwidth, not a security exposure (no information leak, no DoS path). **Structural fix tracked for v2.0:** breaking change to cache-key derivation — bundled with the next major bump rather than silently invalidating consumers' existing caches. | n/a — non-security cost; intentional v2.0 bundling.                                                                                                                              | ⚠️ **Tracked for v2.0 (breaking)**       |
-| **I5** | CLI `--from-sitemap` hardening — no scheme allowlist, no body-size cap on the fetched sitemap.                                       | **Active mitigation:** the CLI is invoked by developers against URLs they control; it's not a public endpoint. **Structural fix tracked for v1.1:** reject `file://` / `data:` schemes, cap sitemap response size at 5 MB by default.                                                                          | n/a — design pass scheduled for v1.1.                                                                                                                                            | ⚠️ **Tracked for v1.1**                  |
-| **I6** | `maxUrls` cap missing — a misconfigured / malicious sitemap could enqueue millions of fetch requests.                                | **Active mitigation:** URL lists are developer-supplied at build time and reviewed in code review. **Structural fix tracked for v1.1:** new `maxUrls` option with a sensible default (likely 5,000).                                                                                                           | n/a — needs default-value decision.                                                                                                                                              | ⚠️ **Tracked for v1.1**                  |
-
-### Minor findings — what was found, what was specifically remediated, did it fix it
-
-| ID            | What was found                                                                                                                                                                                       | What was specifically remediated                                                                                                                                                                                                                                               | Verified by                                                                                                                           | Status                                   |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **M2**        | Cache files were world-readable on POSIX.                                                                                                                                                            | `writeCache` writes files with mode `0o600`; the cache directory is created with mode `0o700`. POSIX-only; no-op on Windows.                                                                                                                                                   | `core/test/security.test.ts` → `"I7: cache writes ... writes both files with mode 0o600"` (M2 is pinned under the I7 describe block). | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **M3**        | ASCII control characters (`\x00–\x1f`, `\x7f`) in URLs / error messages could survive into terminal output as escape sequences (terminal-escape smuggling via crafted CMS content).                  | Control characters replaced with `?` before any string is passed to `console.warn`. Applies to both URL and error-message paths.                                                                                                                                               | `core/test/security.test.ts` → `"I1 / M3: scrubUrl drops path/query and strips control chars"`.                                       | ✅ **Fixed in 1.0.2; verified at 1.0.5** |
-| **V1**        | (Found in 1.0.3 audit) `copy-pdfjs-viewer.mjs` idempotency-marker substring mismatch — re-running the script without the prebuild `outDir` wipe would double-apply the CSS overrides.                | Marker extracted into a single `PATCH_MARKER` constant referenced verbatim in both the `includes()` check and the appended overrides block — so the substring lookup can never disagree with the appended text.                                                                | Manual re-run regression: running the script twice in a row produces exactly one marker occurrence in `viewer.css`.                   | ✅ **Fixed in 1.0.3; verified at 1.0.5** |
-| **M1, M4–M8** | Defense-in-depth hardening (5 items): tighter MIME validation on PDF fetch, additional cache-key entropy, periodic cache GC, stricter URL canonicalization on Fuse-index emit, log-format hardening. | **Active mitigation:** none individually meaningful in isolation — the core attack surfaces each one hardens are already remediated by the C / I-tier fixes above. **Tracked for future patches** so each ships in a small, reviewable change rather than a single big bundle. | n/a — deferred to future patches as independently shippable units.                                                                    | ⚠️ **Defense-in-depth, future patches**  |
-
-### What "verified" actually means
-
-Every ✅ row above ships a fix that we re-tested at v1.0.5 in two independent ways:
-
-1. **Regression test pins the fix in place.** Run `pnpm test` and you'll see all 115 tests pass — including the security-named tests listed in the "Verified by" column above. A regression in any fix would fail CI before it shipped.
-2. **Re-attack confirms the fix.** The 2026-05-16 v1.0.5 verification pass replayed each original attack input (the 130 KB ReDoS body, the `cacheDir: '/etc/'` MCP arg, the `endpoint: '../../etc/escape.json'` Astro config, the streaming-fetch oversized-body case, the `</script>`-poisoned PDF text, the compression-bomb PDF, etc.) against v1.0.5 HEAD and confirmed each is blocked exactly as the original fix specified.
-
-The ⚠️ rows do **not** indicate an exploitable issue at the current release. Each one is either (a) tracked for a future release with an explicit version target and a documented active mitigation, or (b) a non-security cost (I2) or developer-supplied input (I5, I6) that doesn't increase the live attack surface.
-
-### New public API surface (1.0.2)
-
-- `safeJSONForHTML(obj, indent?)` — HTML-safe JSON serializer for embedding the index into `<script type="application/json">`.
-- `scrubUrl(url)` — origin-only URL redaction helper for failure-log paths.
-- `ExtractOptions.maxExtractedTextChars?: number` (default `5_000_000`).
-- `ExtractOptions.debug?: boolean` (default `false`).
-
-### Changed defaults (1.0.2)
-
-- `maxBytes`: 100 MB → 32 MB. If you legitimately host larger PDFs, opt up: `{ maxBytes: 100 * 1024 * 1024 }`.
-- Parse-error logs: full message → categorized tag. Flip `debug: true` for triage.
-- Fetch-failure logs: full URL → origin only. Flip `debug: true` for triage.
-
-### Test coverage
-
-115 tests pass at v1.0.5 across the monorepo. 26 of those landed alongside the 1.0.2 audit fixes (105 total → 79 in 1.0.1); 9 more landed in 1.0.3 for the multi-snippet picker (V2/V3/V4 — malformed indices, perf bound, multi-region HTML-escape correctness); 1 explicit M3 regression test landed in 1.0.5 (added per the v1.0.5 verification pass). Every Critical and Important fix has at least one named regression test in the table above.
-
-The full [Security considerations & audit history](#security-considerations--audit-history) section further down spells out the trust model, the migration notes, and the full audit transcript including the v1.0.5 verification pass.
+163 tests pass at v1.2.1 across the monorepo. Every Critical and Important fix has at least one named regression test pinning the behavior in CI.
 
 ---
 
@@ -155,12 +124,12 @@ The full [Security considerations & audit history](#security-considerations--aud
 
 Added in v1.1: DOCX, PPTX, XLSX alongside the original PDF support. All four formats produce the same `IndexedDocument` row shape with a `format` discriminator, so your downstream search engine (Fuse.js, MiniSearch, FlexSearch, …) treats them uniformly.
 
-| Format | Extension | Parser            | Page-like count                         | Optional peer dep                |
-| ------ | --------- | ----------------- | --------------------------------------- | -------------------------------- |
-| PDF    | `.pdf`    | `unpdf` (bundled) | Pages (populated)                       | (no peer — bundled)              |
-| DOCX   | `.docx`   | `officeparser`    | n/a (DOCX has no native page concept)   | `officeparser@^5.0.0` (optional) |
-| PPTX   | `.pptx`   | `officeparser`    | Slides (count not surfaced — see notes) | `officeparser@^5.0.0` (optional) |
-| XLSX   | `.xlsx`   | `officeparser`    | Sheets (count not surfaced — see notes) | `officeparser@^5.0.0` (optional) |
+| Format | Extension | Parser            | Page-like count                         | Optional peer dep                          |
+| ------ | --------- | ----------------- | --------------------------------------- | ------------------------------------------ |
+| PDF    | `.pdf`    | `unpdf` (bundled) | Pages (populated)                       | (no peer — bundled)                        |
+| DOCX   | `.docx`   | `officeparser`    | n/a (DOCX has no native page concept)   | `officeparser@5.2.2` (optional, exact pin) |
+| PPTX   | `.pptx`   | `officeparser`    | Slides (count not surfaced — see notes) | `officeparser@5.2.2` (optional, exact pin) |
+| XLSX   | `.xlsx`   | `officeparser`    | Sheets (count not surfaced — see notes) | `officeparser@5.2.2` (optional, exact pin) |
 
 **The single `officeparser` peer dependency covers all three Office formats.** PDF-only consumers don't install it.
 
@@ -213,15 +182,18 @@ The PDF-only legacy API (`indexPdfs`, `extractPdfText`, `extractPdfsFromBody`) i
 - **OCR for scanned PDFs / image-only DOCX.** Pre-flight with `ocrmypdf` (or equivalent) before passing the file to this package. See [Limits and non-goals](#limits-and-non-goals).
 - **In-document highlighting for Office formats.** The bundled Mozilla pdf.js viewer in the netlify-demo provides in-document highlight for PDFs. There's no equivalent for Office docs — clicking a DOCX/PPTX/XLSX result in the demo opens the file in the OS-level handler (Word, PowerPoint, Excel, Pages, etc.) without query-anchored highlight.
 
----
+### Supply-chain note: officeparser pinning + v2 escape hatches
 
-## Why this exists
+DOCX/PPTX/XLSX extraction relies on the [`officeparser`](https://www.npmjs.com/package/officeparser) optional peer dependency — a single-maintainer (`harshankur`) MIT-licensed library that wraps `yauzl` (ZIP reading) + `@xmldom/xmldom` (XML parsing). As of v1.2.1 our peer-dep range is **exactly `5.2.2`** (not `^5.0.0`) — the version the 5th adversarial audit verified end-to-end. This eliminates the auto-upgrade risk to a future officeparser version we haven't audited.
 
-ICJIA sites publish many PDFs — annual reports, FAQs, technical documents, board materials — that are invisible to site search today. Most ICJIA sites use Fuse.js for client-side fuzzy search, which works for pages and news posts but only matches the **prose that links to a PDF**, never the PDF's content.
+**If officeparser becomes unmaintained or stops publishing updates, we have two pre-planned escape hatches for v2.0:**
 
-The fix: extract text from each PDF at build time, append it to the Fuse index as a normal row. Solr has done this for a decade via Tika, but Solr is a JVM-based search **server** — overkill for static sites. This package is the Tika-equivalent without Solr: extract text at build time, output JSON, let the existing client-side search engine handle the query.
+1. **Fork to `@icjia/office-parser`** — keep the officeparser API surface intact, move the source to a fork we maintain in sync with upstream. ~7K LoC including the bundled `yauzl` + `@xmldom/xmldom` deps; medium maintenance burden, full upstream API compatibility.
+2. **Replace with format-specific minimal parsers** — `mammoth` for DOCX, `xlsx` (SheetJS) for XLSX, write a minimal in-house PPTX text extractor. Three smaller, more actively-maintained libraries; some loss of unified API but better resilience to any single maintainer disappearing.
 
-The R3 site proved the approach works in ~210 lines of inline code across three files. v1 generalizes that pattern into a publishable package.
+We monitor officeparser's GitHub activity quarterly. If there are no commits or releases for 12 months, the fork path activates and ships in v2.0.
+
+This is a **planned contingency**, not a current concern. officeparser 5.2.2 is actively maintained and its transitive deps (`yauzl@3.3.0`, `@xmldom/xmldom@0.8.13`) are at fully patched CVE-clear versions per the v1.1 + v1.2 audits.
 
 ---
 
@@ -548,6 +520,24 @@ The engine you pick matters more than the package you wrap it in. Pick by corpus
 | **10,000+ documents** | **Pagefind**               | Chunked on-demand index — only engine here that scales gracefully past five-figure corpora without paying the full-index download cost on first load.                                                                     | 🚧 **v1.3 roadmap.** Build-step recipe that emits per-document HTML pages for Pagefind to crawl; documented integration pattern.                          |
 
 **For ICJIA-scale deployments (~2,000–2,500 documents)**, plan to switch from "Fuse on the main thread" to **`FuseWorker`** (built-in to Fuse 7.4.0-beta.6+) when v1.2 ships. Optionally pair it with our prebuilt-index emission to skip the per-shard rebuild on each page load. If your corpus grows past ~5,000 documents, FlexSearch becomes the better default; past ~10,000, Pagefind.
+
+### Full alternatives table — links + tradeoffs + corpus-size fit
+
+The output of this package is plain JSON — every client-side search engine consumes it. Pick by team familiarity, typo-tolerance need, and corpus size. The roadmap table above is opinionated about the recommended path; the table below is the broader landscape, with direct links to each project's docs.
+
+| Engine                                                                                                                              | Strengths                                                                                                                                                      | Tradeoffs                                                                                                                                      | Best corpus size                 |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| [**Fuse.js**](https://www.fusejs.io/) _(this package's default)_                                                                    | Best typo tolerance (Bitap). Native match-position output drives our snippet highlighting. Built-in `FuseWorker` in 7.4.0-beta.6+. Smallest API.               | In-memory; full index loaded up-front. Build cost grows with corpus.                                                                           | **< 2,500 documents**            |
+| [**MiniSearch**](https://lucaong.github.io/minisearch/)                                                                             | Lighter index format than Fuse. Slightly better relevance ranking via TF-IDF. Easy API. Good for prefix / autocomplete.                                        | No native fuzzy matching (substring + token-prefix). No built-in worker.                                                                       | **< 5,000 documents**            |
+| [**Orama**](https://askorama.ai/)                                                                                                   | Zero-config; multi-language tokenizers. Fast on medium corpora. Vector / hybrid search support if you need it later.                                           | Newer library (younger ecosystem than Fuse / Lunr / MiniSearch). Heavier bundle.                                                               | **< 5,000 documents**            |
+| [**FlexSearch**](https://github.com/nextapps-de/flexsearch)                                                                         | Sub-millisecond queries on 10K+ docs. Encoded index format (denser than JSON). Built-in `WorkerIndex`. Phonetic / stemming encoders.                           | Loses Fuse's typo tolerance (n-gram mode exists but needs tuning). No native match positions — you do your own substring search for highlight. | **2,500 – 10,000 documents**     |
+| [**Pagefind**](https://pagefind.app/)                                                                                               | Chunked on-demand index — only engine that scales past five-figure corpora without paying full-index download on first load. Returns pre-highlighted excerpts. | Crawls HTML pages, not JSON — needs a build step that emits one HTML per document. More setup than Fuse / FlexSearch / MiniSearch.             | **10,000+ documents**            |
+| [**Lunr**](https://lunrjs.com/)                                                                                                     | Battle-tested classic; Solr-like inverted index in pure JS. Predictable behavior.                                                                              | No fuzzy matching. No web-worker mode out of the box. Less actively developed lately.                                                          | **< 3,000 documents**            |
+| [**Typesense**](https://typesense.org/) / [**MeiliSearch**](https://www.meilisearch.com/) / [**Algolia**](https://www.algolia.com/) | Managed services; backend indexing; production-grade scaling; rich UI components.                                                                              | Not client-side; requires a running service (or Algolia's SaaS). Defeats the "no servers" tradeoff this package is built around.               | **Any size — server handles it** |
+
+**v1.3 plans first-party `/flexsearch` and `/pagefind` adapter entries** so consumers crossing the 2,500-doc threshold can swap engines with a one-line import change rather than rewriting the search-UI glue.
+
+For deeper architectural detail on the three engines we recommend at scale (Fuse, FlexSearch, Pagefind), the comparison table below goes further on operating model, first-paint cost, and prebuilt-index semantics.
 
 ### Engine comparison — Fuse.js vs FlexSearch vs Pagefind
 
@@ -1135,7 +1125,7 @@ A copy-paste Nitro route template lives at [`packages/nuxt-pdf-search-index/src/
 
 ### Live demo
 
-The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus (10 ICJIA-public PDFs), a sticky search bar, and live highlighted snippets across every committed PDF in `examples/_fixtures/`. Beyond the basics, it ships a live Fuse.js options tuner that exposes every native option Fuse v7.4-beta accepts — including the two new-in-7.4 additions, `ignoreDiacritics` (strip accents so `naïve` matches `naive`) and `useTokenSearch` (Fuse-native TF-IDF token search) — plus a demo-side token-search wrapper for multi-word queries (distinct from `useTokenSearch`; works in any Fuse version), a multi-region snippet picker (passages spread across the document, not clustered), a "Needs OCR — title only" badge for image-only PDFs, and a bundled Mozilla pdf.js viewer (`/pdfjs-viewer/web/viewer.html`) so result clicks open the PDF with the search term pre-filled in the viewer's find bar — reliably across Chrome, Edge, Firefox, and Safari.
+The flagship live demo lives in [`examples/netlify-demo/`](./examples/netlify-demo) — an Astro 5 site with a Vue 3 search island, a hand-designed dark-mode UI, and a `netlify.toml` so deploying it to Netlify is one click. Once deployed it shows the indexed corpus (14 ICJIA-public documents — 10 PDFs + 3 DOCX + 1 XLSX as of v1.1, with per-format chips on every result), a corpus browser visible when no query is active, a sticky search bar, a prebuilt-Fuse-index inspector dropdown (new in v1.2), and live highlighted snippets across every committed document in `examples/_fixtures/`. Beyond the basics, it ships a live Fuse.js options tuner that exposes every native option Fuse v7.4-beta accepts — including the two new-in-7.4 additions, `ignoreDiacritics` (strip accents so `naïve` matches `naive`) and `useTokenSearch` (Fuse-native TF-IDF token search) — plus a demo-side token-search wrapper for multi-word queries (distinct from `useTokenSearch`; works in any Fuse version), a multi-region snippet picker (passages spread across the document, not clustered), a "Needs OCR — title only" badge for image-only PDFs, and a bundled Mozilla pdf.js viewer (`/pdfjs-viewer/web/viewer.html`) so result clicks open the PDF with the search term pre-filled in the viewer's find bar — reliably across Chrome, Edge, Firefox, and Safari.
 
 > Screenshot (when deployed): dark-mode search interface, ICJIA PDFs listed with title/page count/file size, sticky search bar at top, live-highlighted snippets in result cards.
 

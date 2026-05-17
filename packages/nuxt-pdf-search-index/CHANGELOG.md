@@ -1,5 +1,11 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.2.1
+
+### Patch Changes
+
+Lockstep docs-only patch. Package source is byte-identical to 1.2.0. Bump exists so the npmjs.com-rendered README matches the post-1.2.0 documentation pass on the top-level README. See the [core CHANGELOG entry for 1.2.1](../core/CHANGELOG.md#121) for the full summary.
+
 ## 1.2.0
 
 ### Minor Changes
