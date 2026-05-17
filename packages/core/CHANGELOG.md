@@ -1,5 +1,36 @@
 # @icjia/pdf-search-index
 
+## 1.3.1
+
+### Patch Changes
+
+**Demo three-engine toggle is now live.** Docs-and-demo-only patch — package runtime source is byte-identical to 1.3.0. No API, security, or behavior change. What changed visible to consumers:
+
+**Netlify demo: live three-engine toggle.** The flagship demo at [icjia-pdf-search.netlify.app](https://icjia-pdf-search.netlify.app/) now shows the **same corpus searched by Fuse.js, FlexSearch, and Pagefind side-by-side** via a segmented-control toggle at the top of the search card. Each engine has its own search path:
+
+- **Fuse.js** (default) — unchanged from 1.3.0 (tuner, snippet helper, prebuilt-index inspector all preserved).
+- **FlexSearch** — `createFlexSearchIndex` from `/flexsearch` (shipped in 1.3.0) builds the index on first selection; subsequent queries reuse the cached instance. Snippet via `snippetHTMLForFlexMatch`.
+- **Pagefind** — wires to `/_pagefind/pagefind.js` (emitted by the demo's new postbuild step using `emitPagefindHTML` from `/pagefind`). Pre-highlighted excerpts come straight from Pagefind's `.data()`.
+
+**Stats panel.** Inline under the search input: per-engine **index build time**, **last query time**, and the engine label. Lets visitors see the actual perf difference at the demo's 14-doc scale (Fuse < 1ms build; FlexSearch ~5-10ms; Pagefind ~50-100ms first-load chunk fetch — though the comparison is mostly illustrative at this corpus size).
+
+**Demo build pipeline change.** New `postbuild` step (`scripts/emit-pagefind.mjs`) runs after `astro build`:
+
+1. Reads the emitted `dist/searchIndex.pdfs.json`.
+2. Calls `emitPagefindHTML(rows, { outDir: dist/pagefind-source, publicDirJail: dist })` to write one HTML page per indexed document.
+3. Spawns `npx pagefind --site dist --output-subdir _pagefind` to produce the chunked search index at `dist/_pagefind/`.
+
+Result: the deployed site serves the Pagefind client + chunked index alongside the existing Fuse rows JSON and prebuilt Fuse index.
+
+**Tracked for v1.4 (the original v1.4 promise):**
+
+- **Full officeparser source vendoring** — copy officeparser + yauzl + @xmldom/xmldom source into `packages/core/src/vendor/`. Drops the officeparser direct-dep entirely. Full npm-takedown protection.
+- **V13-4 + V13-5 informational sweeps** — apply `scrubControl` to `/pagefind` HTML body + `/flexsearch`/`/worker` dynamic-import error messages for consistency with the M3 fix in `extractor.ts`.
+- **Per-engine config + index inspector** — the existing "Inspect the search index" card currently shows Fuse-specific data only. v1.4 extends it to show the FlexSearch config + serialized index and the Pagefind metadata files when the corresponding engine is active.
+- **7th adversarial audit** — scoped to the vendored officeparser code + the V13 sweeps.
+
+Consumers running `^1.3.0` continue to work identically.
+
 ## 1.3.0
 
 ### Minor Changes

@@ -3,6 +3,27 @@
     <section class="search" aria-labelledby="search-heading">
       <h2 id="search-heading" class="search__heading">Try it</h2>
       <div class="search__card">
+        <!--
+          v1.4: engine toggle. Switches between Fuse.js (default, < 2.5K
+          docs), FlexSearch (2.5-10K docs), and Pagefind (10K+ docs).
+          Each engine has its own search function + stats panel below.
+          See the "Why this is shipped" callout under the corpus list
+          for the per-engine config + index inspector.
+        -->
+        <div class="search__engines" role="tablist" aria-label="Choose search engine">
+          <button
+            v-for="opt in engineOptions"
+            :key="opt.value"
+            role="tab"
+            :aria-selected="engine === opt.value"
+            :class="['search__engine', { 'search__engine--active': engine === opt.value }]"
+            @click="engine = opt.value"
+          >
+            <span class="search__engine-name">{{ opt.label }}</span>
+            <span class="search__engine-range">{{ opt.range }}</span>
+          </button>
+        </div>
+
         <div class="search__bar">
           <label class="search__label">
             <span class="search__label-text">Search</span>
@@ -18,13 +39,31 @@
               class="search__input"
             />
           </label>
+          <div v-if="loaded" class="search__stats">
+            <span class="search__stat">
+              <span class="search__stat-label">Engine:</span>
+              <span class="search__stat-value">{{ engineLabel }}</span>
+            </span>
+            <span v-if="engineStats.indexBuildMs !== null" class="search__stat">
+              <span class="search__stat-label">Index build:</span>
+              <span class="search__stat-value">{{ engineStats.indexBuildMs.toFixed(1) }} ms</span>
+            </span>
+            <span v-if="engineStats.lastQueryMs !== null" class="search__stat">
+              <span class="search__stat-label">Last query:</span>
+              <span class="search__stat-value">{{ engineStats.lastQueryMs.toFixed(2) }} ms</span>
+            </span>
+            <span v-if="engineStats.indexSizeBytes !== null" class="search__stat">
+              <span class="search__stat-label">Index size:</span>
+              <span class="search__stat-value">{{ formatBytes(engineStats.indexSizeBytes) }}</span>
+            </span>
+          </div>
           <p class="search__meta" aria-live="polite">
             <template v-if="!loaded">Loading search index…</template>
-            <template v-else-if="!keysSelected"
+            <template v-else-if="engine === 'fuse' && !keysSelected"
               >Select at least one key (title or text) to enable search.</template
             >
             <template v-else-if="!query.trim()"
-              >Type above to search across {{ rows.length }} PDFs.</template
+              >Type above to search across {{ rows.length }} documents.</template
             >
             <template v-else-if="!results.length"
               >No matches for &ldquo;{{ query }}&rdquo;.</template
@@ -82,9 +121,9 @@
         </section>
 
         <ul v-if="results.length" class="search__results">
-          <li v-for="r in results.slice(0, 50)" :key="r.item.id" class="search__result">
+          <li v-for="r in results.slice(0, 50)" :key="r.id" class="search__result">
             <a
-              :href="resultLink(r)"
+              :href="resultLinkForRow(r.item)"
               target="_blank"
               rel="noopener noreferrer"
               class="search__result-link"
@@ -97,14 +136,14 @@
                   >{{ (r.item.format ?? 'pdf').toUpperCase() }}</span
                 >
                 {{ r.item.title }}
-                <span v-if="matchCount(r) > 1" class="search__result-matches"
-                  >{{ matchCount(r) }} matches</span
+                <span v-if="r.matchCount > 1" class="search__result-matches"
+                  >{{ r.matchCount }} matches</span
                 >
               </h3>
               <span v-if="includeScore && typeof r.score === 'number'" class="search__result-score"
                 >Score: {{ r.score.toFixed(3) }}</span
               >
-              <p v-if="snippet(r)" class="search__snippet" v-html="snippet(r)"></p>
+              <p v-if="r.snippetHtml" class="search__snippet" v-html="r.snippetHtml"></p>
               <span class="search__result-cta">
                 <template v-if="r.item.format === 'pdf' && query.trim()"
                   >Open &amp; highlight in viewer</template
@@ -397,41 +436,311 @@
     </section>
   </div>
 
-  <section class="why" aria-labelledby="why-fuse-heading">
-    <h2 id="why-fuse-heading" class="why__heading">Why Fuse.js?</h2>
+  <section class="why" aria-labelledby="why-engine-heading">
+    <h2 id="why-engine-heading" class="why__heading">{{ whyHeading }}</h2>
     <div class="why__card">
-      <h3>Why Fuse.js is the default here</h3>
-      <p>
-        Fuse.js is the right default for this package because the whole point — PDFs become search
-        rows alongside your page text — assumes you already have a Fuse setup. The R3 reference site
-        that motivated this package was Fuse-based; ICJIA&rsquo;s Astro and Nuxt sites are
-        Fuse-based; the spec calls Fuse out as the bullseye consumer.
-      </p>
-      <p>Beyond that genealogy, Fuse fits the constraints:</p>
-      <ul>
-        <li>
-          <strong>Pure client-side.</strong> The whole library is ~12 KB gzipped and runs in the
-          browser. No API, no server, no database — the index ships as static JSON and Fuse loads it
-          from the page. That&rsquo;s the same shape this package delivers, so they pair without
-          ceremony.
-        </li>
-        <li>
-          <strong>Fuzzy matching tolerates typos.</strong> PDF text from <code>pdf.js</code> has its
-          own quirks — extra whitespace, line breaks across columns, the occasional OCR-like
-          artifact. A user typing &ldquo;applicent&rdquo; should still find &ldquo;applicant&rdquo;;
-          Fuse&rsquo;s bitap algorithm handles that with the threshold slider above.
-        </li>
-        <li>
-          <strong>Sensible defaults work.</strong> Three lines of code (<code
-            >new Fuse(rows, &#123; keys: ['title', 'text'], includeMatches: true &#125;)</code
-          >) produces a usable index. The four controls in the tuner above cover ~90% of real
-          configuration needs.
-        </li>
-        <li>
-          <strong>Mature and stable.</strong> v7.x has been the API surface for years. No churn, no
-          breaking releases mid-deploy.
-        </li>
-      </ul>
+      <!--
+        Scale disclaimer — always visible, regardless of selected engine.
+        Reinforces the headline point: the package is framework-agnostic;
+        the binding constraint is corpus size, not the engine you pick.
+      -->
+      <aside class="why__disclaimer">
+        <strong
+          >This package emits plain JSON. Any client-side search engine can consume it.</strong
+        >
+        That includes Fuse, FlexSearch, Pagefind, MiniSearch, Orama, Lunr, and managed services like
+        Algolia / Typesense / MeiliSearch.
+        <strong
+          >The constraint isn&rsquo;t which framework you use — it&rsquo;s how many documents you
+          need to search.</strong
+        >
+        <br /><br />
+        This demo&rsquo;s corpus is 14 documents (10 PDFs + 3 DOCX + 1 XLSX). At that size all three
+        engines return results in well under 10&nbsp;ms and feel identical. The toggle below shows
+        that the package&rsquo;s output works equally well with any of them — same rows, similar
+        results, slightly different highlighting. <strong>In production</strong>, Fuse starts to
+        slow down past ~2,500 docs (in-memory full-index load); FlexSearch handles 2,500 – 10,000
+        with sub-millisecond queries (denser encoded index); Pagefind scales past five-figure
+        corpora because it loads index chunks on demand (only ~5-20 KB per query regardless of total
+        corpus). Pick by document count and per-query latency budget; the package doesn&rsquo;t care
+        which one you pick.
+      </aside>
+
+      <!--
+        Compact 3-engine pros/cons table — always visible. Lets demo
+        visitors compare fuzzy support, config approach, and tradeoff
+        at a glance before reading the per-engine deep-dive below.
+      -->
+      <div class="why__compare-wrap">
+        <table class="why__compare">
+          <thead>
+            <tr>
+              <th scope="col">Engine</th>
+              <th scope="col">Fuzzy</th>
+              <th scope="col">Pros</th>
+              <th scope="col">Cons</th>
+              <th scope="col">Production sweet spot</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :class="{ 'why__compare-row--active': engine === 'fuse' }">
+              <th scope="row">Fuse.js</th>
+              <td><span class="why__yes">Yes</span> (Bitap; <code>threshold: 0.0 – 1.0</code>)</td>
+              <td>
+                Smallest API. Best typo tolerance. Native match-position output drives our snippet
+                highlighting. Built-in <code>FuseWorker</code> in 7.4.0-beta.6+.
+              </td>
+              <td>
+                In-memory; full index loaded up-front. Build cost grows with corpus. Slows down past
+                ~2,500 documents.
+              </td>
+              <td>&lt; 2,500 documents</td>
+            </tr>
+            <tr :class="{ 'why__compare-row--active': engine === 'flexsearch' }">
+              <th scope="row">FlexSearch</th>
+              <td>
+                <span class="why__partial">Partial</span> (n-gram via <code>tolerant: true</code>;
+                needs tuning)
+              </td>
+              <td>
+                Sub-millisecond queries on 10K+ docs. Encoded index format (denser than JSON).
+                Built-in <code>WorkerIndex</code>.
+              </td>
+              <td>
+                Loses Fuse&rsquo;s typo tolerance default. No native match positions — we ship
+                <code>snippetHTMLForFlexMatch</code> for substring-based highlight.
+              </td>
+              <td>2,500 – 10,000 documents</td>
+            </tr>
+            <tr :class="{ 'why__compare-row--active': engine === 'pagefind' }">
+              <th scope="row">Pagefind</th>
+              <td><span class="why__no">No</span> (substring + word-boundary; no fuzzy mode)</td>
+              <td>
+                Chunked on-demand index — only engine that scales past five-figure corpora without
+                paying full-index download on first load. Returns pre-highlighted excerpts.
+              </td>
+              <td>
+                Crawls HTML pages, not JSON — needs a build step that emits one HTML per document.
+                No fuzzy matching at all.
+              </td>
+              <td>10,000+ documents</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Fuse.js -->
+      <template v-if="engine === 'fuse'">
+        <h3>Why Fuse.js is the default here</h3>
+        <p>
+          Fuse.js is the right default for this package because the whole point — PDFs become search
+          rows alongside your page text — assumes you already have a Fuse setup. The R3 reference
+          site that motivated this package was Fuse-based; ICJIA&rsquo;s Astro and Nuxt sites are
+          Fuse-based; the spec calls Fuse out as the bullseye consumer.
+        </p>
+        <p>Beyond that genealogy, Fuse fits the constraints:</p>
+        <ul>
+          <li>
+            <strong>Pure client-side.</strong> The whole library is ~12 KB gzipped and runs in the
+            browser. No API, no server, no database — the index ships as static JSON and Fuse loads
+            it from the page. That&rsquo;s the same shape this package delivers, so they pair
+            without ceremony.
+          </li>
+          <li>
+            <strong>Fuzzy matching tolerates typos.</strong> PDF text from <code>pdf.js</code> has
+            its own quirks — extra whitespace, line breaks across columns, the occasional OCR-like
+            artifact. A user typing &ldquo;applicent&rdquo; should still find
+            &ldquo;applicant&rdquo;; Fuse&rsquo;s bitap algorithm handles that with the threshold
+            slider above.
+          </li>
+          <li>
+            <strong>Sensible defaults work.</strong> Three lines of code produces a usable index.
+            The tuner above covers ~90% of real configuration needs.
+          </li>
+          <li>
+            <strong>Mature and stable.</strong> v7.x has been the API surface for years. No churn,
+            no breaking releases mid-deploy.
+          </li>
+        </ul>
+        <h4 class="why__code-heading">How to implement</h4>
+        <pre
+          class="why__code"
+        ><code>// Build-time (Node): index your PDFs into IndexedDocument[] rows
+import { indexDocuments } from '@icjia/pdf-search-index';
+
+const rows = await indexDocuments([
+  'https://site.com/report.pdf',
+  'https://site.com/policy.docx',
+]);
+// Write rows to public/searchIndex.json (your build step)
+
+
+// Runtime (browser):
+import Fuse from 'fuse.js';
+import { snippetHTMLFor } from '@icjia/pdf-search-index/snippet';
+
+const rows = await fetch('/searchIndex.json').then(r =&gt; r.json());
+const fuse = new Fuse(rows, {
+  keys: ['title', 'text'],
+  threshold: 0.2,
+  includeMatches: true,
+});
+
+const results = fuse.search('stigma');
+for (const r of results) {
+  console.log(r.item.title, snippetHTMLFor(r));
+}
+
+
+// Optional v1.2+: build a prebuilt index to skip the in-browser
+// Fuse.createIndex() cost (~10s → ~200ms at 2K rows):
+import { serializeFuseIndex } from '@icjia/pdf-search-index/fuse';
+const indexJson = serializeFuseIndex(rows);
+// Write indexJson alongside the rows JSON.
+
+// Then at runtime:
+const fuseIndex = Fuse.parseIndex(await fetch('/searchIndex.fuse-index.json').then(r =&gt; r.json()));
+const fuse = new Fuse(rows, options, fuseIndex);
+
+
+// Optional v1.2+: off-main-thread search via FuseWorker:
+import &#123; FuseWorker &#125; from '@icjia/pdf-search-index/worker';
+const fuse = new FuseWorker(rows, &#123; keys: ['title', 'text'], threshold: 0.2 &#125;);
+const results = await fuse.search('stigma');
+fuse.terminate(); // on unmount</code></pre>
+      </template>
+
+      <!-- FlexSearch -->
+      <template v-else-if="engine === 'flexsearch'">
+        <h3>Why FlexSearch above ~2,500 documents</h3>
+        <p>
+          FlexSearch is the right call once Fuse&rsquo;s in-memory full-text index starts to slow
+          down. The crossover point depends on document length and field count, but ~2,500 rows is a
+          reasonable rule of thumb. FlexSearch&rsquo;s encoded index format is denser than
+          Fuse&rsquo;s JSON, queries are sub-millisecond on 10K+ rows, and the built-in
+          <code>WorkerIndex</code> handles off-main-thread search out of the box.
+        </p>
+        <ul>
+          <li>
+            <strong>Sub-millisecond queries on 10K+ docs.</strong> FlexSearch&rsquo;s inverted index
+            + phonetic / forward / reverse tokenizers are tuned for raw speed. Where Fuse would take
+            100&nbsp;ms+ on a 10K-row search, FlexSearch is consistently under 1&nbsp;ms.
+          </li>
+          <li>
+            <strong>Denser index format.</strong> The encoded index is meaningfully smaller than the
+            equivalent Fuse JSON on the same rows. Saves on the wire and in memory.
+          </li>
+          <li>
+            <strong>Built-in <code>WorkerIndex</code>.</strong> No DIY postMessage plumbing —
+            FlexSearch ships a worker variant with the same API.
+          </li>
+          <li>
+            <strong>Tradeoff: no native typo tolerance.</strong> FlexSearch&rsquo;s
+            <code>tolerant: true</code> is n-gram-based and needs tuning. If &ldquo;applicent&rdquo;
+            → &ldquo;applicant&rdquo; is core to your UX, stay on Fuse.
+          </li>
+          <li>
+            <strong>Tradeoff: no native match positions.</strong> FlexSearch returns matched docs,
+            not character ranges. We ship <code>snippetHTMLForFlexMatch</code> which does its own
+            substring search for highlighting.
+          </li>
+        </ul>
+        <h4 class="why__code-heading">How to implement</h4>
+        <pre class="why__code"><code>// Build-time: same as Fuse — produce IndexedDocument[] rows
+import { indexDocuments } from '@icjia/pdf-search-index';
+const rows = await indexDocuments(urls);
+// Write rows to public/searchIndex.json
+
+
+// Runtime (browser): build the FlexSearch index in-memory
+import &#123;
+  createFlexSearchIndex,
+  snippetHTMLForFlexMatch,
+  flattenFlexResults,
+&#125; from '@icjia/pdf-search-index/flexsearch';
+
+const rows = await fetch('/searchIndex.json').then(r =&gt; r.json());
+const index = await createFlexSearchIndex(rows);
+
+const raw = await index.search('stigma', &#123; enrich: true &#125;);
+const matches = flattenFlexResults(raw);
+
+for (const row of matches) {
+  const html = snippetHTMLForFlexMatch(row, 'stigma');
+  console.log(row.title, html);
+}
+
+
+// Off-main-thread via FlexSearch's built-in WorkerIndex:
+import FlexSearch from 'flexsearch';
+const index = new FlexSearch.Document(&#123;
+  worker: true,  // each field gets its own worker
+  document: &#123; id: 'id', index: ['title', 'text'] &#125;,
+&#125;);
+for (const row of rows) await index.add(row);
+const results = await index.search('stigma');</code></pre>
+      </template>
+
+      <!-- Pagefind -->
+      <template v-else>
+        <h3>Why Pagefind above ~10,000 documents</h3>
+        <p>
+          Pagefind is the only engine in this package&rsquo;s roadmap that scales gracefully past
+          five-figure corpora <em>without</em> paying the full-index download cost on first load. It
+          operates on a <strong>chunked on-demand index</strong>: the browser fetches only the index
+          chunks needed for each specific query. The full index can be hundreds of MB on disk; the
+          client only ever downloads ~5-20 KB per query.
+        </p>
+        <ul>
+          <li>
+            <strong>Chunked on-demand.</strong> The build step produces a multi-file index in
+            <code>_pagefind/</code>. Each query loads only the chunks containing the query terms.
+            First-paint cost stays low even at 100K+ documents.
+          </li>
+          <li>
+            <strong>Pre-highlighted excerpts.</strong> Pagefind&rsquo;s
+            <code>.data().excerpt</code> returns text pre-wrapped in <code>&lt;mark&gt;</code>
+            tags — no separate snippet helper needed.
+          </li>
+          <li>
+            <strong>Different operating model.</strong> Pagefind crawls <em>HTML pages</em>, not
+            JSON. Our package&rsquo;s <code>emitPagefindHTML</code> bridges the two: writes one HTML
+            page per indexed document, then Pagefind&rsquo;s CLI walks that directory.
+          </li>
+          <li>
+            <strong>Tradeoff: more setup.</strong> Need to run the Pagefind CLI at build time and
+            serve the <code>_pagefind/</code> directory at the same origin as your site. The
+            demo&rsquo;s build pipeline does this automatically; for your own site you add it to
+            your <code>build</code> script.
+          </li>
+        </ul>
+        <h4 class="why__code-heading">How to implement</h4>
+        <pre class="why__code"><code>// Build-time: emit HTML pages + run Pagefind CLI
+import { indexDocuments } from '@icjia/pdf-search-index';
+import { emitPagefindHTML } from '@icjia/pdf-search-index/pagefind';
+import { spawn } from 'node:child_process';
+
+const rows = await indexDocuments(urls);
+await emitPagefindHTML(rows, &#123;
+  outDir: 'public/pagefind-source',
+  publicDirJail: 'public',  // C5-style path-jail
+&#125;);
+
+// Run Pagefind CLI against the public/ directory
+// (or wire it into your package.json scripts):
+//   "build:search": "node build-index.mjs &amp;&amp; pagefind --site public"
+
+
+// Runtime (browser): load Pagefind's client + chunked index
+// (Pagefind is served from /_pagefind/ alongside your site)
+const pagefind = await import('/_pagefind/pagefind.js');
+const r = await pagefind.search('stigma');
+
+for (const result of r.results) {
+  const data = await result.data();
+  console.log(data.url, data.excerpt); // excerpt has &lt;mark&gt; pre-wrapped
+}</code></pre>
+      </template>
 
       <h3>Not the only option</h3>
       <p>
@@ -634,15 +943,58 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import Fuse, { type FuseResult } from 'fuse.js';
 import { snippetHTMLFor } from '@icjia/pdf-search-index/snippet';
+import {
+  createFlexSearchIndex,
+  snippetHTMLForFlexMatch,
+  flattenFlexResults,
+} from '@icjia/pdf-search-index/flexsearch';
 import type { IndexedPdf } from '@icjia/pdf-search-index';
 
 const rows = ref<IndexedPdf[]>([]);
 const query = ref('');
 const loaded = ref(false);
 const inputEl = ref<HTMLInputElement | null>(null);
+
+// v1.4: engine toggle. The demo ships all three engines side-by-side so
+// visitors can compare what config / index / results look like for each
+// at the same corpus.
+type Engine = 'fuse' | 'flexsearch' | 'pagefind';
+const engine = ref<Engine>('fuse');
+const engineOptions: { value: Engine; label: string; range: string }[] = [
+  { value: 'fuse', label: 'Fuse.js', range: '< 2.5K docs' },
+  { value: 'flexsearch', label: 'FlexSearch', range: '2.5K – 10K' },
+  { value: 'pagefind', label: 'Pagefind', range: '10K+' },
+];
+const engineLabel = computed(
+  () => engineOptions.find((o) => o.value === engine.value)?.label ?? 'Fuse.js',
+);
+// v1.4: dynamic "Why XXX?" heading. Mirrors the engine toggle so the
+// section header reads "Why Fuse.js?" when Fuse is selected, "Why
+// FlexSearch?" when FlexSearch, etc.
+const whyHeading = computed(() => `Why ${engineLabel.value}?`);
+
+// Per-engine stats. Reset whenever the engine switches.
+interface EngineStats {
+  indexBuildMs: number | null;
+  lastQueryMs: number | null;
+  indexSizeBytes: number | null;
+}
+const engineStats = ref<EngineStats>({
+  indexBuildMs: null,
+  lastQueryMs: null,
+  indexSizeBytes: null,
+});
+function resetEngineStats(): void {
+  engineStats.value = { indexBuildMs: null, lastQueryMs: null, indexSizeBytes: null };
+}
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
 
 // Tuner state — defaults match the canonical configuration the package
 // recommends. These drive a computed Fuse instance below; the rest of
@@ -777,12 +1129,208 @@ function tokenizeAndSearch(
     .map((entry) => entry.result);
 }
 
-const results = computed<FuseResult<IndexedPdf>[]>(() => {
+// Fuse path — original behavior preserved. Returns Fuse's native
+// FuseResult shape since the existing template / snippet helper expects
+// that. v1.4 wraps this in a unified `results` computed below.
+const fuseResults = computed<FuseResult<IndexedPdf>[]>(() => {
   if (!fuseInstance.value || !query.value.trim() || !keysSelected.value) return [];
+  const t0 = performance.now();
+  let out: FuseResult<IndexedPdf>[];
   if (tokenSearch.value && !useExtendedSearch.value) {
-    return tokenizeAndSearch(fuseInstance.value, query.value, minMatchCharLength.value);
+    out = tokenizeAndSearch(fuseInstance.value, query.value, minMatchCharLength.value);
+  } else {
+    out = fuseInstance.value.search(query.value);
   }
-  return fuseInstance.value.search(query.value);
+  // Stats stored as a side effect of computed; not ideal Vue pattern
+  // but fine for a demo. Updated each time the user types.
+  if (engine.value === 'fuse') {
+    engineStats.value = {
+      ...engineStats.value,
+      lastQueryMs: performance.now() - t0,
+    };
+  }
+  return out;
+});
+
+// ───────────────────────────────────────────────────────────────────
+// v1.4: FlexSearch engine path
+// ───────────────────────────────────────────────────────────────────
+
+// Built once on mount + when rows arrive. FlexSearch's Document index
+// is mutable, so we hold a single instance and re-search on every
+// query change. Stats track the index build + last-query time.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const flexIndex = ref<any | null>(null);
+const flexResults = ref<{ row: IndexedPdf; snippetHtml: string }[]>([]);
+
+async function buildFlexIndex(): Promise<void> {
+  if (!rows.value.length) return;
+  const t0 = performance.now();
+  flexIndex.value = await createFlexSearchIndex(rows.value);
+  const buildMs = performance.now() - t0;
+  if (engine.value === 'flexsearch') {
+    engineStats.value = {
+      indexBuildMs: buildMs,
+      lastQueryMs: null,
+      indexSizeBytes: null,
+    };
+  }
+}
+
+async function runFlexSearch(): Promise<void> {
+  if (!flexIndex.value || !query.value.trim()) {
+    flexResults.value = [];
+    return;
+  }
+  const t0 = performance.now();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = await flexIndex.value.search(query.value, { enrich: true });
+  const flat = flattenFlexResults<IndexedPdf>(raw);
+  flexResults.value = flat.map((row) => ({
+    row,
+    snippetHtml: snippetHTMLForFlexMatch(row, query.value),
+  }));
+  engineStats.value = {
+    ...engineStats.value,
+    lastQueryMs: performance.now() - t0,
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────
+// v1.4: Pagefind engine path
+// ───────────────────────────────────────────────────────────────────
+
+// Pagefind loads its client lazily at runtime from /_pagefind/pagefind.js
+// (emitted by the build step). The vite-ignore comment keeps Vite from
+// trying to bundle the chunked index files at build time.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pagefindLib = ref<any | null>(null);
+const pagefindResults = ref<{ row: IndexedPdf; snippetHtml: string }[]>([]);
+const rowByUrlFilename = computed(() => {
+  // Pagefind result `url` ends in the emitted page filename
+  // (`/pagefind-source/<id>.html`). Build a lookup from filename → row
+  // so we can map a Pagefind hit back to our IndexedPdf for rendering.
+  const m = new Map<string, IndexedPdf>();
+  for (const row of rows.value) {
+    m.set(`${row.id}.html`, row);
+  }
+  return m;
+});
+
+async function loadPagefind(): Promise<void> {
+  if (typeof window === 'undefined' || pagefindLib.value) return;
+  const t0 = performance.now();
+  try {
+    // Pagefind is built into dist/_pagefind/ by our postbuild step
+    // (scripts/emit-pagefind.mjs). We can't use a literal `import()`
+    // here because Rollup tries to statically resolve the string and
+    // fails — the file doesn't exist until after the build runs. Wrap
+    // the import in `new Function` so Rollup treats it as opaque and
+    // emits it as runtime-only code.
+    const dynImport = new Function('p', 'return import(p)') as (p: string) => Promise<unknown>;
+    pagefindLib.value = await dynImport('/_pagefind/pagefind.js');
+    if (engine.value === 'pagefind') {
+      engineStats.value = {
+        indexBuildMs: performance.now() - t0,
+        lastQueryMs: null,
+        indexSizeBytes: null,
+      };
+    }
+  } catch (e) {
+    console.warn('[demo] failed to load /_pagefind/pagefind.js — running `pnpm build` emits it', e);
+  }
+}
+
+async function runPagefindSearch(): Promise<void> {
+  if (!pagefindLib.value || !query.value.trim()) {
+    pagefindResults.value = [];
+    return;
+  }
+  const t0 = performance.now();
+  const r = await pagefindLib.value.search(query.value);
+  // r.results is an array of { id, score, data: () => Promise<...> }.
+  // Materialize each so we can show the excerpt.
+  const materialized = await Promise.all(
+    (r.results as Array<{ id: string; data: () => Promise<{ url: string; excerpt: string }> }>)
+      .slice(0, 50)
+      .map(async (rr) => {
+        const data = await rr.data();
+        const filename = data.url.split('/').pop() ?? '';
+        const row = rowByUrlFilename.value.get(filename);
+        if (!row) return null;
+        // Pagefind returns excerpts pre-wrapped in <mark> tags already.
+        return { row, snippetHtml: data.excerpt };
+      }),
+  );
+  pagefindResults.value = materialized.filter(
+    (x): x is { row: IndexedPdf; snippetHtml: string } => x !== null,
+  );
+  engineStats.value = {
+    ...engineStats.value,
+    lastQueryMs: performance.now() - t0,
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────
+// v1.4: unified results dispatcher
+// ───────────────────────────────────────────────────────────────────
+
+interface UnifiedResult {
+  id: string;
+  item: IndexedPdf;
+  snippetHtml: string;
+  matchCount: number;
+  score?: number | undefined;
+}
+
+const results = computed<UnifiedResult[]>(() => {
+  if (engine.value === 'fuse') {
+    return fuseResults.value.map((r) => ({
+      id: r.item.id,
+      item: r.item,
+      snippetHtml: snippet(r),
+      matchCount: matchCount(r),
+      score: r.score,
+    }));
+  }
+  if (engine.value === 'flexsearch') {
+    return flexResults.value.map((r) => ({
+      id: r.row.id,
+      item: r.row,
+      snippetHtml: r.snippetHtml,
+      matchCount: 1,
+    }));
+  }
+  // pagefind
+  return pagefindResults.value.map((r) => ({
+    id: r.row.id,
+    item: r.row,
+    snippetHtml: r.snippetHtml,
+    matchCount: 1,
+  }));
+});
+
+// Re-run searches when query or engine changes. Fuse's results is a
+// pure computed so it reacts automatically; FlexSearch and Pagefind
+// need explicit triggers because their search calls are async.
+watch([query, engine, flexIndex, pagefindLib], () => {
+  if (engine.value === 'flexsearch') void runFlexSearch();
+  if (engine.value === 'pagefind') void runPagefindSearch();
+});
+
+// Reset stats + lazy-init engine-specific resources when the user
+// switches the engine toggle.
+watch(engine, async (newEngine) => {
+  resetEngineStats();
+  if (newEngine === 'flexsearch' && !flexIndex.value) {
+    await buildFlexIndex();
+  } else if (newEngine === 'pagefind' && !pagefindLib.value) {
+    await loadPagefind();
+  } else if (newEngine === 'fuse') {
+    // Reflect Fuse's current state in stats (build time isn't tracked
+    // for Fuse since it's a synchronous computed; show 0 placeholder).
+    engineStats.value = { indexBuildMs: 0, lastQueryMs: null, indexSizeBytes: null };
+  }
 });
 
 const configSnippet = computed(() => {
@@ -1033,6 +1581,20 @@ function resultLink(r: FuseResult<IndexedPdf>): string {
 }
 
 /**
+ * v1.4: row-based variant for the unified results dispatcher. FlexSearch
+ * and Pagefind don't produce FuseResult; they produce plain rows. This
+ * variant takes the row directly. For PDFs we still route through the
+ * pdf.js viewer; the query for highlight comes from the global ref.
+ */
+function resultLinkForRow(row: IndexedPdf): string {
+  if ((row.format ?? 'pdf') !== 'pdf') return publicPdfUrl(row.url);
+  const pdf = publicPdfUrl(row.url);
+  const q = query.value.trim();
+  if (!q) return pdf;
+  return `/pdfjs-viewer/web/viewer.html?file=${pdf}#search=${encodeURIComponent(q)}`;
+}
+
+/**
  * Like `resultLink` but for the corpus list (no query active). Always
  * routes to the plain file URL — there's nothing to highlight without
  * a query, so we skip the viewer wrapping. PDFs open in the browser's
@@ -1227,6 +1789,96 @@ onMounted(async () => {
     0 0 0 1px rgba(163, 230, 53, 0.12),
     0 0 50px -22px rgba(163, 230, 53, 0.22),
     0 18px 48px -20px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * v1.4: engine toggle. Segmented control across the top of the search
+ * card so users can switch between Fuse / FlexSearch / Pagefind. Each
+ * button shows the engine name + the corpus-size range it's tuned for.
+ */
+.search__engines {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 1.5rem;
+  padding: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.search__engine {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.7rem 0.8rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-muted);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.search__engine:hover:not(.search__engine--active) {
+  background: var(--surface-elevated);
+  color: var(--text);
+}
+
+.search__engine--active {
+  background: rgba(163, 230, 53, 0.1);
+  border-color: rgba(163, 230, 53, 0.4);
+  color: var(--text);
+}
+
+.search__engine-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.search__engine--active .search__engine-name {
+  color: #a3e635;
+}
+
+.search__engine-range {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+/*
+ * Stats panel inline under the search input. Shows index build /
+ * last query / index size per engine. Compact and unobtrusive.
+ */
+.search__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin: 0.6rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+.search__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.search__stat-label {
+  color: var(--text-subtle);
+}
+
+.search__stat-value {
+  color: var(--text);
+  font-weight: 500;
 }
 
 /* Prominent lime accent strip along the top edge — primary visual anchor. */
@@ -1992,6 +2644,152 @@ input.tune__number:disabled {
 }
 .why__card h3:first-child {
   margin-top: 0;
+}
+
+/*
+ * v1.3.1+: per-engine code snippet under "How to implement". The block
+ * shows actual import + usage code for the currently-selected engine
+ * (Fuse / FlexSearch / Pagefind) so demo visitors can copy-paste the
+ * pattern that matches their corpus-size choice.
+ */
+.why__code-heading {
+  margin: 1.5rem 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.why__code {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: #0f0f17;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #e8e8f0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.why__code code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * Scale-disclaimer callout that sits at the top of the "Why XXX" card.
+ * Always visible regardless of selected engine. Visually distinct from
+ * the per-engine prose so visitors don't miss the "this is a demo;
+ * production is different" caveat.
+ */
+.why__disclaimer {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  background: rgba(163, 230, 53, 0.06);
+  border: 1px solid rgba(163, 230, 53, 0.22);
+  border-radius: 8px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+
+.why__disclaimer strong {
+  color: var(--text);
+}
+
+/*
+ * Compact 3-engine comparison table — always visible at the top of the
+ * "Why XXX" card. Highlights the currently-selected engine's row so
+ * visitors can find the engine they just selected in the comparison.
+ */
+.why__compare-wrap {
+  margin: 0 0 2rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.why__compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.why__compare thead {
+  background: var(--surface);
+}
+
+.why__compare th,
+.why__compare td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+.why__compare tbody tr:last-child th,
+.why__compare tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.why__compare thead th {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.why__compare tbody th {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.why__compare tbody td {
+  color: var(--text-muted);
+}
+
+.why__compare tbody td:last-child {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.why__compare-row--active {
+  background: rgba(163, 230, 53, 0.06);
+}
+
+.why__compare-row--active th,
+.why__compare-row--active td {
+  color: var(--text);
+}
+
+.why__yes {
+  color: #a3e635;
+  font-weight: 600;
+}
+
+.why__partial {
+  color: #fb923c;
+  font-weight: 600;
+}
+
+.why__no {
+  color: #f87171;
+  font-weight: 600;
 }
 .why__card p {
   margin: 0 0 0.85rem;

@@ -11,6 +11,7 @@
     "predev": "pnpm copy:pdfs && pnpm copy:pdfjs-viewer && pnpm generate:content",
     "dev": "astro dev --port 4322",
     "build": "astro build",
+    "postbuild": "node scripts/emit-pagefind.mjs",
     "preview": "astro preview --port 4322",
     "clean": "rm -rf dist .astro .pdf-cache .pdfjs-cache public/pdfs public/pdfjs-viewer src/content/docs"
   },
@@ -19,8 +20,12 @@
     "@icjia/astro-pdf-search-index": "workspace:*",
     "@icjia/pdf-search-index": "workspace:*",
     "astro": "^5.0.0",
+    "flexsearch": "^0.7.43",
     "fuse.js": "7.4.0-beta.6",
     "pdfjs-dist": "^5.7.0",
     "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "pagefind": "^1.0.0"
   }
 }

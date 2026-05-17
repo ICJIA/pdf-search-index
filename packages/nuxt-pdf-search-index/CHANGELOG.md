@@ -1,5 +1,11 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.3.1
+
+### Patch Changes
+
+Lockstep docs+demo patch. Package source is byte-identical to 1.3.0. Bump exists so the npmjs.com-rendered README matches the post-1.3.0 documentation pass that mentions the netlify demo's live three-engine toggle. See the [core CHANGELOG entry for 1.3.1](../core/CHANGELOG.md#131) for the full summary.
+
 ## 1.3.0
 
 ### Minor Changes

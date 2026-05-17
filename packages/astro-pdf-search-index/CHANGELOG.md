@@ -1,5 +1,11 @@
 # @icjia/astro-pdf-search-index
 
+## 1.3.1
+
+### Patch Changes
+
+Lockstep docs+demo patch. Package source is byte-identical to 1.3.0. The netlify demo (built with this adapter) now ships a live three-engine toggle showing the same corpus searched by Fuse.js, FlexSearch, and Pagefind side-by-side. See the [core CHANGELOG entry for 1.3.1](../core/CHANGELOG.md#131) for the full summary.
+
 ## 1.3.0
 
 ### Minor Changes
