@@ -7,6 +7,8 @@ import { getCollection } from 'astro:content';
 // stays in sync with whatever PDFs are actually indexed at build time.
 const docs = await getCollection('docs');
 
+type DocumentFormat = 'pdf' | 'docx' | 'pptx' | 'xlsx';
+
 type CorpusItem = {
   title: string;
   filename: string;
@@ -14,7 +16,18 @@ type CorpusItem = {
   pdfBytes: number;
   pages: number | null;
   textChars: number;
+  format: DocumentFormat;
 };
+
+// v1.4: derive format from file extension. The IndexedDocument row also
+// carries a `format` discriminator (since v1.1), but we map from the
+// filename here so the corpus list works even on older builds where the
+// JSON doesn't include the field.
+function formatFromFilename(filename: string): DocumentFormat {
+  const ext = filename.toLowerCase().split('.').pop() ?? '';
+  if (ext === 'docx' || ext === 'pptx' || ext === 'xlsx') return ext;
+  return 'pdf';
+}
 
 // Pull the JSON index that the Astro PDF integration writes into
 // public/. We import the file via Node's fs at build time so we can read
@@ -24,8 +37,14 @@ import { readFile } from 'node:fs/promises';
 import { readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-let indexRows: Array<{ id: string; url: string; title: string; text: string; pages?: number }> =
-  [];
+let indexRows: Array<{
+  id: string;
+  url: string;
+  title: string;
+  text: string;
+  pages?: number;
+  format?: DocumentFormat;
+}> = [];
 try {
   const json = await readFile(
     resolve(import.meta.dirname, '..', '..', 'public', 'searchIndex.pdfs.json'),
@@ -42,7 +61,8 @@ const pdfsDir = resolve(import.meta.dirname, '..', '..', 'public', 'pdfs');
 const pdfBytesByFilename = new Map<string, number>();
 try {
   for (const entry of readdirSync(pdfsDir)) {
-    if (!entry.toLowerCase().endsWith('.pdf')) continue;
+    const ext = entry.toLowerCase().split('.').pop() ?? '';
+    if (ext !== 'pdf' && ext !== 'docx' && ext !== 'pptx' && ext !== 'xlsx') continue;
     pdfBytesByFilename.set(entry, statSync(resolve(pdfsDir, entry)).size);
   }
 } catch {
@@ -71,11 +91,31 @@ const corpus: CorpusItem[] = indexRows
       pdfBytes: pdfBytesByFilename.get(filename) ?? 0,
       pages: row.pages ?? null,
       textChars: row.text?.length ?? 0,
+      format: row.format ?? formatFromFilename(filename),
     };
   })
   .sort((a, b) => a.title.localeCompare(b.title));
 
 const pdfCount = corpus.length || docs.length;
+// v1.4: format breakdown for the corpus heading + per-row chips. Lets
+// the heading show "10 PDF / 3 DOCX / 1 XLSX" instead of just "14 PDFs".
+const formatCounts = {
+  pdf: corpus.filter((c) => c.format === 'pdf').length,
+  docx: corpus.filter((c) => c.format === 'docx').length,
+  pptx: corpus.filter((c) => c.format === 'pptx').length,
+  xlsx: corpus.filter((c) => c.format === 'xlsx').length,
+} as const;
+const formatBreakdown = (
+  [
+    ['pdf', formatCounts.pdf, 'PDF'],
+    ['docx', formatCounts.docx, 'DOCX'],
+    ['pptx', formatCounts.pptx, 'PPTX'],
+    ['xlsx', formatCounts.xlsx, 'XLSX'],
+  ] as const
+)
+  .filter(([, n]) => n > 0)
+  .map(([, n, label]) => `${n} ${label}`)
+  .join(' / ');
 ---
 
 <html lang="en">
@@ -338,6 +378,46 @@ const pdfCount = corpus.length || docs.length;
         background: rgba(251, 191, 36, 0.08);
         border-color: rgba(251, 191, 36, 0.35);
       }
+      /* v1.4: per-format chip rendered next to the title. Distinct color
+         per format keeps PDF / DOCX / PPTX / XLSX visually scannable
+         without reading the filename or the "View XXX" CTA at the bottom
+         of each row. Palette tuned for the dark theme. */
+      .corpus__chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.55rem;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        border-radius: 4px;
+        border: 1px solid;
+        flex-shrink: 0;
+      }
+      .corpus__chip--pdf {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.1);
+        border-color: rgba(248, 113, 113, 0.4);
+      }
+      .corpus__chip--docx {
+        color: #60a5fa;
+        background: rgba(96, 165, 250, 0.1);
+        border-color: rgba(96, 165, 250, 0.4);
+      }
+      .corpus__chip--pptx {
+        color: #fb923c;
+        background: rgba(251, 146, 60, 0.1);
+        border-color: rgba(251, 146, 60, 0.4);
+      }
+      .corpus__chip--xlsx {
+        color: #4ade80;
+        background: rgba(74, 222, 128, 0.1);
+        border-color: rgba(74, 222, 128, 0.4);
+      }
+      .corpus__title-text {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
       .corpus__note code {
         font-family: var(--font-mono);
         font-size: 0.85em;
@@ -494,19 +574,22 @@ const pdfCount = corpus.length || docs.length;
       <section aria-labelledby="corpus">
         <h2 id="corpus">The corpus</h2>
         <p class="muted">
-          The {pdfCount} PDFs indexed by this build, with their on-disk size, page count, and the number
-          of characters of plain text extracted from each one.
+          {pdfCount} documents indexed by this build ({formatBreakdown}), with their on-disk size,
+          page count, and the number of characters of plain text extracted from each one.
         </p>
         <ul class="corpus">
           {
             corpus.map((p) => (
               <li>
                 <h3 class="corpus__title">
-                  {p.title}
+                  <span class={`corpus__chip corpus__chip--${p.format}`} aria-label={`${p.format.toUpperCase()} file`}>
+                    {p.format.toUpperCase()}
+                  </span>
+                  <span class="corpus__title-text">{p.title}</span>
                   {p.textChars < 50 && (
                     <span
                       class="corpus__badge corpus__badge--ocr"
-                      title="This PDF has no text layer — it's image-only or a scan. The package extracts no body text from it; Fuse can still match against the title. Run ocrmypdf on the source to add searchable body text."
+                      title="This file has no text layer — it's image-only or a scan. The package extracts no body text from it; Fuse can still match against the title. Run ocrmypdf on the source to add searchable body text."
                     >
                       Needs OCR — title only
                     </span>
@@ -526,9 +609,9 @@ const pdfCount = corpus.length || docs.length;
                   {p.textChars < 50 && (
                     <>
                       {' '}
-                      This one is image-only — the extractor returns empty text and Fuse can't match it.
-                      Run <code>ocrmypdf</code> on the source PDF first to add a searchable text layer;
-                      this package then indexes it normally on the next build.
+                      This one is image-only — the extractor returns empty text and Fuse can't match
+                      it. Run <code>ocrmypdf</code> on the source PDF first to add a searchable text
+                      layer; this package then indexes it normally on the next build.
                     </>
                   )}
                 </p>
@@ -538,7 +621,7 @@ const pdfCount = corpus.length || docs.length;
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  View PDF
+                  View {p.format.toUpperCase()}
                 </a>
               </li>
             ))

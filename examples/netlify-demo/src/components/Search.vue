@@ -2338,7 +2338,7 @@ onMounted(async () => {
   display: flex;
   gap: 0.5rem;
   margin: 0 0 1.5rem;
-  padding: 0.4rem;
+  padding: 0.55rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -2350,10 +2350,10 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  padding: 0.85rem 0.8rem 1rem;
-  min-height: 4rem;
-  line-height: 1.25;
+  gap: 0.45rem;
+  padding: 1.15rem 0.9rem 1.3rem;
+  min-height: 5rem;
+  line-height: 1.3;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
