@@ -375,6 +375,13 @@ async function parseOfficeDoc(
     // null inspection or pass — proceed to parse.
   }
 
+  // Dynamic import keeps the cold-start cost down — officeparser only
+  // loads on the first DOCX/PPTX/XLSX call, so PDF-only consumers
+  // don't pay the resolution cost. As of v1.3 `officeparser` is a
+  // **bundledDependency** (not an optional peer), so the install is
+  // guaranteed; we no longer surface an "install the peer dep"
+  // message. A failure here means something is wrong with the
+  // bundled install — preserve the underlying error for triage.
   let parseOfficeAsync: (buffer: Buffer) => Promise<string>;
   try {
     const mod = await import('officeparser');
@@ -382,12 +389,11 @@ async function parseOfficeDoc(
     // pass Buffer. Narrow the signature so the call site stays clean.
     parseOfficeAsync = mod.parseOfficeAsync as unknown as (buffer: Buffer) => Promise<string>;
   } catch (e) {
-    // The optional peer dep isn't installed. Surface a clear, actionable
-    // message instead of a confusing module-resolution error.
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[pdf-search-index] ${scrubbedUrl}: install the optional peer dependency \`officeparser\` ` +
-        `to index ${format.toUpperCase()} files (\`npm install officeparser\`). Underlying error: ${scrubControl(msg)}`,
+      `[pdf-search-index] ${scrubbedUrl}: failed to load the bundled officeparser dependency. ` +
+        `This is unexpected — officeparser is bundled with @icjia/pdf-search-index@1.3.0+. ` +
+        `Underlying error: ${scrubControl(msg)}`,
     );
     return null;
   }

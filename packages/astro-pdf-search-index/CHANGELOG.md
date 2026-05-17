@@ -1,5 +1,25 @@
 # @icjia/astro-pdf-search-index
 
+## 1.3.0
+
+### Minor Changes
+
+Lockstep release. No adapter-source changes — Astro consumers gain access to `/flexsearch` and `/pagefind` entries via the upstream `@icjia/pdf-search-index@1.3.0`. Typical usage:
+
+```ts
+// astro.config.ts — unchanged
+pdfSearch({ collections: ['docs'], endpoint: 'searchIndex.pdfs.json' });
+
+// Astro page script (server or client) — pick the engine
+import { createFlexSearchIndex } from '@icjia/pdf-search-index/flexsearch';
+// or
+import { emitPagefindHTML } from '@icjia/pdf-search-index/pagefind';
+```
+
+The adapter continues to emit `IndexedDocument[]` JSON to `public/<endpoint>` and (when `prebuildIndex` is set) the prebuilt Fuse index. Consumers can layer FlexSearch or Pagefind on top by calling the new entries with the emitted rows as input.
+
+See the [core CHANGELOG entry for 1.3.0](../core/CHANGELOG.md#130) for the full summary.
+
 ## 1.2.1
 
 ### Patch Changes

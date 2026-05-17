@@ -1,6 +1,6 @@
 {
   "name": "@icjia/pdf-search-index",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Full-text PDF, DOCX, PPTX, XLSX search for static sites — Apache Solr for client-side apps, without Solr.",
   "type": "module",
   "license": "MIT",
@@ -44,6 +44,14 @@
       "types": "./dist/worker.d.ts",
       "default": "./dist/worker.js"
     },
+    "./flexsearch": {
+      "types": "./dist/flexsearch.d.ts",
+      "default": "./dist/flexsearch.js"
+    },
+    "./pagefind": {
+      "types": "./dist/pagefind.d.ts",
+      "default": "./dist/pagefind.js"
+    },
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
@@ -72,23 +80,25 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "commander": "^12.1.0",
+    "officeparser": "5.2.2",
     "p-limit": "^6.0.0",
     "unpdf": "^1.0.0"
   },
   "peerDependencies": {
-    "fuse.js": "^7.0.0 || >=7.4.0-beta.0",
-    "officeparser": "5.2.2"
+    "flexsearch": "^0.7.43",
+    "fuse.js": "^7.0.0 || >=7.4.0-beta.0"
   },
   "peerDependenciesMeta": {
     "fuse.js": {
       "optional": true
     },
-    "officeparser": {
+    "flexsearch": {
       "optional": true
     }
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "flexsearch": "^0.7.43",
     "fuse.js": "7.4.0-beta.6",
     "officeparser": "5.2.2",
     "pdf-lib": "^1.17.1",

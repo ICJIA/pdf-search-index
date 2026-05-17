@@ -1,5 +1,27 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.3.0
+
+### Minor Changes
+
+Lockstep release. No module-source changes — Nuxt consumers gain access to `/flexsearch` and `/pagefind` entries via the upstream `@icjia/pdf-search-index@1.3.0`. Typical usage from a Nitro server route:
+
+```ts
+// server/api/searchIndex.get.ts
+import { extractDocumentsFromCmsBody } from '#imports';
+import { createFlexSearchIndex } from '@icjia/pdf-search-index/flexsearch';
+// or for the 10K+ tier:
+// import { emitPagefindHTML } from '@icjia/pdf-search-index/pagefind';
+
+export default defineEventHandler(async () => {
+  const rows = await extractDocumentsFromCmsBody(cmsBody);
+  // ... build whichever index your scale calls for, return JSON / serialized index
+  return rows;
+});
+```
+
+See the [core CHANGELOG entry for 1.3.0](../core/CHANGELOG.md#130) for the full summary.
+
 ## 1.2.1
 
 ### Patch Changes

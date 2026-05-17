@@ -1,5 +1,92 @@
 # @icjia/pdf-search-index
 
+## 1.3.0
+
+### Minor Changes
+
+**Two new search-engine adapter entries: `/flexsearch` and `/pagefind`.** Closes the 2,500+ and 10,000+ document corpus-size paths from the v1.2 search-engine roadmap. Consumers crossing those thresholds can now swap engines with a one-line import change rather than rewriting the search-UI glue.
+
+**1. `/flexsearch` entry** — `@icjia/pdf-search-index/flexsearch`
+
+```ts
+import {
+  createFlexSearchIndex,
+  snippetHTMLForFlexMatch,
+  flattenFlexResults,
+} from '@icjia/pdf-search-index/flexsearch';
+
+const index = await createFlexSearchIndex(rows);
+const results = await index.search('stigma', { enrich: true });
+const flat = flattenFlexResults(results);
+for (const row of flat) {
+  const html = snippetHTMLForFlexMatch(row, 'stigma');
+  // <mark>-wrapped HTML, same shape as snippetHTMLFor from /snippet
+}
+```
+
+- New optional peer dependency: `flexsearch@^0.7.43`. Dynamic import keeps the cold-start cost down; PDF/Fuse consumers don't pay for FlexSearch's resolution.
+- `DEFAULT_FLEX_OPTIONS` exported — sensible defaults for the `IndexedDocument` shape (search across title + text, store url/title/format/pages, case-insensitive ASCII encoding).
+- `snippetHTMLForFlexMatch` does its own substring-based highlight since FlexSearch doesn't return character-range match positions. Falls back to a leading-text excerpt when the literal substring isn't found (e.g., when FlexSearch matched on a stemmed/tokenized form).
+- `flattenFlexResults` flattens FlexSearch's per-field enriched-result shape (`{ id, doc }` per match) and dedupes by `id` across fields. Merges `id` back into the row so consumers get a complete `IndexedDocument`.
+- **Sweet spot: 2,500 – 10,000 documents.** Faster queries than Fuse on this size range; denser encoded index format; built-in `WorkerIndex` for off-main-thread search. **Loses Fuse's typo tolerance.**
+
+**2. `/pagefind` entry** — `@icjia/pdf-search-index/pagefind`
+
+```ts
+import { emitPagefindHTML } from '@icjia/pdf-search-index/pagefind';
+
+await emitPagefindHTML(rows, {
+  outDir: 'public/pagefind-source',
+  publicDirJail: 'public', // C5-style path-jail
+});
+// Then run: pagefind --site public --output-subdir _pagefind
+```
+
+- New build-step helper. Pagefind crawls HTML, not JSON, so this is the bridge: writes one HTML page per `IndexedDocument` into a configured output directory. Each page wraps the document text in `<main data-pagefind-body>` so Pagefind only indexes the document content (not header/footer noise).
+- Pages tagged with `data-pagefind-filter="format"` so consumers can build "PDF only" / "DOCX only" UI filters out of the box.
+- HTML-escapes the row's `title`, `text`, and `url` to defend against `</script>`-style breakouts.
+- `publicDirJail` option modeled on C5 (Astro adapter's `endpoint` path-jail from the 1.0.2 audit). Defends against `outDir: '../../escape'`. Plus a defensive second jail check on the resolved per-filename filepath.
+- **Sweet spot: 10,000+ documents.** Only engine in this package's roadmap that scales gracefully past five-figure corpora without paying the full-index download cost on first load. **Requires running Pagefind's CLI at build time** as a follow-up step.
+
+**3. officeparser promoted from `optionalPeerDependencies` to `dependencies`** — supply-chain hardening.
+
+- Pinned to exact version `5.2.2` (the audited version).
+- Auto-installs with `@icjia/pdf-search-index`; consumers no longer need to install officeparser separately or remember the optional-peer-dep dance.
+- PDF-only consumers pay ~525 KB extra install size (officeparser + its transitive deps). Acceptable tradeoff for guaranteed availability + simpler consumer story.
+- **Full source vendoring** (officeparser source physically inside our repo, eliminating npm fetch entirely) is tracked for **v1.4**. pnpm's `bundledDependencies` incompatibility means vendoring needs per-file source copies + their own audit pass — appropriate as its own focused release rather than rushed into v1.3.
+
+**Engine roadmap status — what's shipping today:**
+
+| Corpus size           | Recommended engine                      | This package's adapter                         |
+| --------------------- | --------------------------------------- | ---------------------------------------------- |
+| **< 1,000 documents** | Fuse.js                                 | `/fuse` + `/snippet` (since 1.0.0)             |
+| **1,000 – 2,500**     | Fuse.js + `FuseWorker` + prebuilt index | `/worker` + `serializeFuseIndex` (since 1.2.0) |
+| **2,500 – 10,000**    | FlexSearch                              | `/flexsearch` (this release)                   |
+| **10,000+ documents** | Pagefind                                | `/pagefind` (this release)                     |
+
+**6th adversarial red/blue team audit (2026-05-17).**
+
+- All 11 prior 1.0.2 fixes verified still in place at v1.3 source.
+- New surface audited: `/pagefind` HTML escape, `publicDirJail` path-jail, defensive per-filename jail; `/flexsearch` dynamic-import safety, snippet substring search robustness, prototype-pollution paths on row input.
+- **3 Minor findings — all fixed before v1.3.0 publish:**
+  - **V13-1** — `publicDirJail` symlink bypass. The string-prefix jail check could be defeated by a symlink inside the jail that resolves outside. Fixed with a post-`mkdir` `fs.realpath` re-check; closed in `packages/core/src/pagefind.ts`. Pinned by `test/pagefind.test.ts` → `"rejects symlink-based jail escape (V13-1 closure)"`.
+  - **V13-2** — `baseUrl` was concatenated into emitted HTML without escape. A developer-supplied baseUrl containing `<script>` could inject markup. Fixed with `escapeHTMLText(baseUrl)` before concatenation. Pinned by `test/pagefind.test.ts` → `"escapes adversarial baseUrl (V13-2 closure)"`.
+  - **V13-3** — `(row.format ?? 'pdf').toUpperCase()` was interpolated into `<meta>` and `<span>` without escape. A non-string `format` with a custom `toUpperCase` could inject markup. Fixed with runtime `typeof === 'string'` guard + `escapeHTMLText`. Pinned by `test/pagefind.test.ts` → `"escapes adversarial row.format that returns HTML (V13-3 closure)"`.
+- **2 Informational findings — documented for symmetry sweeps:**
+  - **V13-4** — control bytes survive `escapeHTMLText` (not XSS, but ANSI-escape smuggling possible if HTML is `cat`'d in a terminal).
+  - **V13-5** — `/flexsearch` dynamic-import error wraps raw `e.message` without `scrubControl`. Same pattern exists in `worker.ts:137` since 1.2 (also unscrubbed).
+- Full audit report and probe results in the [top-level README's v1.3.0 audit-history section](../../README.md#2026-05-17--v130-search-engine-entries-audit).
+
+**15 new regression tests** across `test/flexsearch.test.ts` (6) and `test/pagefind.test.ts` (9, including the 3 V13-1/V13-2/V13-3 closure tests). Test count: 163 → 178 monorepo-wide.
+
+**Tracked for v1.4 follow-up:**
+
+- **Demo three-engine toggle** — live Fuse / FlexSearch / Pagefind side-by-side in the netlify-demo with stats panel + config inspector. Requires the netlify-demo's build pipeline to run Pagefind's CLI at deploy time; gets its own focused build pass.
+- **Full source vendoring** — copy officeparser + yauzl + @xmldom/xmldom source into `packages/core/src/vendor/`. Full takedown protection without the pnpm `bundledDependencies` incompatibility. Drops the officeparser direct-dep entirely.
+- **6th-audit findings response** — anything the 6th audit surfaces gets fixed in v1.3.x patch.
+
+Consumers running `^1.2.x` continue to work identically. The minor version bump (1.2.1 → 1.3.0) reflects the new public API surface (two new adapter entries) without breaking the existing one.
+
 ## 1.2.1
 
 ### Patch Changes

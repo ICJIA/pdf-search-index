@@ -6,6 +6,8 @@ export default defineConfig({
     fuse: 'src/fuse.ts',
     snippet: 'src/snippet.ts',
     worker: 'src/worker.ts',
+    flexsearch: 'src/flexsearch.ts',
+    pagefind: 'src/pagefind.ts',
     mcp: 'src/mcp.ts',
     cli: 'src/cli.ts',
   },
