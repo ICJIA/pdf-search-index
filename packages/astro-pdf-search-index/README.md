@@ -32,7 +32,7 @@ Peer dependency: `astro@^5.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
 ## Security
 
-**Status as of v1.0.5 (last audited 2026-05-16):** Every Critical and Important finding against the Astro adapter surface is **remediated and verified in 1.0.2**. The one adapter-specific Critical (**C5**) plus the core flow-through fixes (C1, C3, I1, I3, I4, I7, I8) all have named regression tests and were re-verified at v1.0.5. **Zero unaddressed exploitable issues** in the documented usage envelope.
+**Status as of v1.2.0 (last audited 2026-05-17):** Every Critical and Important finding against the Astro adapter surface is **remediated and verified in 1.0.2**. The one adapter-specific Critical (**C5**) plus the core flow-through fixes (C1, C3, I1, I3, I4, I7, I8) all have named regression tests and were re-verified at v1.1.0 and v1.2.0. **Zero unaddressed exploitable issues** in the documented usage envelope. The 1.2 release adds an optional **prebuilt-Fuse-index** emission (`prebuildIndex` option) — the same path-jail guard that protects `endpoint` (C5 fix) also applies to the prebuilt-index path, verified by the v1.2 audit.
 
 ### Adapter-specific remediation detail
 

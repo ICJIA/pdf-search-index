@@ -5,6 +5,7 @@ export default defineConfig({
     index: 'src/index.ts',
     fuse: 'src/fuse.ts',
     snippet: 'src/snippet.ts',
+    worker: 'src/worker.ts',
     mcp: 'src/mcp.ts',
     cli: 'src/cli.ts',
   },

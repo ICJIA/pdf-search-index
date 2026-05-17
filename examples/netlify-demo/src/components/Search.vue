@@ -495,7 +495,7 @@ const activeKeys = computed<string[]>(() => {
 const fuseInstance = computed(() => {
   if (!rows.value.length) return null;
   if (!activeKeys.value.length) return null;
-  return new Fuse(rows.value, {
+  const fuseOptions = {
     keys: activeKeys.value,
     threshold: threshold.value,
     distance: distance.value,
@@ -512,7 +512,16 @@ const fuseInstance = computed(() => {
     useExtendedSearch: useExtendedSearch.value,
     useTokenSearch: useTokenSearch.value,
     includeMatches: true,
-  });
+  };
+  // 1.2: if a prebuilt index loaded successfully, pass it as the third
+  // arg to Fuse. The runtime options above still apply for query-time
+  // matching; the prebuilt index just skips the per-row tokenization
+  // step. Falls back to building from scratch when prebuiltIndex is null
+  // (older build, fetch failed, etc.).
+  return prebuiltIndex.value
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      new Fuse(rows.value, fuseOptions, prebuiltIndex.value as any)
+    : new Fuse(rows.value, fuseOptions);
 });
 
 /**
@@ -793,9 +802,28 @@ function resultLink(r: FuseResult<IndexedPdf>): string {
   return (r.item.format ?? 'pdf') === 'pdf' ? viewerUrl(r) : publicPdfUrl(r.item.url);
 }
 
+// 1.2 demo: fetch BOTH the rows and the prebuilt Fuse index in
+// parallel. The runtime Fuse instance reuses the prebuilt index via
+// `Fuse.parseIndex`, skipping the in-browser build step. At 14 rows
+// the perf delta is invisible (~3 ms either way); the production
+// argument for the pattern lives at the ~2K-row scale.
+//
+// If `searchIndex.fuse-index.json` isn't present (older build), we
+// gracefully fall back to the 1.0.x path: pass `null` so the
+// `prebuiltIndex` computed below stays null and `runFuseSearch` builds
+// the index from scratch.
+const prebuiltIndex = ref<unknown | null>(null);
+
 onMounted(async () => {
-  const res = await fetch('/searchIndex.pdfs.json');
-  rows.value = (await res.json()) as IndexedPdf[];
+  const [rowsRes, indexRes] = await Promise.all([
+    fetch('/searchIndex.pdfs.json'),
+    fetch('/searchIndex.fuse-index.json').catch(() => null),
+  ]);
+  rows.value = (await rowsRes.json()) as IndexedPdf[];
+  if (indexRes && indexRes.ok) {
+    const indexJson = await indexRes.json();
+    prebuiltIndex.value = Fuse.parseIndex(indexJson);
+  }
   loaded.value = true;
 });
 </script>

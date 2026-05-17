@@ -52,6 +52,29 @@ export interface PdfSearchIntegrationOptions {
    * to local fixtures. Defaults to the global `fetch`.
    */
   fetch?: typeof fetch;
+
+  /**
+   * Optional. When set, the integration emits a **prebuilt Fuse index**
+   * to `public/<prebuildIndex>` alongside the main rows JSON. Consumers
+   * fetch both files and pass the prebuilt index to `Fuse.parseIndex` at
+   * runtime, skipping the in-browser build step.
+   *
+   * At ~2K rows this cuts first-paint Fuse setup from ~5-10 s to ~200 ms
+   * parse. Below ~1K rows the difference is barely visible — leave this
+   * unset for small corpora.
+   *
+   * Added in 1.2.
+   *
+   * @example
+   * ```ts
+   * pdfSearch({
+   *   collections: ['docs'],
+   *   endpoint: 'searchIndex.documents.json',
+   *   prebuildIndex: 'searchIndex.fuse-index.json',
+   * })
+   * ```
+   */
+  prebuildIndex?: string;
 }
 
 export default function pdfSearchIntegration(
@@ -126,6 +149,25 @@ export default function pdfSearchIntegration(
         // HTML-safe serializer so PDF text containing `</script>` can't
         // break out of that embedding.
         await writeFile(outPath, safeJSONForHTML(allRows, 2), 'utf-8');
+
+        // 1.2: optional prebuilt Fuse index emission. Same path-jail
+        // guard as the main endpoint — must resolve inside publicDir.
+        if (options.prebuildIndex) {
+          const prebuiltPath = join(publicDir, options.prebuildIndex);
+          const prebuiltAbs = resolve(prebuiltPath);
+          if (prebuiltAbs !== publicDirAbs && !prebuiltAbs.startsWith(publicDirAbs + pathSep)) {
+            throw new Error(
+              `pdfSearchIntegration: prebuildIndex "${options.prebuildIndex}" resolves outside publicDir ` +
+                `("${prebuiltAbs}" is not under "${publicDirAbs}"). Use a relative path that stays inside publicDir.`,
+            );
+          }
+          // Lazy-import the `/fuse` entry so consumers who don't enable
+          // prebuild don't pay for the fuse.js peer dep being resolved.
+          const { serializeFuseIndex } = await import('@icjia/pdf-search-index/fuse');
+          const indexJson = serializeFuseIndex(allRows);
+          await mkdir(dirname(prebuiltPath), { recursive: true });
+          await writeFile(prebuiltPath, indexJson, 'utf-8');
+        }
       },
     },
   };

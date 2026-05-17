@@ -1,5 +1,54 @@
 # @icjia/pdf-search-index
 
+## 1.2.0
+
+### Minor Changes
+
+**Performance: prebuilt Fuse index + first-party Worker entry. Security: two deferred-item closures (maxUrls + inflate-bomb).** Multi-format support from 1.1 is unchanged — same `IndexedDocument` shape, same `officeparser` peer dep, same audit posture. v1.2 adds three feature pairs:
+
+**1. Prebuilt Fuse index emission** — new in `/fuse` entry. `serializeFuseIndex(rows, fuseOptions?)` returns a JSON string ready for `Fuse.parseIndex` at runtime; `prebuildFuseIndex(urls, options?)` returns `{ rows, indexJson }` in one call. The Astro adapter gains a `prebuildIndex` option that emits the index alongside the rows JSON; the CLI gains a `--prebuild-index <file>` flag. Cuts in-browser Fuse build from ~10s at 2K rows to ~200ms parse. Below ~1K rows the delta is barely visible.
+
+**2. `/worker` entry** — re-export of `FuseWorker` from `fuse.js/worker` (7.4.0-beta.6+) with `IndexedDocument` typing. `FuseWorker` is upstream Fuse's multi-worker sharded runner (`Math.min(navigator.hardwareConcurrency, 8)` workers); we ship a thin `createFuseWorker(rows, options)` wrapper plus an ambient module declaration to fix the fuse.js/worker types gap. Use this for 1-5K-document corpora where keeping the main thread responsive matters. Caveats: function-valued Fuse options not supported (postMessage can't transfer them), `useTokenSearch` not supported (corpus stats diverge per shard).
+
+**3. `maxUrls` cap (closes I6 from 1.0.2 audit)** — new `IndexPdfsOptions.maxUrls` / `IndexDocumentsOptions.maxUrls` option, default 5,000. Truncates with a `console.warn` when exceeded; applied AFTER URL dedup. Set to `Infinity` to disable. Sized to comfortably cover typical research/government CMS deployments (ICJIA's icjia.illinois.gov is in the 2K-2.5K range) while still bounding an attacker-controlled sitemap enqueue.
+
+**4. Inflate-bomb defense (closes the deferral from the v1.1 audit)** — new `ExtractOptions.maxInflatedArchiveBytes` option, default 100 MB. New internal `inspectZipUncompressedSize` (`packages/core/src/zip-inspector.ts`) parses the ZIP central directory and sums declared uncompressed sizes; if the total exceeds the cap, `parseOfficeDoc` rejects with an `oversized {DOCX|PPTX|XLSX} archive` tag BEFORE invoking `officeparser`. Conservative posture — any malformed CD or ZIP64 sentinel falls through to the parser, which surfaces a normal corrupt-archive error. Defense closes the window between `maxBytes` (compressed input cap) and `maxExtractedTextChars` (post-extraction text cap) where officeparser materializes inflated XML in memory.
+
+**Pages-field documentation correction.** v1.1's "Supported formats" docs claimed PPTX populates `pages` with the slide count and XLSX with the sheet count. **That was wrong** — `officeparser`'s text API returns a flat string with no structural metadata, so `parseOfficeDoc` leaves `pages` undefined for all Office formats. The docs in this release reflect that. (A future patch could re-read the ZIP after extraction to count slides/sheets if there's demand; not in scope for v1.2.)
+
+**Search-engine roadmap documentation.** The README now leads the "Using a search engine other than Fuse.js" section with a roadmap table that calibrates engine choice by corpus size: Fuse.js (<1K), Fuse + `FuseWorker` (1-2.5K), FlexSearch (2.5-10K), Pagefind (10K+). First-party `/flexsearch` and `/pagefind` adapter entries are tracked for v1.3. The 14-document netlify-demo is updated to use the prebuilt-index pattern as a worked example of the production wiring for 2K-row deployments.
+
+**5th adversarial red/blue team audit (2026-05-17).**
+
+- All 11 prior 1.0.2 fixes verified still in place at v1.2 source.
+- 0 new Critical / Important / Minor findings on the v1.2 surface.
+- ZIP central-directory parser probed with: malformed CDs, ZIP64 sentinels, claim-vs-actual entry-count mismatches, comments with embedded EOCD signatures — all handled by the conservative pass-through.
+- `maxUrls` cap probed with negative / `NaN` values, large dedup-then-cap scenarios — no bypass.
+- `/worker` entry: dynamic-import safety, postMessage validation, type-leak surface — all clean.
+- Astro adapter `prebuildIndex` path-jail (C5-style) verified.
+
+**New test coverage:** 29 new regression tests across `test/max-urls.test.ts` (10, including 4 covering F1 normalization), `test/inflate-bomb.test.ts` (9), `test/prebuild-index.test.ts` (6 prebuild + 2 worker smoke), plus 2 F1 normalize tests added during the audit-response cycle. **Test count: 138 → 163 monorepo-wide.**
+
+**New public API surface (1.2):**
+
+- `serializeFuseIndex(rows, fuseOptions?)` — `/fuse` entry; returns prebuilt-index JSON.
+- `prebuildFuseIndex(urls, options?)` — `/fuse` entry; one-call rows + prebuilt index.
+- `createFuseWorker(rows, options?, workerOptions?)` — `/worker` entry; async-construct a `FuseWorker`.
+- `FuseWorker` interface — `/worker` entry; type-narrowed Fuse worker.
+- `FuseWorkerOptions` interface — `/worker` entry.
+- `IndexPdfsOptions.maxUrls` — default 5,000.
+- `ExtractOptions.maxInflatedArchiveBytes` — default 100 MB.
+- New bin alias: `document-search-index-mcp` (existing `pdf-search-index-mcp` continues to work).
+
+**Deferred items remaining (with target versions):**
+
+- **C2** SSRF allowlist → v1.1 (still tracked — needs opt-in flag design).
+- **I2** Cache-key URL normalization → v2.0 (breaking).
+- **I5** CLI sitemap hardening → v1.3.
+- **M1, M4–M8** Defense-in-depth hardening → future patches.
+
+Consumers running `^1.1.x` continue to work identically. The minor version bump (1.1.0 → 1.2.0) reflects the new public API surface (prebuild + worker + caps) without breaking the existing one.
+
 ## 1.1.0
 
 ### Minor Changes

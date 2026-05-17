@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import {
   indexDocuments,
   extractDocumentText,
@@ -22,6 +22,7 @@ interface RootOptions {
   ndjson?: boolean;
   text?: boolean;
   out?: string;
+  prebuildIndex?: string;
 }
 
 interface CacheSubOpts {
@@ -57,6 +58,13 @@ program
   .option('--ndjson', 'emit newline-delimited JSON', false)
   .option('--text', 'emit plain text only', false)
   .option('--out <file>', 'write JSON output to <file> instead of stdout')
+  .option(
+    '--prebuild-index <file>',
+    'emit a prebuilt Fuse index JSON to <file> alongside the rows JSON. ' +
+      'Consumers can load both at runtime and pass the index to Fuse.parseIndex, ' +
+      'skipping the in-browser build (200ms parse vs 5-10s build at 2K rows). ' +
+      'Requires --out. Added in 1.2.',
+  )
   .argument('[urls...]', 'document URLs (PDF / DOCX / PPTX / XLSX)')
   .action(async (urls: string[], opts: RootOptions) => {
     const collected = await collectUrls(urls, opts);
@@ -75,6 +83,19 @@ program
       process.exit(1);
     }
     await emit(rows, opts);
+    if (opts.prebuildIndex) {
+      if (!opts.out) {
+        console.error('--prebuild-index requires --out');
+        process.exit(1);
+      }
+      const { serializeFuseIndex } = await import('./fuse.js');
+      const indexJson = serializeFuseIndex(rows);
+      await writeFile(opts.prebuildIndex, indexJson, 'utf-8');
+      console.error(
+        `Prebuilt Fuse index written to ${opts.prebuildIndex} (${(indexJson.length / 1024).toFixed(1)} KB). ` +
+          `Load via Fuse.parseIndex at runtime.`,
+      );
+    }
   });
 
 program

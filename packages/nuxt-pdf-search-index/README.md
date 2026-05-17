@@ -37,7 +37,7 @@ Peer dependency: `nuxt@^4.0.0`. ESM only. Node 20 LTS / 22 LTS.
 
 ## Security
 
-**Status as of v1.0.5 (last audited 2026-05-16):** Every Critical and Important finding that touches the Nuxt module's helper surface is **remediated and verified in 1.0.2** — every fix flows through `extractPdfsFromCmsBody` / `extractPdfsFromContentDoc` automatically. Three audit passes (initial 1.0.1, 1.0.3 delta, 1.0.5 verification) confirm the fixes are still in place. **Zero unaddressed exploitable issues** in the documented usage envelope.
+**Status as of v1.2.0 (last audited 2026-05-17):** Every Critical and Important finding that touches the Nuxt module's helper surface is **remediated and verified in 1.0.2** — every fix flows through `extractPdfsFromCmsBody` / `extractPdfsFromContentDoc` (and the 1.1 multi-format helpers `extractDocumentsFromCmsBody` / `extractDocumentsFromContentDoc`) automatically. Five audit passes (initial 1.0.1, 1.0.3 delta, 1.0.5 verification, 1.1.0 multi-format, 1.2.0 perf/security-extension) confirm the fixes are still in place. **Zero unaddressed exploitable issues** in the documented usage envelope.
 
 ### Core flow-through fixes (apply to every helper call)
 

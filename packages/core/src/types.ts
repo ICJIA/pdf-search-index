@@ -18,8 +18,11 @@ export interface IndexedDocument {
    */
   format?: DocumentFormat;
   /**
-   * For PDFs: page count. For PPTX: slide count. For XLSX: sheet count.
-   * For DOCX: undefined (no native page concept until rendered).
+   * For PDFs: page count (populated). For DOCX/PPTX/XLSX: not surfaced
+   * by `officeparser`'s text API, so `pages` is undefined for all
+   * Office formats. (A future patch could re-read the ZIP to count
+   * slides / sheets, but the cost is rarely worth it — consumers
+   * who need it can call the ZIP inspector directly.)
    */
   pages?: number;
   extractedAt?: string;
@@ -50,6 +53,25 @@ export interface ExtractOptions {
    * Anything beyond the cap is truncated and a warning is logged.
    */
   maxExtractedTextChars?: number;
+  /**
+   * For Office formats (DOCX, PPTX, XLSX), the maximum total uncompressed
+   * archive size accepted from the input. Defaults to 100 MB.
+   *
+   * The Office formats are ZIP archives of XML. A few-KB malicious input
+   * can inflate to multi-GB on extraction, sitting between the existing
+   * `maxBytes` (compressed input cap) and `maxExtractedTextChars`
+   * (post-extraction text cap) — `officeparser` materializes the
+   * inflated XML in memory before we see the text. This option closes
+   * that window: the ZIP central directory is inspected up-front; if the
+   * declared total uncompressed size exceeds the cap, the document is
+   * rejected without invoking the parser.
+   *
+   * Set to `Infinity` to disable. Has no effect on PDFs (their
+   * compression bound is `maxExtractedTextChars`).
+   *
+   * Added in 1.2. Closes the deferral from the 2026-05-17 v1.1 audit.
+   */
+  maxInflatedArchiveBytes?: number;
   fetch?: typeof fetch;
   cache?: 'use' | 'bypass' | 'refresh';
   mergePages?: boolean;
@@ -74,6 +96,18 @@ export interface ExtractOptions {
 
 export interface IndexPdfsOptions extends ExtractOptions {
   concurrency?: number;
+  /**
+   * Maximum number of URLs accepted by a single `indexPdfs` /
+   * `indexDocuments` call. Defaults to 5,000. Anything above the cap is
+   * truncated and a warning is logged. Defends against a misconfigured
+   * or malicious sitemap enqueueing millions of fetch requests.
+   *
+   * Set to `Infinity` to disable the cap. Most ICJIA-style sites
+   * (research-heavy government CMS) fit well under 5,000.
+   *
+   * Added in 1.2 (closes I6 from the 1.0.2 audit).
+   */
+  maxUrls?: number;
 }
 
 /** Back-compat alias for `IndexPdfsOptions`. */

@@ -29,7 +29,7 @@ afterEach(async () => {
 
 // Helper: fetch impl that resolves file:// URLs against the real
 // ICJIA-public fixture set. Mirrors the netlify-demo's localFetch.
-const fixtureFetch: typeof fetch = (async (input: RequestInfo | URL) => {
+const fixtureFetch: typeof fetch = (async (input: Parameters<typeof fetch>[0]) => {
   const url = typeof input === 'string' ? input : input.toString();
   if (url.startsWith('file://')) {
     const path = url.replace(/^file:\/\//, '');
@@ -252,7 +252,7 @@ See [agenda](${docxUrl}) and
 [the literature review](${pdfUrl}).
 `;
     // Custom fetch unwraps the percent-encoding before reading from disk.
-    const encodedFetch: typeof fetch = (async (input: RequestInfo | URL) => {
+    const encodedFetch: typeof fetch = (async (input: Parameters<typeof fetch>[0]) => {
       const url = typeof input === 'string' ? input : input.toString();
       const decoded = decodeURIComponent(url.replace(/^file:\/\//, ''));
       const buf = await readFile(decoded);

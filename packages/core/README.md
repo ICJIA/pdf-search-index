@@ -26,7 +26,7 @@ Optional peer dependency — `fuse.js@^7` — only when you import the `/fuse` o
 
 ## Security
 
-**Status as of v1.0.5 (last audited 2026-05-16):** Every Critical and Important finding from the original audit against the core package is either **remediated and verified in 1.0.2**, or has a **documented active mitigation** while the structural fix lands in v1.1 / v2.0. Three audit passes (initial 1.0.1, 1.0.3 delta, 1.0.5 verification) confirm the fixes are still in place. **Zero unaddressed exploitable issues** against the documented usage envelope.
+**Status as of v1.2.0 (last audited 2026-05-17):** Every Critical and Important finding from the original audit against the core package is either **remediated and verified in a shipped release**, or has a **documented active mitigation** while the structural fix lands in a future release. **Zero unaddressed exploitable issues** against the documented usage envelope. Five independent audit passes confirm this: initial 1.0.1 + 1.0.3 delta + 1.0.5 verification (2026-05-16); 1.1.0 multi-format + 1.2.0 perf/security-extension (2026-05-17). The v1.2 release closes the I6 (`maxUrls`) deferral from 1.0.2 and the inflate-bomb deferral from the v1.1 audit, leaving C2 (SSRF allowlist) and I2 (cache-key normalization) as the only remaining tracked items.
 
 ### Remediation scorecard (core-relevant items)
 

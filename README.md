@@ -54,7 +54,7 @@ ESM only. MIT licensed. Node 20 LTS / 22 LTS.
 - [The 30-second integration](#the-30-second-integration)
 - [Install](#install)
 - [Where your PDFs can live](#where-your-pdfs-can-live)
-- [Using a search engine other than Fuse.js](#using-a-search-engine-other-than-fusejs)
+- [Using a search engine other than Fuse.js](#using-a-search-engine-other-than-fusejs) — Fuse-by-default; roadmap for FlexSearch & Pagefind at scale
 - [Core API](#core-api)
 - [Fuse helper (`/fuse` entry)](#fuse-helper-fuse-entry)
 - [Snippet helper (`/snippet` entry)](#snippet-helper-snippet-entry)
@@ -155,12 +155,12 @@ The full [Security considerations & audit history](#security-considerations--aud
 
 Added in v1.1: DOCX, PPTX, XLSX alongside the original PDF support. All four formats produce the same `IndexedDocument` row shape with a `format` discriminator, so your downstream search engine (Fuse.js, MiniSearch, FlexSearch, …) treats them uniformly.
 
-| Format | Extension | Parser            | Page-like count                       | Optional peer dep                |
-| ------ | --------- | ----------------- | ------------------------------------- | -------------------------------- |
-| PDF    | `.pdf`    | `unpdf` (bundled) | Pages                                 | (no peer — bundled)              |
-| DOCX   | `.docx`   | `officeparser`    | n/a (DOCX has no native page concept) | `officeparser@^5.0.0` (optional) |
-| PPTX   | `.pptx`   | `officeparser`    | Slides                                | `officeparser@^5.0.0` (optional) |
-| XLSX   | `.xlsx`   | `officeparser`    | Sheets                                | `officeparser@^5.0.0` (optional) |
+| Format | Extension | Parser            | Page-like count                         | Optional peer dep                |
+| ------ | --------- | ----------------- | --------------------------------------- | -------------------------------- |
+| PDF    | `.pdf`    | `unpdf` (bundled) | Pages (populated)                       | (no peer — bundled)              |
+| DOCX   | `.docx`   | `officeparser`    | n/a (DOCX has no native page concept)   | `officeparser@^5.0.0` (optional) |
+| PPTX   | `.pptx`   | `officeparser`    | Slides (count not surfaced — see notes) | `officeparser@^5.0.0` (optional) |
+| XLSX   | `.xlsx`   | `officeparser`    | Sheets (count not surfaced — see notes) | `officeparser@^5.0.0` (optional) |
 
 **The single `officeparser` peer dependency covers all three Office formats.** PDF-only consumers don't install it.
 
@@ -203,8 +203,8 @@ The PDF-only legacy API (`indexPdfs`, `extractPdfText`, `extractPdfsFromBody`) i
 
 - **PDF.** Unchanged from 1.0.x. `unpdf` is bundled (no peer dep). Page count populates `pages`. Info-dict title (the PDF's metadata "Title" field) is used as the row title when no explicit title is provided.
 - **DOCX.** Plain text is extracted in paragraph order. There is no native page concept in DOCX (pages only exist once rendered by Word/LibreOffice), so `pages` is left undefined. The row title falls back to a humanized filename.
-- **PPTX.** Per-slide text concatenated. Speaker notes included when present. Slide count populates `pages`. The row title falls back to a humanized filename — the actual deck title is buried in slide-1 placeholder text and we don't try to guess.
-- **XLSX.** Per-sheet text extracted. Sheet count populates `pages`. Each sheet's cells are concatenated; large spreadsheets can produce huge text blobs, which the existing `maxExtractedTextChars` cap (default 5 MB) bounds. For per-row or per-cell search semantics, you'd want a different design — tracked for a future major.
+- **PPTX.** Per-slide text concatenated. Speaker notes included when present. Slide count is **not** surfaced — `officeparser`'s text API returns a single string with no structural metadata, so `pages` is left undefined. Counting slides would require re-reading the ZIP after extraction; tracked for a future patch if there's demand. The row title falls back to a humanized filename.
+- **XLSX.** Per-sheet text extracted. Sheet count is **not** surfaced for the same reason as PPTX — `officeparser` returns a flat string. Each sheet's cells are concatenated; large spreadsheets can produce huge text blobs, which the existing `maxExtractedTextChars` cap (default 5 MB) and v1.2's new `maxInflatedArchiveBytes` cap (default 100 MB) both bound. For per-row or per-cell search semantics, you'd want a different design — tracked for a future major.
 
 ### What's NOT in scope
 
@@ -534,7 +534,20 @@ Cache keys are `SHA-256(url)` truncated to 16 hex chars. Implications by hosting
 
 ## Using a search engine other than Fuse.js
 
-**Short answer: Fuse.js is optional.** The core extraction API produces plain JSON. You can feed it to any client- or server-side search engine — MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, Algolia. Fuse.js is only required if you specifically import the `/fuse` or `/snippet` helper subpaths.
+**Short answer: Fuse.js is the target the package ships with, but it isn't the right choice at every corpus size.** The core extraction API produces plain JSON that any client- or server-side search engine can consume — MiniSearch, Orama, Lunr, FlexSearch, Pagefind, Typesense, MeiliSearch, Algolia. Fuse.js is only required if you specifically import the `/fuse` or `/snippet` helper subpaths. **Past ~2,500 documents the package's docs and examples will increasingly point you at FlexSearch or Pagefind.** First-party `/flexsearch` and `/pagefind` adapter entries are on the roadmap (see [Roadmap](#roadmap-search-engine-thresholds)).
+
+### Roadmap: search-engine thresholds
+
+The engine you pick matters more than the package you wrap it in. Pick by corpus size:
+
+| Corpus size           | Recommended engine         | Why                                                                                                                                                                                                                       | Status in this package                                                                                                                                    |
+| --------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **< 1,000 documents** | **Fuse.js**                | Smallest API, best typo tolerance, native match-position output. The 1.0 / 1.1 default.                                                                                                                                   | ✅ **Shipping today** — `/fuse` + `/snippet` entries.                                                                                                     |
+| **1,000 – 2,500**     | **Fuse.js + `FuseWorker`** | Keeps typo tolerance. **`FuseWorker` from `fuse.js/worker` is built-in (7.4.0-beta.6+) — multi-worker sharded, auto-resolves worker URL.** Optional prebuilt-index emission skips the per-shard build cost on first load. | 🚧 **v1.2.** `/worker` entry re-exports `FuseWorker` with `IndexedDocument` typing; optional prebuilt-index emission via the CLI `--prebuild-index` flag. |
+| **2,500 – 10,000**    | **FlexSearch**             | Sub-millisecond queries on this size range. Encoded index format is denser than JSON. Loses Fuse's typo tolerance — acceptable for most factual / name searches.                                                          | 🚧 **v1.3 roadmap.** Optional `/flexsearch` entry that builds a FlexSearch index from `IndexedDocument[]`.                                                |
+| **10,000+ documents** | **Pagefind**               | Chunked on-demand index — only engine here that scales gracefully past five-figure corpora without paying the full-index download cost on first load.                                                                     | 🚧 **v1.3 roadmap.** Build-step recipe that emits per-document HTML pages for Pagefind to crawl; documented integration pattern.                          |
+
+**For ICJIA-scale deployments (~2,000–2,500 documents)**, plan to switch from "Fuse on the main thread" to **`FuseWorker`** (built-in to Fuse 7.4.0-beta.6+) when v1.2 ships. Optionally pair it with our prebuilt-index emission to skip the per-shard rebuild on each page load. If your corpus grows past ~5,000 documents, FlexSearch becomes the better default; past ~10,000, Pagefind.
 
 ### Engine comparison — Fuse.js vs FlexSearch vs Pagefind
 
@@ -556,7 +569,7 @@ The three engines most often paired with this package work very differently. Pic
 **Our recommendation for `@icjia/pdf-search-index` consumers:**
 
 - **<1,000 documents** → **Fuse.js**. Smallest API, best typo tolerance, native match-position output. The default in our README and demos.
-- **1,000–2,500 documents** → **Fuse.js + prebuilt index + Web Worker.** Keeps the typo tolerance. The prebuilt index skips the ~5–10 s in-browser build. Put Fuse in a Worker so the main thread stays responsive.
+- **1,000–2,500 documents** → **Fuse.js + `FuseWorker` (built-in, 7.4.0-beta.6+).** Keeps the typo tolerance. `FuseWorker` shards the index across `navigator.hardwareConcurrency` workers (capped at 8) and runs `search()` in parallel off the main thread. The 3-line consumer pattern: `import { FuseWorker } from 'fuse.js/worker'; const fuse = new FuseWorker(rows, options); const results = await fuse.search(query);`
 - **2,500–10,000 documents** → **FlexSearch.** Faster queries; denser on-disk index. Lose Fuse's typo tolerance — acceptable for most factual / proper-name searches.
 - **10,000+ documents** → **Pagefind.** Only engine in this list that scales gracefully to six-figure corpora without paying the full-index-download cost on first load.
 
@@ -1609,6 +1622,49 @@ Polyglot bypass impossible: first byte is either `0x25` (`%`, PDF) or `0x50` (`P
 6. The v1.2 structural fix (per-entry inflated-size cap) requires wrapping/forking officeparser — appropriate as its own release scope.
 
 **Verdict.** The "Status as of v1.1.0" headline at the top of this README — "Zero unaddressed exploitable issues against the documented usage envelope" — is supported by this audit's evidence. **Risk posture vs. v1.0.5: the v1.1 release is at least as secure as v1.0.5 across the new surface, and adds two new defenses (format-mismatch detection, Office error categorization) that don't exist in any prior release.**
+
+### 2026-05-17 — v1.2.0 perf/security-extension audit
+
+A **fifth** adversarial red/blue team pass ran against the v1.2 working tree (the unpublished changes on top of shipped 1.1.0). Goals: re-verify the 11 prior 1.0.2 fixes survive the v1.2 changes, audit the four new surfaces (`maxUrls` cap closing I6, inflate-bomb defense closing the v1.1 deferral, prebuilt Fuse index emission, `/worker` re-export), and surface any new findings.
+
+**Methodology.** Independent opus-class LLM agent. Full source review of every new/modified file (`packages/core/src/zip-inspector.ts` new, `src/extractor.ts` extended, `src/index.ts` `maxUrls` cap, `src/fuse.ts` `serializeFuseIndex` + `prebuildFuseIndex`, `src/worker.ts` new, `src/cli.ts` `--prebuild-index` flag, `packages/astro-pdf-search-index/src/index.ts` `prebuildIndex` option). Adversarial probes against the built `dist/`: 6 malformed-ZIP probes against `inspectZipUncompressedSize` (entry-count mismatch, bad CD signature, out-of-bounds CD offset, embedded EOCD-signature-in-comment sandwich, near-ZIP64-sentinel single entry, ZIP64 sentinel proper), 10 adversarial row shapes against `serializeFuseIndex`, type-coercion probes against `maxUrls`, and dynamic-import probes against the `/worker` entry.
+
+**Result: 11 of 11 prior fixes verified, 0 new Critical / Important findings.**
+
+**New findings (4): 2 Minor, 2 Informational.**
+
+| ID  | Severity      | What it was                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | What we did                                                                                                                                                                                                                                                                                     |
+| --- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | Minor         | `maxUrls` cap silently no-op'd when given `NaN`, a string, a float, or a negative number. TypeScript-typed callers can't easily hit this, but JS / MCP-client callers (passing string-typed values) could disable the cap inadvertently.                                                                                                                                                                                                                                                         | Added `normalizeMaxUrls(raw)` in `packages/core/src/index.ts` that coerces any non-finite / non-numeric / negative value back to the default 5,000. `Infinity` continues to disable the cap (the documented contract). 4 new regression tests pin the normalization in `test/max-urls.test.ts`. |
+| F2  | Minor         | The prebuilt Fuse index emitted by `serializeFuseIndex` was not HTML-safe-encoded. The rows JSON has been HTML-safe since 1.0.2 (I4 fix using `safeJSONForHTML`), so a consumer following the rows-inline pattern who assumed the prebuilt index was symmetrically safe would have an XSS-via-`</script>` window. Documented deployment pattern (`fetch()` + `Fuse.parseIndex`) is unaffected — only the inline-into-HTML pattern is exposed.                                                    | Routed `serializeFuseIndex` output through `safeJSONForHTML`. `Fuse.parseIndex(JSON.parse(text))` continues to work because the `<` escapes are valid JSON. Symmetric with the rows-JSON emit path now.                                                                                         |
+| F3  | Informational | `createFuseWorker` does a `dynamic import('fuse.js/worker')` with no try/catch. Our peer-dep range allows stable fuse.js 7.0.x – 7.3.x, but the `/worker` subpath only landed in 7.4.0-beta.6. A consumer on stable 7.3 calling `createFuseWorker(...)` would get `ERR_MODULE_NOT_FOUND` with no actionable hint to upgrade.                                                                                                                                                                     | Wrapped the dynamic import with a `try`/`catch` that surfaces `"@icjia/pdf-search-index/worker requires fuse.js >= 7.4.0-beta.6 (the /worker subpath is not in earlier 7.x releases). Upgrade with: npm install fuse.js@7.4.0-beta.6 (or later)."` UX paper-cut closed; not a security issue.   |
+| F4  | Informational | `packages/core/src/fuse-worker.d.ts` ambient declaration types `FuseWorker` as `new (...args: any[]) => unknown`. Wide `any[]` arity, but the public-API path (`worker.ts:createFuseWorker`) wraps it with a precise typed signature so consumers calling our wrapper get full type safety. The unsafe path is only reachable by a TS user who deliberately imports `FuseWorker` directly from `fuse.js/worker`, bypassing our wrapper — and our wrapper exists specifically to discourage that. | Not exploitable. The declaration comment already documents the rationale. No action required. Will become obsolete when fuse.js publishes its own `dist/fuse-worker.d.ts`.                                                                                                                      |
+
+**F1, F2, F3 all fixed in 1.2.0 before publish.** F4 documented as non-actionable.
+
+**Deferred items — status changes in 1.2:**
+
+- **I6 (`maxUrls` cap)** → **CLOSED in 1.2.** Was deferred from 1.0.2 (target v1.1, slipped). Default 5,000 with F1-hardened normalization.
+- **Inflate-bomb deferral** (from v1.1 audit) → **CLOSED in 1.2** via the new `maxInflatedArchiveBytes` cap (default 100 MB) + `inspectZipUncompressedSize` ZIP central-directory parser in `packages/core/src/zip-inspector.ts`.
+- **C2 (SSRF allowlist)** → still deferred (was promised for v1.1, slipped again). Mitigation: outbound network policy at the CI level.
+- **I2 (cache-key normalization)** → still deferred to v2.0 (breaking).
+- **I5 (CLI sitemap hardening)** → still deferred (was promised for v1.1, slipped). The new `maxUrls` cap limits the final indexing fan-out but does NOT limit sitemap fetch sizes or scheme.
+- **M1, M4–M8** → still defense-in-depth hardening, future patches.
+
+**ZIP inspector adversarial probes — all closed.**
+
+| Probe | Input                                                                    | Outcome                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Truncated CD (claims 5 entries, buffer ends after 2)                     | `null` → conservative pass-through; officeparser surfaces normal error                                                                                 |
+| 2     | Bad CD entry signature mid-walk                                          | `null` → pass-through                                                                                                                                  |
+| 3     | CD offset past buffer end                                                | `null` → pass-through                                                                                                                                  |
+| 4     | Comment with embedded EOCD signature ("sandwich" attack)                 | Inspector picks the latest-position EOCD (canonical ZIP rule, matches yauzl). Same EOCD officeparser sees → no divergence between inspector and parser |
+| 5     | Single entry with uncompressed size = `0xFFFFFFFE` (near-ZIP64 sentinel) | Read correctly as 4,294,967,294 bytes → rejected by 100 MB cap                                                                                         |
+| 6     | ZIP64 sentinel proper (`0xFFFFFFFF`)                                     | `null` → pass-through; officeparser handles ZIP64 if present                                                                                           |
+
+**Real-fixture verification:** all three ICJIA DOCX agendas + the 1000-row XLSX fixture continue to parse correctly under the default 100 MB cap. No false-positive on legitimate documents.
+
+**Verdict.** The "Status as of v1.2.0" headline at the top of this README — "Zero unaddressed exploitable issues against the documented usage envelope" — is supported by this audit's evidence. **Risk posture vs. v1.1: the v1.2 release closes two deferred items (I6 + inflate-bomb), maintains all 11 prior fixes, and introduces no new exploitable surface. F1/F2/F3 minor + informational findings all addressed before publish.**
 
 ### Shipped in 1.0.2 (canonical reference)
 

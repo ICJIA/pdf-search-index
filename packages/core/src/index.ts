@@ -133,6 +133,31 @@ export async function indexDocuments(
   return indexInternal(urls, options, /*legacyPdfMode=*/ false);
 }
 
+// I6 from the 1.0.2 audit: cap on the number of URLs accepted by a single
+// indexing call. Default 5,000 matches the audit's recommendation. Sized
+// to comfortably cover typical research/government CMS deployments
+// (ICJIA's icjia.illinois.gov, for example, is in the 2K-2.5K range)
+// while still bounding an attacker-controlled sitemap enqueue.
+const DEFAULT_MAX_URLS = 5_000;
+
+/**
+ * Normalize the `maxUrls` option to a non-negative integer or `Infinity`.
+ *
+ * Closes F1 from the v1.2 audit: TypeScript-typed callers can't easily
+ * pass a non-numeric value, but JS/MCP callers can. Pre-1.2.1 the cap
+ * silently became no-op when given `NaN`, a string, or a float. With
+ * this normalization, anything that isn't a real finite non-negative
+ * number falls back to the default.
+ */
+function normalizeMaxUrls(raw: number | undefined): number {
+  if (raw === undefined) return DEFAULT_MAX_URLS;
+  if (raw === Infinity) return Infinity;
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) {
+    return DEFAULT_MAX_URLS;
+  }
+  return Math.floor(raw);
+}
+
 async function indexInternal(
   urls: UrlOrEntry[],
   options: IndexPdfsOptions | undefined,
@@ -140,14 +165,29 @@ async function indexInternal(
 ): Promise<IndexedDocument[]> {
   const concurrency = options?.concurrency ?? 4;
   const limit = createLimiter(concurrency);
+  const maxUrls = normalizeMaxUrls(options?.maxUrls);
 
   // Dedupe by URL (preserve input order; first occurrence wins on title/id collision).
   const seen = new Set<string>();
-  const entries = urls.map(normalizeEntry).filter((e) => {
+  let entries = urls.map(normalizeEntry).filter((e) => {
     if (seen.has(e.url)) return false;
     seen.add(e.url);
     return true;
   });
+
+  // I6 / maxUrls cap: enforce after dedup (duplicates are free) but before
+  // any network fetch fires. Truncates with a single console.warn so the
+  // operator sees the truncation in CI logs. `normalizeMaxUrls` above
+  // guarantees `maxUrls` is either a finite non-negative integer or
+  // Infinity, so the Number.isFinite check is now strictly belt-and-
+  // suspenders rather than a primary guard (F1 closure).
+  if (Number.isFinite(maxUrls) && entries.length > maxUrls) {
+    console.warn(
+      `[pdf-search-index] indexing ${entries.length} URLs exceeds maxUrls cap of ${maxUrls}; truncating. ` +
+        `Raise via { maxUrls: ${entries.length} } or set Infinity to disable.`,
+    );
+    entries = entries.slice(0, maxUrls);
+  }
 
   return Promise.all(entries.map((e) => limit(() => buildRow(e, options ?? {}, legacyPdfMode))));
 }

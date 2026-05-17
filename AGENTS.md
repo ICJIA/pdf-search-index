@@ -16,7 +16,7 @@
 | `@icjia/astro-pdf-search-index` | Astro 5 — emits `public/<endpoint>.json` via `astro:build:start` | `import pdfSearch from '@icjia/astro-pdf-search-index'`                |
 | `@icjia/nuxt-pdf-search-index`  | Nuxt 4 — auto-imports server helpers into Nitro `#imports`       | `extractPdfsFromCmsBody` / `extractPdfsFromContentDoc` from `#imports` |
 
-All three move in lockstep at version **1.0.3+**.
+All three move in lockstep at version **1.1.0+** (multi-format support: PDF + DOCX + PPTX + XLSX).
 
 ## Live demo
 
@@ -393,7 +393,7 @@ Every example uses `file://` URLs against fixtures in [`examples/_fixtures/`](./
 
 - **At runtime against user-submitted URLs.** This is build-time tooling. SSRF / ReDoS surfaces are mitigated assuming trusted CMS-author input. Don't expose `indexPdfs` to end users.
 - **For OCR / scanned PDFs.** No text layer = empty extracted text. Use a separate OCR tool first.
-- **For non-PDF docs.** This is PDF-only. `.docx`, `.xlsx`, `.pptx` are explicitly out of scope; sibling packages would cover those when needed.
+- **For non-PDF docs.** As of v1.1, `.docx`, `.xlsx`, `.pptx` are all supported via the optional `officeparser` peer dep — use `indexDocuments(...)` instead of `indexPdfs(...)`. Pre-2007 binary Office formats (`.doc`, `.xls`, `.ppt`) and OpenDocument formats (`.odt`, `.ods`, `.odp`) are not supported.
 - **As a search server.** This emits static JSON. Use Solr / Elasticsearch / Typesense for runtime indexing.
 - **For PDF corpora > 1,000 documents.** The design target is 10–1,000 PDFs per site. Larger corpora work but may slow builds.
 
@@ -418,7 +418,7 @@ Full trust model and defense table: [README "Security considerations"](./README.
 
 ## Versions
 
-All three packages move in lockstep. Currently at **1.0.3** (additive `snippetHTMLFor` `maxSnippets` + `separator` options + documentation/ecosystem release on top of the v1.0.2 security baseline). Node 20 LTS / 22 LTS. ESM only. MIT licensed.
+All three packages move in lockstep. Currently at **1.1.0** (multi-format support: PDF + DOCX + PPTX + XLSX via the optional `officeparser` peer dep; new `indexDocuments` / `extractDocumentText` / `extractDocumentsFromBody` API alongside the preserved PDF-only API; new MCP tools `extract_document` / `index_documents` / `search_documents`; format-mismatch security defense; 4th audit pass with 0 new Critical/Important/Minor findings). Node 20 LTS / 22 LTS. ESM only. MIT licensed.
 
 **`fuse.js` is pinned to `7.4.0-beta.6`** across every workspace member (core devDep + all examples). Core's peer range is `"^7.0.0 || >=7.4.0-beta.0"` so consumers can pin either stable 7.x or the beta line. **Do not "upgrade" the pin to a different beta** without verifying the new beta's API surface against the package — agents asked to "update dependencies" should leave this one alone.
 

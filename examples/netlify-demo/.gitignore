@@ -9,3 +9,4 @@ public/pdfs/*
 !public/pdfs/.gitkeep
 public/pdfjs-viewer/
 public/searchIndex.pdfs.json
+public/searchIndex.fuse-index.json

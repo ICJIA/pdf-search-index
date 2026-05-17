@@ -1,5 +1,17 @@
 # @icjia/nuxt-pdf-search-index
 
+## 1.2.0
+
+### Minor Changes
+
+**Lockstep release — no module-source changes.** The Nuxt module's helpers are thin wrappers around the core package, so the v1.2 features (`maxUrls` cap, inflate-bomb defense, prebuilt Fuse index, `/worker` entry) flow through automatically without any new helper signatures.
+
+- **Nitro-route consumers** that already use `extractDocumentsFromCmsBody` / `extractDocumentsFromContentDoc` get the new `maxUrls` / `maxInflatedArchiveBytes` per-call options for free — both are forwarded through `IndexDocumentsOptions`.
+- **For prebuilt Fuse index emission**, import `serializeFuseIndex` from `@icjia/pdf-search-index/fuse` inside your Nitro route after producing rows: `return { rows, indexJson: serializeFuseIndex(rows) }`. The client fetches both and constructs Fuse with the prebuilt index.
+- **For FuseWorker**, import directly from `@icjia/pdf-search-index/worker` on the client. The server side is unchanged.
+
+See the [core CHANGELOG entry for 1.2.0](../core/CHANGELOG.md#120) for the full v1.2 surface summary.
+
 ## 1.1.0
 
 ### Minor Changes

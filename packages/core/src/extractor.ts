@@ -1,5 +1,6 @@
 import { readCache, writeCache } from './cache.js';
 import type { DocumentFormat, ExtractOptions } from './types.js';
+import { inspectZipUncompressedSize } from './zip-inspector.js';
 
 const DEFAULT_CACHE_DIR = '.pdf-cache';
 const DEFAULT_FETCH_TIMEOUT = 30_000;
@@ -12,6 +13,14 @@ const DEFAULT_MAX_BYTES = 32 * 1024 * 1024; // 32 MB
 // streams that decompress to hundreds of MB of text). Consumers can opt
 // up via `{ maxExtractedTextChars: ... }`.
 const DEFAULT_MAX_EXTRACTED_TEXT_CHARS = 5_000_000; // 5 MB
+// Cap on the declared total uncompressed size in a ZIP-based Office
+// document's central directory. Closes the inflate-bomb window between
+// `maxBytes` (compressed input) and `maxExtractedTextChars` (extracted
+// text). Default sized to cover legitimate large decks/spreadsheets (a
+// 30 MB PPTX can inflate to ~100 MB) while still bounding a
+// flate-bomb attack. Consumers can opt up via
+// `{ maxInflatedArchiveBytes: ... }` or `Infinity` to disable.
+const DEFAULT_MAX_INFLATED_ARCHIVE_BYTES = 100 * 1024 * 1024; // 100 MB
 
 // Magic-byte signatures used for format-mismatch detection. The URL
 // extension declares an intended format; the byte stream's leading bytes
@@ -35,6 +44,7 @@ interface ResolvedOptions {
   fetchTimeout: number;
   maxBytes: number;
   maxExtractedTextChars: number;
+  maxInflatedArchiveBytes: number;
   fetch: typeof fetch;
   cache: 'use' | 'bypass' | 'refresh';
   mergePages: boolean;
@@ -48,6 +58,7 @@ function resolveOptions(opts: ExtractOptions | undefined): ResolvedOptions {
     fetchTimeout: opts?.fetchTimeout ?? DEFAULT_FETCH_TIMEOUT,
     maxBytes: opts?.maxBytes ?? DEFAULT_MAX_BYTES,
     maxExtractedTextChars: opts?.maxExtractedTextChars ?? DEFAULT_MAX_EXTRACTED_TEXT_CHARS,
+    maxInflatedArchiveBytes: opts?.maxInflatedArchiveBytes ?? DEFAULT_MAX_INFLATED_ARCHIVE_BYTES,
     fetch: opts?.fetch ?? fetch,
     cache: opts?.cache ?? 'use',
     mergePages: opts?.mergePages ?? true,
@@ -150,6 +161,7 @@ export function categorizeParseError(msg: string, format: DocumentFormat = 'pdf'
   if (/password|encrypted/i.test(msg)) return `encrypted ${upper} document`;
   if (/zip|invalid|malformed|corrupt|truncated/i.test(msg)) return `corrupt ${upper} structure`;
   if (/unsupported|unknown format/i.test(msg)) return `${upper} format mismatch`;
+  if (/inflate cap exceeded/i.test(msg)) return `oversized ${upper} archive`;
   return `${upper} parse error`;
 }
 
@@ -343,6 +355,26 @@ async function parseOfficeDoc(
   o: ResolvedOptions,
   scrubbedUrl: string,
 ): Promise<ParsedDocument | null> {
+  // Inflate-bomb defense (1.2): inspect the ZIP central directory and
+  // reject if the declared total uncompressed size exceeds the cap.
+  // Conservative — null result (= "couldn't inspect") falls through to
+  // officeparser, which will surface a proper parse error if the input
+  // is genuinely malformed. Only fail-fast when we can confidently
+  // measure the bomb up front.
+  if (Number.isFinite(o.maxInflatedArchiveBytes)) {
+    const inspection = inspectZipUncompressedSize(bytes);
+    if (inspection !== null && inspection.totalUncompressedBytes > o.maxInflatedArchiveBytes) {
+      console.warn(
+        `[pdf-search-index] ${scrubbedUrl}: ${categorizeParseError('inflate cap exceeded', format)} ` +
+          `(declared uncompressed ${inspection.totalUncompressedBytes} bytes across ${inspection.entryCount} entries ` +
+          `> maxInflatedArchiveBytes ${o.maxInflatedArchiveBytes}). ` +
+          `If this is a legitimate large ${format.toUpperCase()}, raise the cap.`,
+      );
+      return null;
+    }
+    // null inspection or pass — proceed to parse.
+  }
+
   let parseOfficeAsync: (buffer: Buffer) => Promise<string>;
   try {
     const mod = await import('officeparser');

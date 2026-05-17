@@ -1,6 +1,6 @@
 {
   "name": "@icjia/pdf-search-index",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Full-text PDF, DOCX, PPTX, XLSX search for static sites — Apache Solr for client-side apps, without Solr.",
   "type": "module",
   "license": "MIT",
@@ -39,6 +39,10 @@
     "./snippet": {
       "types": "./dist/snippet.d.ts",
       "default": "./dist/snippet.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "default": "./dist/worker.js"
     },
     "./mcp": {
       "types": "./dist/mcp.d.ts",

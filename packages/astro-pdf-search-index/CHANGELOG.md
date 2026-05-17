@@ -1,5 +1,25 @@
 # @icjia/astro-pdf-search-index
 
+## 1.2.0
+
+### Minor Changes
+
+**New `prebuildIndex` option** — emits a prebuilt Fuse index to `public/<prebuildIndex>` alongside the main rows JSON. Consumers fetch both files and pass the index to `Fuse.parseIndex` at runtime, skipping the in-browser build step.
+
+```ts
+pdfSearch({
+  collections: ['docs'],
+  endpoint: 'searchIndex.documents.json',
+  prebuildIndex: 'searchIndex.fuse-index.json',
+});
+```
+
+At ~2K rows this cuts first-paint Fuse setup from ~5–10 s to ~200 ms parse. Below ~1K rows the delta is barely visible — leave it unset for small corpora. The same path-jail guard that protects `endpoint` (C5 from the 1.0.2 audit) also applies to `prebuildIndex` — `'../../etc/escape.json'` throws at build time. **Verified by the v1.2 audit (2026-05-17).**
+
+The flagship `examples/netlify-demo/` updates to use this pattern as a worked example for ~2K-row deployments.
+
+See the [core CHANGELOG entry for 1.2.0](../core/CHANGELOG.md#120) for the full v1.2 surface summary.
+
 ## 1.1.0
 
 ### Minor Changes
