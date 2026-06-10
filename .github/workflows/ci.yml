@@ -28,8 +28,14 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Build BEFORE typecheck: the astro/nuxt packages type-resolve
+      # `@icjia/pdf-search-index` through its `exports` map, which points at
+      # core's dist/*.d.ts — on a cold runner those don't exist until tsup
+      # runs. (This ordering bug kept every run of this workflow red.)
+      - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
-      - run: pnpm build
+      # Extractor tests read generated PDF fixtures (gitignored).
+      - run: pnpm --filter @icjia/pdf-search-index fixtures
       - run: pnpm test

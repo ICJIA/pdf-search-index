@@ -1,0 +1,5 @@
+---
+'@icjia/pdf-search-index': patch
+---
+
+**Fix: DOCX/PPTX/XLSX extraction silently broke when a consumer bundled the package.** The vendored officeparser was loaded only via a path relative to `import.meta.url` — correct from the package's own `src/`/`dist/`, but when a consumer's bundler inlines the package into its own output (e.g. an Astro/Vite prerendered endpoint calling `indexDocuments()` lands in `dist/.prerender/chunks/`), the relative require missed and every Office document extracted empty and silently dropped from the index on cold builds (observed in the field on ICJIA DVFR's Netlify builds — PDFs unaffected). The loader (new `src/office-loader.ts`) now falls back to the package-name subpath `@icjia/pdf-search-index/vendor/officeparser/officeParser.cjs`, which resolves through the consumer's `node_modules` from any bundled location; `exports` gains the `./vendor/*` → `./dist/vendor/*` mapping to allow it. Both-strategy failure now reports both attempted specifiers. Consumers who applied the `vite.ssr.external` workaround can keep or drop it — the package is bundle-proof either way.
