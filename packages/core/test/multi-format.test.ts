@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { rm, mkdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import {
   detectFormatFromUrl,
@@ -13,7 +14,16 @@ import {
 import { indexDocuments, extractDocumentsFromBody } from '../src/index.js';
 import { extractDocumentUrlsFromMarkdown } from '../src/url-scan.js';
 
-const FIXTURES = '/Volumes/satechi/webdev/pdf-search-index/examples/_fixtures';
+// Repo-relative (was an absolute path to the author's machine, which made
+// these suites fail on every other checkout, CI included).
+const FIXTURES = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'examples',
+  '_fixtures',
+);
 
 let cacheDir: string;
 
