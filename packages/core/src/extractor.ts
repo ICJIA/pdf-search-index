@@ -1,5 +1,5 @@
-import { createRequire } from 'node:module';
 import { readCache, writeCache } from './cache.js';
+import { loadOfficeParser } from './office-loader.js';
 import { scrubControl, scrubUrl } from './scrub.js';
 import type { DocumentFormat, ExtractOptions } from './types.js';
 import { inspectZipUncompressedSize } from './zip-inspector.js';
@@ -370,19 +370,22 @@ async function parseOfficeDoc(
 
   // v1.4: the officeparser source is **vendored** into
   // `src/vendor/officeparser/officeParser.cjs` (copied byte-identical
-  // from officeparser@5.2.2). The CJS module is loaded synchronously
-  // via `createRequire(import.meta.url)` so it works from any entry's
-  // bundled output position — tsup emits dist/<entry>.js, import.meta.url
-  // resolves to the entry file at runtime, and the relative path
-  // `./vendor/officeparser/officeParser.cjs` lands on dist/vendor/...
-  // which is copied by tsup's onSuccess hook.
+  // from officeparser@5.2.2) and shipped at dist/vendor/ by tsup's
+  // onSuccess hook. Loading goes through ./office-loader.ts, which
+  // resolves it relative to this module's runtime location and — when a
+  // consumer's bundler has relocated this code into ITS OWN output, where
+  // the relative path can no longer land on vendor/ — falls back to the
+  // package-name subpath (`exports` maps ./vendor/* → ./dist/vendor/*).
+  // Before that fallback existed, an Astro consumer that bundled the
+  // endpoint calling indexDocuments() silently lost every DOCX/PPTX/XLSX
+  // on cold builds. See office-loader.ts for the full story.
   //
   // Why createRequire instead of dynamic `import()`: a dynamic import
   // of a `.cjs` file from inside an ESM module via `new Function` was
   // failing with "A dynamic import callback was not specified" in
   // Node 20+ — the Function-constructed callback has no module loader
   // hook attached. createRequire bypasses ESM entirely and uses Node's
-  // standard CommonJS resolution against import.meta.url's directory.
+  // standard CommonJS resolution.
   //
   // The vendored officeParser.cjs still requires four small transitive
   // deps at module load time (concat-stream, @xmldom/xmldom, file-type,
@@ -391,11 +394,7 @@ async function parseOfficeDoc(
   // single-maintainer officeparser itself). See src/vendor/README.md.
   let parseOfficeAsync: (buffer: Buffer) => Promise<string>;
   try {
-    const requireFromHere = createRequire(import.meta.url);
-    const mod = requireFromHere('./vendor/officeparser/officeParser.cjs') as {
-      parseOfficeAsync: (b: Buffer) => Promise<string>;
-    };
-    parseOfficeAsync = mod.parseOfficeAsync;
+    parseOfficeAsync = loadOfficeParser().parseOfficeAsync;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(

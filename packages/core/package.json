@@ -55,7 +55,8 @@
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
-    }
+    },
+    "./vendor/*": "./dist/vendor/*"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
