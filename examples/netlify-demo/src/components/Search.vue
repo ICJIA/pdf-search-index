@@ -437,7 +437,9 @@
       <!--
         v1.4: FlexSearch tune card. FlexSearch's Document index is
         configured at construction — any change here forces a full
-        index rebuild via the watcher in <script>. Five tunables:
+        index rebuild via the script-block watcher. (Don't write a
+        literal script tag in this comment — oxlint's Vue parser
+        treats it as real and errors out.) Five tunables:
         tokenize, encode, resolution, optimize, cache. Two field
         toggles for the "Search in" group (title / text).
       -->

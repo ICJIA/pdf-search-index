@@ -536,11 +536,16 @@ async function extractCore(
 
   if (o.cache !== 'bypass') {
     try {
-      // Conditional spread so we don't pass `pages: undefined` when the
-      // format doesn't have a native page concept (DOCX).
-      await writeCache(o.cacheDir, url, parsed.text, {
-        ...(parsed.pages !== undefined ? { pages: parsed.pages } : {}),
-      });
+      // Conditional object so we don't pass `pages: undefined` when the
+      // format doesn't have a native page concept (DOCX). (Was a spread of
+      // the same ternary — flagged by unicorn/no-useless-spread, the one
+      // lint error that kept CI red.)
+      await writeCache(
+        o.cacheDir,
+        url,
+        parsed.text,
+        parsed.pages !== undefined ? { pages: parsed.pages } : {},
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(
