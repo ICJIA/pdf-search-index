@@ -19,7 +19,7 @@
     "@astrojs/vue": "^5.0.0",
     "@icjia/astro-pdf-search-index": "workspace:*",
     "@icjia/pdf-search-index": "workspace:*",
-    "astro": "^5.0.0",
+    "astro": "^7.1.0",
     "flexsearch": "^0.7.43",
     "fuse.js": "7.4.0-beta.6",
     "pdfjs-dist": "^5.7.0",
